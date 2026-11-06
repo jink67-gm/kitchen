@@ -1,13 +1,13 @@
 // Firebase 웹 설정값. 브라우저에 공개되도록 만들어진 값이며, 데이터 보호는 database.rules.json이 맡는다.
 // databaseURL은 Realtime Database를 만든 지역에 따라 달라진다(콘솔의 데이터 탭 맨 위 주소와 같아야 한다).
 export const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyBetaj4OqN3275AeT7YuEVrws5tbfDtuBQ',
-  authDomain: 'kitchen-c3977.firebaseapp.com',
-  databaseURL: 'https://kitchen-c3977-default-rtdb.firebaseio.com',
-  projectId: 'kitchen-c3977',
-  storageBucket: 'kitchen-c3977.firebasestorage.app',
-  messagingSenderId: '333602423560',
-  appId: '1:333602423560:web:f18c63b737c82fb658e2bd',
+  apiKey: 'AIzaSyCwbh9_uS8o7iDa-XuJI6bXg8L4aqq5nrw',
+  authDomain: 'kitchen-90ab5.firebaseapp.com',
+  databaseURL: 'https://kitchen-90ab5-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'kitchen-90ab5',
+  storageBucket: 'kitchen-90ab5.firebasestorage.app',
+  messagingSenderId: '955411749483',
+  appId: '1:955411749483:web:f72cefd8b0175ccbfaaf2e',
 };
 
 // 게임의 수치는 모두 여기서 고친다.
