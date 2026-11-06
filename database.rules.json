@@ -1,0 +1,57 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "fkitchen": {
+      "rooms": {
+        "$room": {
+          ".read": "auth != null",
+          ".write": "auth != null && data.child('meta/hostUid').val() === auth.uid",
+          "meta": {
+            ".write": "auth != null && (!data.exists() || data.child('hostUid').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['hostUid', 'semester', 'seed']) && newData.child('hostUid').val() === auth.uid"
+          },
+          "state": {
+            ".write": "auth != null && root.child('fkitchen/rooms/' + $room + '/meta/hostUid').val() === auth.uid"
+          },
+          "players": {
+            "$uid": {
+              "name": {
+                ".write": "auth != null && (auth.uid === $uid || root.child('fkitchen/rooms/' + $room + '/meta/hostUid').val() === auth.uid)",
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12"
+              },
+              "online": {
+                ".write": "auth != null && auth.uid === $uid",
+                ".validate": "newData.isBoolean()"
+              },
+              "teamId": {
+                ".write": "auth != null && root.child('fkitchen/rooms/' + $room + '/meta/hostUid').val() === auth.uid"
+              },
+              "color": {
+                ".write": "auth != null && root.child('fkitchen/rooms/' + $room + '/meta/hostUid').val() === auth.uid"
+              }
+            }
+          },
+          "teams": {
+            "$team": {
+              ".write": "auth != null && root.child('fkitchen/rooms/' + $room + '/meta/hostUid').val() === auth.uid",
+              "pos": {
+                "$uid": {
+                  ".write": "auth != null && auth.uid === $uid && root.child('fkitchen/rooms/' + $room + '/players/' + auth.uid + '/teamId').val() === $team"
+                }
+              },
+              "game": {
+                ".write": "auth != null && root.child('fkitchen/rooms/' + $room + '/players/' + auth.uid + '/teamId').val() === $team"
+              },
+              "log": {
+                "$id": {
+                  ".write": "auth != null && !data.exists() && root.child('fkitchen/rooms/' + $room + '/players/' + auth.uid + '/teamId').val() === $team"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
