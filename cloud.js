@@ -1,5 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 import { storePut, storeTake, applyPenalty } from './items.js';
+import { plateWashed } from './stations.js';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -159,6 +160,11 @@ export class CloudRoom{
       return out?out.next:undefined;
     });
     return res.committed?out:null;
+  }
+  async plateWashed(){
+    let ok=false;
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','plates'),old=>{const n=plateWashed(old);ok=Boolean(n);return n||undefined});
+    return Boolean(res.committed&&ok);
   }
   async penalize(side){
     await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side,'score'),v=>applyPenalty(v));

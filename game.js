@@ -1,5 +1,5 @@
 import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS } from './stations.js';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
@@ -34,7 +34,7 @@ const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'
  L:['bin','양상추 상자','lettuce'],T:['bin','토마토 상자','tomato'],H:['bin','치즈 상자','cheese'],B:['bin','빵 상자','bread'],M:['bin','고기 상자','meat'],F:['bin','밀가루 상자','flour'],Y:['bin','딸기 상자','berry'],I:['bin','우유 상자','milk'],D:['bin','반죽 상자','dough']};
 const STATIONS=[];
 LAYOUT.forEach((row,y)=>[...row].forEach((ch,x)=>{const k=KIND[ch];if(k)STATIONS.push({x,y,type:k[0],label:k[1],...(k[2]?{food:k[2]}:{})})}));
-const PASSIVE=new Set(['counter','sink']); // 아직 E로 쓸 수 없는 설비
+const PASSIVE=new Set(['counter']); // 아직 E로 쓸 수 없는 설비
 const blocked=new Set(STATIONS.map(s=>s.x+','+s.y));
 let mode='demo',cloud=null,meta=null,players={},members={},allTeams={},teamData=null,localState=null,myUid='demo',seat=0,team=0,roundStarted=false,ended=false,last=performance.now(),totalTime=180,nowTime=180,activeQuestion=null,unit='all',muted=false,toastTimeout=null,teacher=false,currentMode='coop',sentPhase='',helpBefore=false;
 let p={x:7,y:7,dir:'down',held:'',item:null,seat:0,name:'꼬마셰프',updatedAt:0};
@@ -55,7 +55,9 @@ async function stationOp(st,fn){
  return out;
 }
 let chopNeed=CHOPS_DEFAULT;try{const v=Number(localStorage.getItem('mathcook-chops'));if(CHOP_OPTIONS.includes(v))chopNeed=v}catch{}
-let chopChain=Promise.resolve();
+let chopChain=Promise.resolve(),cookSeen={};
+// 화덕 상태가 바뀌는 순간 소리로 알림 (익음 → 경고 → 탐). 상태 자체는 시각으로 계산되므로 여기서는 알리기만 함
+function cookAlerts(){const now=srvNow();for(const st of STATIONS){if(st.type!=='cook')continue;const id=stationId(st),b=boardOf(st),ph=b?cookPhase(b,now):'idle';if(cookSeen[id]!==ph){const prev=cookSeen[id];cookSeen[id]=ph;if(prev===undefined)continue;if(ph==='ready')sound('success');else if(ph==='warning'||ph==='burnt')sound('error')}}}
 function chopSound(){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),gn=audio.createGain(),tm=audio.currentTime;o.type='square';o.frequency.setValueAtTime(240,tm);o.frequency.exponentialRampToValueAtTime(90,tm+.06);gn.gain.setValueAtTime(.07,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+.08);o.connect(gn).connect(audio.destination);o.start(tm);o.stop(tm+.09)}catch{}}
 async function useBoard(st){
  const b=boardOf(st),it=p.item,now=srvNow();
@@ -65,14 +67,14 @@ async function useBoard(st){
    const r=await stationOp(st,s=>boardChop(s,myUid,srvNow()));
    if(!r)return;
    chopSound();celebrate(st.x+.5,st.y+.3,r.done?12:2);
-   if(r.done){toast('🔪 '+FOOD[r.next.item.kind].name+' 손질 완료! E로 집어요.');sound('success')}
+   if(r.done){toast((st.type==='mix'?'🥣 ':'🔪 ')+FOOD[r.next.item.kind].name+' 준비 완료! E로 집어요.');sound('success')}
    updateUI();
   }).catch(e=>console.warn('연타 동기화',e));
   return;
  }
- if(b&&b.state==='reserved'&&b.owner===myUid&&!isStale(b,now)){askMath(b.item.kind,'cut',st);return}   // 새로고침 뒤 다시 문제 열기
+ if(b&&b.state==='reserved'&&b.owner===myUid&&!isStale(b,now)){askMath(b.item.kind,st.type,st);return}   // 새로고침 뒤 다시 문제 열기
  if(b&&(b.state==='ready'||isStale(b,now))){
-  if(it){toast('손이 비어 있어야 도마 위 재료를 집을 수 있어요.');sound('error');return}
+  if(it){toast('손이 비어 있어야 재료를 집을 수 있어요.');sound('error');return}
   pending=true;
   try{const r=await stationOp(st,s=>boardTake(s,srvNow()));
    if(r){setHeld(r.item);await updatePlayer(true);toast(FOOD[r.item.kind].emoji+' '+FOOD[r.item.kind].name+(r.item.state==='raw'?'을(를) 회수했어요.':' 완성! 🍽️ 접시로 가져가요.'));sound('pickup')}
@@ -80,15 +82,72 @@ async function useBoard(st){
   }catch(e){toast('집기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
   return;
  }
- if(b){toast(`${b.name||'다른 친구'}님이 쓰고 있는 도마예요.`);sound('error');return}
- if(!it){toast('손질할 재료를 들고 오세요!');return}
- if(it.state!=='raw'){toast('이미 손질한 재료예요. 🍽️ 접시에 담아 주세요!');return}
- if(FOOD[it.kind].prep!=='cut'){let txt={cook:'화덕에서 구울',mix:'믹서에서 섞을'}[FOOD[it.kind].prep];toast(`이 재료는 ${txt} 수 있어요!`);sound('error');return}
+ if(b){toast(`${b.name||'다른 친구'}님이 쓰고 있어요.`);sound('error');return}
+ if(!it){toast('재료를 들고 오세요!');return}
+ if(it.state!=='raw'){toast(it.state==='burnt'?'탄 재료는 🗑️ 쓰레기통에 버려야 해요.':'이미 준비된 재료예요. 🍽️ 접시에 담아 주세요!');return}
+ if(FOOD[it.kind].prep!==st.type){let txt={cut:'도마에서 손질할',cook:'화덕에서 구울',mix:'믹서에서 섞을'}[FOOD[it.kind].prep];toast(`이 재료는 ${txt} 수 있어요!`);sound('error');return}
  pending=true;
  try{const r=await stationOp(st,s=>boardReserve(s,it,myUid,p.name,srvNow()));
-  if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);askMath(it.kind,'cut',st)}
-  else toast('다른 친구가 먼저 도마를 차지했어요!');
+  if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);askMath(it.kind,st.type,st)}
+  else toast('다른 친구가 먼저 차지했어요!');
  }catch(e){toast('도마 사용에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+}
+// ── 화덕: 올려두면 시간이 알아서 흐름. 익으면 직접 꺼내고, 늦으면 탐 ──
+async function useCooker(st){
+ const b=boardOf(st),it=p.item,now=srvNow();
+ if(b&&b.state==='reserved'&&b.owner===myUid&&!isStale(b,now)){askMath(b.item.kind,'cook',st);return}
+ if(b){
+  const ph=isStale(b,now)?'stale':cookPhase(b,now);
+  if(ph==='reserved'){toast(`${b.name||'다른 친구'}님이 쓰고 있어요.`);sound('error');return}
+  if(ph==='cooking'){toast(it?'화덕이 사용 중이에요. 다른 화덕을 써요.':'아직 굽는 중이에요. 조금만 기다려요!');return}
+  if(it){toast('손이 비어 있어야 꺼낼 수 있어요.');sound('error');return}
+  pending=true;
+  try{const r=await stationOp(st,s=>cookTake(s,srvNow()));
+   if(r){setHeld(r.item);await updatePlayer(true);const nm=FOOD[r.item.kind].name;
+    if(r.item.state==='burnt'){toast('🔥 '+nm+'이(가) 타 버렸어요. 🗑️ 쓰레기통에 버려요.');sound('error')}
+    else if(r.item.state==='raw'){toast(nm+'을(를) 회수했어요.');sound('pickup')}
+    else{toast('🔥 '+nm+' 완성! 🍽️ 접시로 가져가요.');sound('success');celebrate(st.x+.5,st.y+.3,8)}}
+   else toast('다른 친구가 먼저 꺼냈어요!');
+  }catch(e){toast('꺼내기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  return;
+ }
+ if(!it){toast('구울 재료를 들고 오세요!');return}
+ if(it.state!=='raw'){toast(it.state==='burnt'?'탄 재료는 🗑️ 쓰레기통에 버려야 해요.':'이미 준비된 재료예요. 🍽️ 접시에 담아 주세요!');return}
+ if(FOOD[it.kind].prep!=='cook'){let txt={cut:'도마에서 손질할',mix:'믹서에서 섞을'}[FOOD[it.kind].prep];toast(`이 재료는 ${txt} 수 있어요!`);sound('error');return}
+ pending=true;
+ try{const r=await stationOp(st,s=>boardReserve(s,it,myUid,p.name,srvNow()));
+  if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);askMath(it.kind,'cook',st)}
+  else toast('다른 친구가 먼저 차지했어요!');
+ }catch(e){toast('화덕 사용에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+}
+// ── 싱크대: 더러운 접시를 문질러 씻으면 깨끗한 접시가 됨 (접시 순환은 5단계에서 연결) ──
+const getPlates=()=>teamData?.plates||defaultPlates();
+async function washedOne(st){
+ await stationOp(st,s=>washFinish(s));
+ let ok;
+ if(mode!=='demo')ok=await cloud.plateWashed();else{const n=plateWashed(teamData.plates);ok=Boolean(n);if(ok)teamData.plates=n}
+ if(ok){toast('✨ 깨끗한 접시 +1');sound('success');celebrate(st.x+.5,st.y+.3,8)}
+ updateUI();
+}
+async function useSink(st){
+ const b=boardOf(st),now=srvNow();
+ if(b&&b.state==='ready'){await washedOne(st);return}                 // 마무리가 끊긴 경우 누구나 마저 처리
+ if(b&&isStale(b,now)){await stationOp(st,s=>boardTake(s,srvNow()));updateUI();return}
+ if(b&&b.state==='working'&&b.owner===myUid){
+  chopChain=chopChain.then(async()=>{
+   const r=await stationOp(st,s=>boardChop(s,myUid,srvNow()));
+   if(!r)return;
+   chopSound();celebrate(st.x+.5,st.y+.3,2);
+   if(r.done)await washedOne(st);else updateUI();
+  }).catch(e=>console.warn('설거지 동기화',e));
+  return;
+ }
+ if(b){toast(`${b.name||'다른 친구'}님이 설거지하고 있어요.`);return}
+ if(p.item){toast('손이 비어 있어야 설거지할 수 있어요.');sound('error');return}
+ if(!(getPlates().dirty>0)){toast('씻을 접시가 없어요.');return}
+ if(mode==='demo'&&!teamData.plates)teamData.plates=defaultPlates();
+ const r=await stationOp(st,s=>washStart(s,myUid,p.name,Math.min(chopNeed,WASH_PRESSES),srvNow()));
+ toast(r?`🫧 E나 Space를 ${r.next.need}번 눌러 접시를 씻어요!`:'다른 친구가 먼저 시작했어요.');updateUI();
 }
 // 문제 창을 닫을 때: 도마에 올려둔 재료를 손으로 되돌리고 도마를 비움 (예약이 남지 않게)
 async function abortQuestion(){
@@ -121,7 +180,7 @@ function playerColor(n){return COLOR[n%COLOR.length]}
 function resetLocal(kind="coop"){
  mode='demo';cloud=null;myUid='demo';seat=0;team=0;members={demo:{name:p.name,seat:0,team:'0'},bot1:{name:'도우미1',seat:1,team:'0'},bot2:{name:'도우미2',seat:2,team:'0'},bot3:{name:'도우미3',seat:3,team:'0'}};currentMode=kind;
  meta={phase:'playing',mode:kind,unit,startedAt:Date.now(),duration:180,sizes:[4],count:4};
- teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{}};fx=[];closePicker();
+ teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates()};cookSeen={};fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=180;nowTime=180;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
  setRoomStatus();setText('modeLabel',kind==='duel'?'⚔️ 봇 대결 체험':'🤝 연습용 협동');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
@@ -139,7 +198,7 @@ function updateUI(){
  if(currentMode==='duel'){let a=getGroup('A'),b=getGroup('B');$('teamRanking').innerHTML=`<div class="ranking-item">🌸 A팀 <b>${a.score||0}점</b></div><div class="ranking-item">🌊 B팀 <b>${b.score||0}점</b></div>`}
  else if(meta?.sizes?.length>1){let ranking=Object.entries(allTeams).map(([id,v])=>{let d=v?.data?.groups?.ALL||{};let size=meta.sizes[Number(id)]||4;return {id,score:d.score||0,normalized:Math.round((d.score||0)/size*4)}}).sort((a,b)=>b.normalized-a.normalized);$('teamRanking').replaceChildren(...ranking.map(v=>{let e=document.createElement('div');e.className='ranking-item';e.textContent=`${Number(v.id)+1}팀 · 보정 ${v.normalized}점`;return e}));}
  else $('teamRanking').textContent='함께 만들면 점수가 올라가요!';
- const hi=p.item;setText('heldLabel',hi?`✋ ${FOOD[hi.kind].emoji} ${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':'손질 완료'}`:'✋ 빈손');
+ const hi=p.item;setText('heldLabel',hi?`✋ ${FOOD[hi.kind].emoji} ${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`:'✋ 빈손');
  let station=nearestStation();
  let h=station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',h);setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
  setModeUI();
@@ -148,7 +207,9 @@ function getStationHint(st){
  if(st.type==='bin'){const it=p.item;return !it?`📦 ${st.label}: E를 눌러 재료 집기`:checkReturn(it,st).ok?`↩️ ${st.label}: E를 눌러 돌려놓기 (감점 없음)`:`📦 ${st.label}: 지금 든 재료는 여기에 넣을 수 없어요`}
  if(st.type==='storage')return p.item?'🗄️ 보관대: 손질한 재료를 E로 보관 (최대 5칸)':'🗄️ 보관대: E를 눌러 꺼낼 재료 고르기';
  if(st.type==='trash')return `🗑️ 쓰레기통: 손질한 재료를 E로 버리기 (-${TRASH_PENALTY}점)`;
- if(st.type==='cut'){const b=boardOf(st);if(!b)return '🔪 도마: 손질할 재료를 들고 E';if(b.state==='ready')return '🔪 도마: 완성! 빈손으로 E를 눌러 집기';if(isStale(b,srvNow()))return '🔪 도마: 주인 없는 재료예요. 빈손으로 E를 눌러 회수';if(b.owner===myUid)return b.state==='working'?`🔪 도마: E나 Space를 연타! (${b.progress}/${b.need})`:'🔪 도마: E를 눌러 수학 문제 풀기';return `🔪 도마: ${b.name||'친구'}님이 사용 중`}if(st.type==='cook')return '🔥 화덕: 구울 재료를 들고 E';if(st.type==='mix')return '🥣 믹서: 섞을 재료를 들고 E';if(st.type==='plate')return '🍽️ 플레이팅대: 완성 재료를 들고 E';if(st.type==='serve')return '🔔 서빙대: 재료가 다 모이면 E';return '중앙 조리대';}
+ if(st.type==='cut'){const b=boardOf(st);if(!b)return '🔪 도마: 손질할 재료를 들고 E';if(b.state==='ready')return '🔪 도마: 완성! 빈손으로 E를 눌러 집기';if(isStale(b,srvNow()))return '🔪 도마: 주인 없는 재료예요. 빈손으로 E를 눌러 회수';if(b.owner===myUid)return b.state==='working'?`🔪 도마: E나 Space를 연타! (${b.progress}/${b.need})`:'🔪 도마: E를 눌러 수학 문제 풀기';return `🔪 도마: ${b.name||'친구'}님이 사용 중`}if(st.type==='cook'){const b=boardOf(st);if(!b)return '🔥 화덕: 구울 재료를 들고 E. 올려두고 다른 일을 해도 돼요';const ph=cookPhase(b,srvNow());return ph==='cooking'?'🔥 화덕: 굽는 중. 다 익으면 꺼내요':ph==='burnt'?'🔥 화덕: 타 버렸어요. 빈손으로 꺼내서 쓰레기통에 버려요':ph==='reserved'?'🔥 화덕: 수학 문제를 풀면 굽기 시작':'🔥 화덕: 다 익었어요! 빈손으로 E를 눌러 꺼내기'}
+ if(st.type==='mix')return boardOf(st)?'🥣 믹서: 사용 중 (E나 Space로 젓기 / 완성되면 빈손으로 집기)':'🥣 믹서: 섞을 재료를 들고 E';
+ if(st.type==='sink')return '🚰 싱크대: 빈손으로 E를 눌러 더러운 접시 씻기';if(st.type==='plate')return '🍽️ 플레이팅대: 완성 재료를 들고 E';if(st.type==='serve')return '🔔 서빙대: 재료가 다 모이면 E';return '중앙 조리대';}
 function nearestStation(){let best=null,dist=1.55;for(let s of STATIONS){if(PASSIVE.has(s.type))continue;let d=Math.hypot((s.x+.5)-p.x,(s.y+.5)-p.y);if(d<dist){dist=d;best=s}}return best}
 function walkable(x,y){if(x<1.1||x>W-1.1||y<1.1||y>H-1.1)return false;const radius=.29;for(let sx of [-radius,radius])for(let sy of [-radius,radius])if(blocked.has(Math.floor(x+sx)+','+Math.floor(y+sy)))return false;return true}
 function tryMove(dx,dy){let speed=0.115;let nx=p.x+dx*speed,ny=p.y+dy*speed;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.updatedAt=Date.now();}
@@ -165,16 +226,13 @@ async function interact(){
   }
   setHeld(newItem(st.food,myUid));await updatePlayer(true);toast(FOOD[st.food].emoji+' '+FOOD[st.food].name+'을(를) 들었어요!');sound('pickup');updateUI();return;
  }
- if(st.type==='cut')return useBoard(st);
+ if(st.type==='cut'||st.type==='mix')return useBoard(st);
+ if(st.type==='cook')return useCooker(st);
+ if(st.type==='sink')return useSink(st);
  if(st.type==='storage')return useStorage(st);
  if(st.type==='trash')return useTrash(st);
- if(['cook','mix'].includes(st.type)){
-  if(!held){toast('재료를 들고 조리대 앞으로 오세요!');return}
-  if(held.startsWith('ready:')){toast('이미 완성된 재료예요. 🍽️ 접시에 담아 주세요!');return}
-  const food=FOOD[held];if(food?.prep!==st.type){let txt={cut:'도마에서 손질할',cook:'화덕에서 구울',mix:'믹서에서 섞을'}[food?.prep];toast(`이 재료는 ${txt} 수 있어요!`);sound('error');return}
-  askMath(held,st.type);return;
- }
  if(st.type==='plate'){
+  if(held.startsWith('burnt:')){toast('탄 재료는 접시에 담을 수 없어요. 🗑️ 쓰레기통에 버려요.');sound('error');return}
   if(!held||!held.startsWith('ready:')){toast('손질이나 조리를 마친 재료를 가져오세요!');return}
   let item=held.slice(6),rec=order();if(!rec.items.includes(item)){toast('이번 주문에 필요한 재료가 아니에요!');sound('error');return}
   if(getGroup().tray?.[item]){toast('이 재료는 이미 접시에 담았어요!');return}
@@ -245,7 +303,9 @@ function actionLabel(st){
  if(st.type==='bin')return !it?'집기':checkReturn(it,st).ok?'돌려놓기':'✕';
  if(st.type==='storage')return it?(it.state==='raw'?'✕':'보관'):'꺼내기';
  if(st.type==='trash')return it&&it.state!=='raw'?`버리기 -${TRASH_PENALTY}`:'✕';
- if(st.type==='cut'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep==='cut'?'손질':it?'✕':'E';if(b.state==='ready'||isStale(b,srvNow()))return it?'✕':'집기';return b.owner===myUid?(b.state==='working'?'연타!':'문제 풀기'):'✕'}
+ if(st.type==='sink')return it?'✕':getPlates().dirty>0||boardOf(st)?'설거지':'E';
+ if(st.type==='cook'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep==='cook'?'굽기':it?'✕':'E';return 'E'}
+ if(st.type==='cut'||st.type==='mix'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep===st.type?(st.type==='mix'?'섞기':'손질'):it?'✕':'E';if(b.state==='ready'||isStale(b,srvNow()))return it?'✕':'집기';return b.owner===myUid?(b.state==='working'?'연타!':'문제 풀기'):'✕'}
  return 'E';
 }
 async function deposit(item,rec){if(mode!=='demo')return cloud.deposit(getSide(),item,rec);let gr=getGroup();if(!rec.items.includes(item)||gr.tray[item])return false;gr.tray[item]=true;return true}
@@ -275,7 +335,10 @@ async function answerMath(choice,button){if(!activeQuestion||activeQuestion.solv
  if(!correct){button.classList.add('wrong');button.disabled=true;q.wrong=true;setText('questionFeedback','아쉬워요! 다시 골라 보세요. '+q.pz.hint);sound('error');await mathStat(false,q.pz.unit);return}
  q.solving=true;button.classList.add('correct');setMath('questionFeedback','정답! '+q.pz.explanation+' ✨');sound('success');await mathStat(true,q.pz.unit);
  setTimeout(async()=>{if(activeQuestion!==q)return;document.activeElement?.blur?.();
-  if(q.board){activeQuestion=null;hide('questionOverlay');const r=await stationOp(q.board,s=>boardStart(s,myUid,chopNeed,srvNow()));toast(r?`🔪 정답! 이제 E나 Space를 ${chopNeed}번 눌러 손질해요!`:'도마를 다시 사용해 주세요.');updateUI();return}
+  if(q.board){activeQuestion=null;hide('questionOverlay');let r,msg;
+   if(q.kind==='cook'){r=await stationOp(q.board,s=>cookStart(s,myUid,srvNow()));msg='🔥 정답! 굽기 시작. 다 익으면 타기 전에 E로 꺼내요!'}
+   else{const n=q.kind==='mix'?Math.min(chopNeed,MIX_PRESSES):chopNeed;r=await stationOp(q.board,s=>boardStart(s,myUid,n,srvNow()));msg=`${q.kind==='mix'?'🥣 정답! 이제 E나 Space를 '+n+'번 눌러 저어요!':'🔪 정답! 이제 E나 Space를 '+n+'번 눌러 손질해요!'}`}
+   toast(r?msg:'다시 사용해 주세요.');updateUI();return}
   setHeld(prepare(p.item)||{...newItem(q.food,myUid),state:'prepared'});activeQuestion=null;hide('questionOverlay');await updatePlayer(true);celebrate(p.x,p.y,10);toast(FOOD[q.food].emoji+' 손질 완료! 🍽️ 접시로 가져가요.');updateUI();},700);
 }
 function celebrate(x,y,n=10){for(let i=0;i<n;i++)particles.push({x:OX+x*T,y:OY+y*T,vx:(Math.random()-.5)*4,vy:-1-Math.random()*3,life:1,color:['#ffd879','#61e4cc','#ff8cae','#fff'][rnd(0,3)]})}
@@ -332,7 +395,7 @@ function drawChef(ch,isMine,t){
  fillRounded(x-13,y-31+bounce,26,16,8,'#f4f8ff');
  for(let i=-1;i<=1;i++){g.fillStyle='#fff';g.beginPath();g.arc(x+i*8,y-27+bounce,8,0,Math.PI*2);g.fill()}
  fillRounded(x-13,y-19+bounce,26,6,2,'#d7eaf2');
- if(ch.held){let it=ch.held.replace('ready:','');if(FOOD[it]){fillRounded(x+4,y-40,30,28,9,ch.held.startsWith('ready:')?'#2d8d70':'#fff8e4');drawEmoji(FOOD[it].emoji,x+19,y-26,19)}}
+ if(ch.held){let it=ch.held.replace(/^\w+:/,'');if(FOOD[it]){fillRounded(x+4,y-40,30,28,9,ch.held.startsWith('ready:')?'#2d8d70':'#fff8e4');drawEmoji(FOOD[it].emoji,x+19,y-26,19)}}
  if(isMine){g.strokeStyle='#ffd775';g.lineWidth=3;g.beginPath();g.ellipse(x,y+12,20,10,0,0,Math.PI*2);g.stroke()}
  let nm=String(ch.name||'셰프').slice(0,8);g.font='800 11px Nunito,"Noto Sans KR",sans-serif';let width=Math.max(52,g.measureText(nm).width+14);fillRounded(x-width/2,y-53+bounce,width,18,8,isMine?'#4c785d':'#293d53');g.fillStyle='#fff';g.textAlign='center';g.fillText(nm,x,y-40+bounce);
 }
@@ -348,7 +411,7 @@ function drawGame(t){
  }
  drawFloor();let focus=nearestStation();
  for(let st of STATIONS){drawStation(st,t);if(focus===st&&roundStarted&&!activeQuestion){let [x,y]=canvasPos(st.x+.5,st.y+.1);g.strokeStyle='#ffdf94';g.lineWidth=3;g.strokeRect(x-24,y-6,47,43);drawEmoji('E',x+21,y-8,12)}}
- for(const b of boardViews()){let [bx,by]=canvasPos(b.x,b.y);drawEmoji(FOOD[b.kind].emoji,bx+14,by+15,b.ready?20:16);if(b.ready)drawEmoji('✨',bx+34,by+8,11);fillRounded(bx+4,by-9,40,6,3,'#1d2a3d');fillRounded(bx+4,by-9,Math.max(3,40*b.progress),6,3,b.ready?'#61e4a0':b.state==='stale'?'#9aa7b8':'#ffd166');g.font='800 9px Nunito,"Noto Sans KR",sans-serif';g.textAlign='center';g.fillStyle='#fff';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(b.label,bx+24,by-13);g.shadowBlur=0}
+ for(const b of boardViews()){let [bx,by]=canvasPos(b.x,b.y);if(b.kind)drawEmoji(b.look==='burnt'?'⚫':FOOD[b.kind].emoji,bx+14,by+15,b.ready?20:16);if(b.ready)drawEmoji('✨',bx+34,by+8,11);fillRounded(bx+4,by-9,40,6,3,'#1d2a3d');fillRounded(bx+4,by-9,Math.max(3,40*b.progress),6,3,b.state==='warning'?'#ff6b57':b.state==='burnt'?'#555':b.ready?'#61e4a0':b.state==='stale'?'#9aa7b8':'#ffd166');g.font='800 9px Nunito,"Noto Sans KR",sans-serif';g.textAlign='center';g.fillStyle='#fff';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(b.label,bx+24,by-13);g.shadowBlur=0}
  if(mode==='demo'){for(let b of bots)drawChef(b,false,t)}else{let list=Object.entries(players).sort((a,b)=>a[1].y-b[1].y);for(let [id,ch] of list){if(id===myUid)continue;drawChef(ch,false,t)}}
  if(roundStarted)drawChef(p,true,t);
  for(let pt of particles){g.globalAlpha=pt.life;g.fillStyle=pt.color;g.beginPath();g.arc(pt.x,pt.y,4*pt.life+1,0,Math.PI*2);g.fill();g.globalAlpha=1}
@@ -357,9 +420,21 @@ function drawGame(t){
 // 화면에 보여줄 도마 상태 (2D·3D 공용)
 function boardViews(){
  const now=srvNow(),out=[];
- for(const st of STATIONS){if(st.type!=='cut')continue;const b=boardOf(st);if(!b)continue;const stale=isStale(b,now);
-  out.push({x:st.x,y:st.y,kind:b.item.kind,ready:b.state==='ready',state:stale?'stale':b.state,progress:b.state==='working'?b.progress/b.need:b.state==='ready'?1:0,count:b.progress,need:b.need,owner:b.owner===myUid?'me':b.owner,
-   label:b.state==='ready'?'완성! E로 집기':stale?'주인 없음 · E로 회수':b.state==='working'?`${b.name||'친구'} 손질 중 ${b.progress}/${b.need}`:`${b.name||'친구'} 문제 푸는 중`});}
+ for(const st of STATIONS){
+  const b=boardOf(st);
+  if(st.type==='sink'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'sink',kind:null,look:'raw',state:b?b.state:'idle',progress:b?b.progress/b.need:0,count:b?b.progress:0,need:b?b.need:0,owner:b&&b.owner===myUid?'me':b?.owner,dirty:pl.dirty,clean:pl.clean,label:b&&b.state==='working'?`${b.name||'친구'} 설거지 ${b.progress}/${b.need}`:`더러운 접시 ${pl.dirty} · 깨끗한 접시 ${pl.clean}`});continue}
+  if(!b||!['cut','mix','cook'].includes(st.type))continue;
+  const stale=isStale(b,now),who=b.name||'친구';
+  if(st.type==='cook'){
+   const ph=stale?'stale':cookPhase(b,now),left=Math.max(0,(b.startAt+b.cookMs+b.graceMs-now)/1000);
+   out.push({x:st.x,y:st.y,type:'cook',kind:b.item.kind,look:ph==='burnt'?'burnt':ph==='ready'||ph==='warning'?'ready':'raw',ready:ph==='ready'||ph==='warning',state:ph,progress:ph==='cooking'?cookProgress(b,now):ph==='reserved'||ph==='stale'?0:1,count:0,need:0,owner:b.owner===myUid?'me':b.owner,
+    label:ph==='cooking'?'굽는 중…':ph==='ready'?'다 익었어요! E로 꺼내기':ph==='warning'?`🔥 탄다! 빨리 꺼내요 ${left.toFixed(0)}초`:ph==='burnt'?'탔어요 · 꺼내서 버리기':ph==='stale'?'주인 없음 · E로 회수':`${who} 문제 푸는 중`});
+   continue;
+  }
+  const verb=st.type==='mix'?'젓는 중':'손질 중';
+  out.push({x:st.x,y:st.y,type:st.type,kind:b.item.kind,look:b.state==='ready'?'ready':'raw',ready:b.state==='ready',state:stale?'stale':b.state,progress:b.state==='working'?b.progress/b.need:b.state==='ready'?1:0,count:b.progress,need:b.need,owner:b.owner===myUid?'me':b.owner,
+   label:b.state==='ready'?'완성! E로 집기':stale?'주인 없음 · E로 회수':b.state==='working'?`${who} ${verb} ${b.progress}/${b.need}`:`${who} 문제 푸는 중`});
+ }
  return out;
 }
 // ── 3D 화면 연결: render3d.js는 그리기만 담당. 불러오기에 실패하거나 WebGL이 없으면 기존 2D 그대로 동작 ──
@@ -369,8 +444,8 @@ async function init3D(){
  try{const mod=await import('./render3d.js');view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(saved!=='2d');window.__view3d=view3d}
  catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
 }
-window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
-function animate(t){fx=fx.filter(f=>t-f.t<450);let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
+function animate(t){fx=fx.filter(f=>t-f.t<450);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
  if(roundStarted&&!ended){
   if(!activeQuestion&&!pickerOpen){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
    if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2;let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}

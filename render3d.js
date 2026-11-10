@@ -168,6 +168,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
   }
   const MIX_COLOR = { flour: 0xfff3dc, milk: 0xffffff };
   function food(kind, state) {
+    if (state === 'burnt') { const bg = rawFood(kind, true); bg.traverse(o => { if (o.isMesh) o.material = mat(0x2b2422, 0.95); }); return bg; }   // 탄 재료: 새까맣게
     if (state !== 'ready') return rawFood(kind);
     const prep = foods[kind]?.prep, g = new THREE.Group();
     if (prep === 'cook') g.add(rawFood(kind, true));
@@ -187,6 +188,16 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
   const storageSlots = [];        // 보관대 5칸의 위치
   let plateSpot = null;            // 접시에 담긴 재료를 보여줄 자리 (첫 번째 플레이팅대)
   let storageN = 0;
+  // 설비 위에서 바뀌는 것들(올려둔 재료, 게이지, 상태 글자). 병합하지 않고 매 프레임 게임 상태를 따라감
+  function dynParts(g, s, sx, sy, sz, extra) {
+    const spot = new THREE.Group(); spot.userData.dynamic = true; spot.position.set(sx, sy, sz); g.add(spot);
+    const bar = new THREE.Group(); bar.userData.dynamic = true; bar.position.set(0, TOP + 1.3, 0); bar.visible = false; g.add(bar);
+    const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.3), new THREE.MeshBasicMaterial({ color: 0x3b3558, depthTest: false })); bg.renderOrder = 18; bar.add(bg);
+    const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.2), new THREE.MeshBasicMaterial({ color: 0xffd166, depthTest: false })); fill.renderOrder = 19; fill.position.z = 0.001; bar.add(fill);
+    const v = { spot, spotY: sy, bar, fill, key: '', count: 0, swing: -1e9, label: null, labelText: '', g, type: s.type, ...extra };
+    boards.set(s.x + ',' + s.y, v);
+    return v;
+  }
   function buildStation(s) {
     const g = new THREE.Group();
     g.position.set(wx(s.x + 0.5), 0, wz(s.y + 0.5));
@@ -207,16 +218,14 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       const knife = new THREE.Group(); knife.userData.dynamic = true; knife.position.set(0.24, y + 0.075, 0.05); g.add(knife);
       add(knife, rbox(0.07, 0.015, 0.32, 0.005), M.steel, 0, 0, -0.08);
       add(knife, rbox(0.05, 0.035, 0.16, 0.015), M.dark, 0, 0.005, 0.16);
-      const spot = new THREE.Group(); spot.userData.dynamic = true; spot.position.set(-0.08, y + 0.06, 0.02); g.add(spot);
-      const bar = new THREE.Group(); bar.userData.dynamic = true; bar.position.set(0, y + 1.3, 0); bar.visible = false; g.add(bar);
-      const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.3), new THREE.MeshBasicMaterial({ color: 0x3b3558, depthTest: false })); bg.renderOrder = 18; bar.add(bg);
-      const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.2), new THREE.MeshBasicMaterial({ color: 0xffd166, depthTest: false })); fill.renderOrder = 19; fill.position.z = 0.001; bar.add(fill);
-      boards.set(s.x + ',' + s.y, { knife, knifeY: y + 0.075, spot, bar, fill, key: '', count: 0, swing: -1e9, label: null, labelText: '', g });
+      dynParts(g, s, -0.08, y + 0.06, 0.02, { knife, knifeY: y + 0.075 });
     } else if (s.type === 'cook') {
       add(g, cyl(0.3, 0.3, 0.03, 24), M.dark, 0, y + 0.015);
-      const fm = mat(0xff7a3c, 0.5, { emissive: 0xff5a1f, emissiveIntensity: 1.2 });
+      const fm = mat(0xff7a3c, 0.5, { emissive: 0xff5a1f, emissiveIntensity: 0.3 });
       add(g, geo('ring', () => new THREE.TorusGeometry(0.2, 0.035, 8, 24)), fm, 0, y + 0.035, 0, false).rotation.x = Math.PI / 2;
-      fires.push(fm);
+      const smoke = [];
+      for (let i = 0; i < 5; i++) { const pm = new THREE.Mesh(sph(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); pm.userData.dynamic = true; pm.userData.k = i / 5; g.add(pm); smoke.push(pm); }
+      dynParts(g, s, 0, y + 0.15, 0, { fire: fm, smoke });
       add(g, cyl(0.32, 0.26, 0.09, 24), mat(0x4b4860, 0.4, { metalness: 0.5 }), 0, y + 0.1);
       add(g, cyl(0.29, 0.25, 0.02, 24), mat(0x2b293a, 0.5), 0, y + 0.14, 0, false);
       add(g, rbox(0.34, 0.04, 0.07, 0.015), M.woodDark, 0.44, y + 0.12, 0.12).rotation.y = -0.3;
@@ -225,6 +234,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       add(g, cyl(0.2, 0.25, 0.16), M.coral, 0, y + 0.08);
       add(g, cyl(0.2, 0.15, 0.36, 20), mat(0xdff3ff, 0.1, { transparent: true, opacity: 0.55 }), 0, y + 0.34, 0, false);
       add(g, cyl(0.21, 0.21, 0.05), M.dark, 0, y + 0.54);
+      dynParts(g, s, 0, y + 0.2, 0, {}).mini = 0.6;
     } else if (s.type === 'plate') {
       add(g, cyl(0.36, 0.24, 0.04, 24), M.white, 0, y + 0.02);
       add(g, geo('rim', () => new THREE.TorusGeometry(0.35, 0.015, 6, 24)), mat(0x9fd8ff, 0.4), 0, y + 0.04).rotation.x = Math.PI / 2;
@@ -241,6 +251,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       add(g, rbox(0.7, 0.02, 0.54, 0.01), mat(0x7fd0ff, 0.1, { transparent: true, opacity: 0.85 }), 0, y + 0.012, 0.06, false);
       add(g, cyl(0.03, 0.03, 0.3, 10), M.steel, 0, y + 0.15, -0.36);
       add(g, cyl(0.025, 0.025, 0.2, 10), M.steel, 0, y + 0.29, -0.27).rotation.x = Math.PI / 2;
+      dynParts(g, s, 0.05, y + 0.03, 0.08, {});
     } else if (s.type === 'trash') {
       add(g, cyl(0.4, 0.33, 0.78, 20), mat(0x6f6a8c), 0, 0.39);
       add(g, cyl(0.42, 0.42, 0.06, 20), M.dark, 0, 0.8);
@@ -338,6 +349,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     scene.add(root);
     return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0 };
   }
+  const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
   const chefs = new Map();
   function syncChef(c, dt, seen) {
     let v = chefs.get(c.id);
@@ -359,8 +371,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     const held = c.held || '';
     if (held !== v.held) {
       v.held = held; v.carry.clear();
-      const kind = held.replace('ready:', '');
-      if (foods[kind]) v.carry.add(food(kind, held.startsWith('ready:') ? 'ready' : ''));
+      const kind = held.replace(/^\w+:/, '');
+      if (foods[kind]) v.carry.add(food(kind, lookOf(held)));
     }
     const carrying = !!held;
     const chop = Math.max(0, 1 - (lastT - (v.chopT || -1e9)) / 160), cu = Math.sin(chop * Math.PI);   // 칼질 팔 동작
@@ -421,19 +433,39 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     // 도마: 올려둔 재료, 게이지, 상태 글자, 칼질 동작 — 게임 상태(boards)를 그대로 따라감
     const active = new Map((state.boards || []).map(b => [b.x + ',' + b.y, b]));
     for (const [k, v] of boards) {
-      const b = active.get(k), key = b ? b.kind + (b.ready ? ':r' : '') : '';
-      if (key !== v.key) { v.key = key; v.spot.clear(); if (b && foods[b.kind]) v.spot.add(food(b.kind, b.ready ? 'ready' : '')); }
+      const b = active.get(k), key = b ? (b.type === 'sink' ? 'plates' + b.dirty + '/' + b.clean : b.kind + (b.look === 'ready' ? ':r' : b.look === 'burnt' ? ':b' : '')) : '';
+      if (key !== v.key) {
+        v.key = key; v.spot.clear();
+        if (b && b.type === 'sink') {       // 더러운 접시 더미(왼쪽)와 깨끗한 접시 더미(오른쪽)
+          for (let i = 0; i < Math.min(4, b.dirty); i++) { const pm = new THREE.Mesh(cyl(0.17, 0.12, 0.03, 16), mat(0xb9a78a, 0.8)); pm.position.set(-0.2, i * 0.035, 0); v.spot.add(pm); }
+          for (let i = 0; i < Math.min(4, b.clean); i++) { const pm = new THREE.Mesh(cyl(0.17, 0.12, 0.03, 16), M.white); pm.position.set(0.2, i * 0.035, 0); v.spot.add(pm); }
+        } else if (b && foods[b.kind]) { const fm2 = food(b.kind, b.look === 'raw' ? '' : b.look); if (v.mini) fm2.scale.setScalar(v.mini); v.spot.add(fm2); }
+      }
       const count = b ? b.count : 0;
       if (b && count > v.count) { v.swing = t; const c = chefs.get(b.owner); if (c) c.chopT = t; }   // 진행이 늘면 칼질 한 번 (다른 사람 것도 보임)
       v.count = count;
       const sw = Math.max(0, 1 - (t - v.swing) / 160), up = Math.sin(sw * Math.PI);
-      v.knife.position.y = v.knifeY + up * 0.22; v.knife.rotation.z = up * 0.5; v.knife.position.x = 0.24 - up * 0.2;
-      v.spot.position.y = TOP + 0.06 - up * 0.02; v.spot.rotation.z = (sw > 0 ? Math.sin(t / 18) : 0) * 0.08;
-      v.bar.visible = !!b;
+      if (v.knife) { v.knife.position.y = v.knifeY + up * 0.22; v.knife.rotation.z = up * 0.5; v.knife.position.x = 0.24 - up * 0.2; }
+      v.spot.position.y = v.spotY - up * 0.02; v.spot.rotation.z = (sw > 0 ? Math.sin(t / 18) : 0) * 0.08;
+      if (v.type === 'mix' && b && b.state === 'working') v.spot.rotation.y += sw > 0 ? 0.5 : 0.02;     // 젓기
+      if (v.fire) {                                                                                    // 화덕: 불꽃과 연기
+        const st2 = b ? b.state : 'idle', hot = st2 === 'cooking' || st2 === 'ready' || st2 === 'warning';
+        v.fire.emissiveIntensity = hot ? 1.8 + Math.sin(t / 55 + v.g.position.x) * 0.5 : 0.3;
+        const smoky = st2 === 'warning' || st2 === 'burnt', steamy = st2 === 'cooking' || st2 === 'ready';
+        for (const pm of v.smoke) {
+          pm.userData.k = (pm.userData.k + dt * (smoky ? 0.8 : 0.45)) % 1;
+          const kk = pm.userData.k;
+          pm.position.set(Math.sin(kk * 9 + pm.id) * 0.1, TOP + 0.3 + kk * (smoky ? 1.1 : 0.7), Math.cos(kk * 7 + pm.id) * 0.07);
+          pm.scale.setScalar((smoky ? 1 : 0.6) + kk * 1.5);
+          pm.material.opacity = smoky || steamy ? (1 - kk) * (smoky ? 0.75 : 0.4) : 0;
+          pm.material.color.setHex(smoky ? 0x4a4458 : 0xffffff);
+        }
+      }
+      v.bar.visible = !!b && !(b.type === 'sink' && b.state !== 'working');
       if (b) {
         v.bar.quaternion.copy(camera.quaternion);
         v.fill.scale.x = Math.max(0.02, b.progress); v.fill.position.x = -0.7 * (1 - Math.max(0.02, b.progress));
-        v.fill.material.color.set(b.ready ? 0x5fcf8f : b.state === 'stale' ? 0x9aa7b8 : 0xffd166);
+        v.fill.material.color.set(b.state === 'warning' ? (Math.sin(t / 70) > 0 ? 0xff6b57 : 0xffd166) : b.state === 'burnt' ? 0x55505f : b.ready ? 0x5fcf8f : b.state === 'stale' ? 0x9aa7b8 : 0xffd166);
       }
       const text = b ? b.label : '';
       if (text !== v.labelText) {
@@ -444,13 +476,12 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     }
     for (const fobj of state.fx || []) {
       let m = fxMap.get(fobj);
-      if (!m) { const kind = fobj.held.replace(/^\w+:/, ''); m = food(kind, fobj.held.includes(':') ? 'ready' : ''); scene.add(m); fxMap.set(fobj, m); }
+      if (!m) { const kind = fobj.held.replace(/^\w+:/, ''); m = food(kind, lookOf(fobj.held)); scene.add(m); fxMap.set(fobj, m); }
       const k = Math.min(1, (t - fobj.t) / 300);
       m.position.set(wx(fobj.x0 + (fobj.x1 - fobj.x0) * k), 0.8 + Math.sin(k * Math.PI) * 0.7 + (TOP - 0.8) * k, wz(fobj.y0 + (fobj.y1 - fobj.y0) * k));
       m.scale.setScalar(1 - k * 0.4); m.visible = k < 1;
     }
     for (const [fobj, m] of fxMap) if (!(state.fx || []).includes(fobj)) { scene.remove(m); fxMap.delete(fobj); }
-    for (const fm of fires) fm.emissiveIntensity = 1.1 + Math.sin(t / 60 + fm.id) * 0.3;
     const ps = state.particles || [];
     for (let i = 0; i < CONFETTI; i++) {
       const m = confetti[i], p = ps[i];

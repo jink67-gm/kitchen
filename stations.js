@@ -38,7 +38,7 @@ export function boardChop(s, owner, now) {
   if (!s || s.state !== 'working' || s.owner !== owner) return null;
   if (s.progress > 0 && now - s.at < MIN_CHOP_GAP_MS) return null;
   const progress = s.progress + 1;
-  if (progress >= s.need) return { next: { ...s, state: 'ready', item: { ...s.item, state: 'prepared' }, progress: s.need, at: now }, done: true };
+  if (progress >= s.need) return { next: { ...s, state: 'ready', item: s.item ? { ...s.item, state: 'prepared' } : null, progress: s.need, at: now }, done: true };
   return { next: { ...s, progress, at: now } };
 }
 // 주인이 그만둠 (문제 창 닫기 등): 재료를 손질 전 그대로 돌려받음
@@ -50,4 +50,57 @@ export function boardCancel(s, owner) {
 export function boardTake(s, now) {
   if (!s || !(s.state === 'ready' || isStale(s, now))) return null;
   return { next: null, item: { ...s.item, loc: 'held' } };
+}
+
+// ───────── 4단계: 화덕(자동 타이머)·믹서·싱크대 ─────────
+// 굽는 시간(ms). cook = 다 익을 때까지, grace = 익은 뒤 타기 전까지 (앞 절반은 '완성', 뒤 절반은 '경고')
+export const COOK_TIMES = { meat: { cook: 6000, grace: 4000 }, bread: { cook: 5000, grace: 3000 }, dough: { cook: 6000, grace: 4000 } };
+export const COOK_DEFAULT = { cook: 6000, grace: 4000 };
+export const MIX_PRESSES = 6;                    // 믹서 젓기 횟수
+export const WASH_PRESSES = 5;                   // 설거지 문지르기 횟수
+export const TEST_DIRTY_PLATES = 2;              // 4단계 검증용 더러운 접시 수 (5단계에서 실제 접시 순환으로 교체)
+
+// 수학 정답 → 굽기 시작. 이후 상태는 시각만으로 계산하므로 아무도 "익었다/탔다"를 따로 기록하지 않음 (중복 확정 없음)
+export function cookStart(s, owner, now, times) {
+  if (!s || s.state !== 'reserved' || s.owner !== owner) return null;
+  const t = times || COOK_TIMES[s.item.kind] || COOK_DEFAULT;
+  return { next: { ...s, state: 'cooking', startAt: now, cookMs: t.cook, graceMs: t.grace, at: now } };
+}
+// cooking(굽는 중) → ready(다 익음) → warning(곧 탐) → burnt(탐)
+export function cookPhase(s, now) {
+  if (!s) return 'idle';
+  if (s.state !== 'cooking') return s.state;
+  const e = now - s.startAt;
+  if (e < s.cookMs) return 'cooking';
+  if (e < s.cookMs + s.graceMs / 2) return 'ready';
+  if (e < s.cookMs + s.graceMs) return 'warning';
+  return 'burnt';
+}
+export function cookProgress(s, now) {
+  if (!s || s.state !== 'cooking') return 0;
+  return Math.max(0, Math.min(1, (now - s.startAt) / s.cookMs));
+}
+// 직접 집기: 익었으면 완성품, 타 버렸으면 탄 재료(버려야 설비가 비워짐). 굽는 중에는 못 집음
+export function cookTake(s, now) {
+  if (!s) return null;
+  if (isStale(s, now)) return { next: null, item: { ...s.item, loc: 'held' } };
+  const ph = cookPhase(s, now);
+  if (ph === 'ready' || ph === 'warning') return { next: null, item: { ...s.item, state: 'prepared', loc: 'held' } };
+  if (ph === 'burnt') return { next: null, item: { ...s.item, state: 'burnt', loc: 'held' } };
+  return null;
+}
+// 싱크대: 재료 없이 작업만 점유
+export function washStart(s, owner, name, need, now) {
+  if (s) return null;
+  return { next: { state: 'working', item: null, owner, name: name || '', progress: 0, need: Math.max(1, need || WASH_PRESSES), at: now } };
+}
+export function washFinish(s) {
+  if (!s || s.item || s.state !== 'ready') return null;
+  return { next: null };
+}
+export const defaultPlates = () => ({ dirty: TEST_DIRTY_PLATES, clean: 0 });
+export function plateWashed(pl) {
+  pl = pl || defaultPlates();
+  if (!(pl.dirty > 0)) return null;
+  return { dirty: pl.dirty - 1, clean: (pl.clean || 0) + 1 };
 }
