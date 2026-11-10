@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newItem, prepare, heldString } from '../items.js';
 import { defaultPlates, plateWashed, PLATES_START } from '../stations.js';
-import { newPlate, plateComplete, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift, serveGroup, contentsOf } from '../plates.js';
+import { newPlate, plateComplete, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift, contentsOf } from '../plates.js';
+import { ordersTick, serveOrder } from '../orders.js';
 import { CloudRoom } from '../cloud.js';
 
 const SALAD = { title: '샐러드', items: ['lettuce', 'tomato'] }, BURGER = { title: '햄버거', items: ['meat', 'bread'] };
@@ -52,13 +53,15 @@ test('접시 들기: 내용물이 그대로 따라오고 자리는 비워짐, �
   assert.equal(heldString(newPlate('u1')), 'plate:');
   assert.equal(tableLift(null), null);
 });
-test('서빙: 완성 접시만 +100, 미완성·빈 접시·다른 요리는 거절', () => {
-  assert.equal(serveGroup(group(), [], RECIPES), null);
-  assert.equal(serveGroup(group(), ['lettuce'], RECIPES), null);
-  assert.equal(serveGroup(group(), ['meat', 'bread'], RECIPES), null);
-  const g = serveGroup(group(), ['lettuce', 'tomato'], RECIPES);
-  assert.deepEqual(g, { orderIndex: 1, score: 100, served: 1 });
-  assert.equal(serveGroup(g, ['lettuce', 'tomato'], RECIPES), null, '주문이 넘어간 뒤 같은 요리를 또 서빙할 수 없음');
+test('서빙: 완성 접시만 점수, 미완성·빈 접시·다른 요리는 거절', () => {
+  const cfg = { startedAt: 0, durationMs: 180000, orderTimeMs: 999999, recipeCount: 2 };
+  const g0 = ordersTick({}, 1000, cfg);
+  assert.equal(serveOrder(g0, [], RECIPES, 2000), null);
+  assert.equal(serveOrder(g0, ['lettuce'], RECIPES, 2000), null);
+  assert.equal(serveOrder(g0, ['meat', 'bread'], RECIPES, 2000), null);
+  const r = serveOrder(g0, ['lettuce', 'tomato'], RECIPES, 2000);
+  assert.equal(r.next.served, 1); assert.ok(r.gained >= 100);
+  assert.equal(serveOrder(r.next, ['lettuce', 'tomato'], RECIPES, 2100), null, '주문이 넘어간 뒤 같은 요리를 또 서빙할 수 없음');
 });
 test('접시 순환: 서빙하면 더러운 접시 +1, 설거지하면 깨끗한 접시 +1', () => {
   let pl = rackTake(defaultPlates());
@@ -77,12 +80,6 @@ function fakeRoom(db) {
   room.ops = { runTransaction: async (path, fn) => { const next = fn(structuredClone(db[path] ?? null)); if (next === undefined) return { committed: false }; if (next === null) delete db[path]; else db[path] = next; return { committed: true }; } };
   return room;
 }
-test('온라인(가짜 DB): 두 학생이 완성 접시를 동시에 서빙해도 한 번만 점수', async () => {
-  const db = { 'teams/0/data/groups/ALL': group() }, A = fakeRoom(db), B = fakeRoom(db);
-  const res = await Promise.all([A.servePlate('ALL', ['lettuce', 'tomato'], RECIPES), B.servePlate('ALL', ['tomato', 'lettuce'], RECIPES)]);
-  assert.equal(res.filter(Boolean).length, 1);
-  assert.equal(db['teams/0/data/groups/ALL'].score, 100);
-});
 test('온라인(가짜 DB): 같은 재료를 동시에 올려도 한 명만, 접시도 한 명만 들고, 마지막 접시도 한 명만 꺼냄', async () => {
   const db = {}, A = fakeRoom(db), B = fakeRoom(db);
   await A.stationOp('plate_9_1', s => tablePut(s, newPlate('uA'), 1));

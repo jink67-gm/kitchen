@@ -1,7 +1,7 @@
 import { firebaseConfig } from './firebase-config.js';
 import { storePut, storeTake, applyPenalty } from './items.js';
 import { plateWashed } from './stations.js';
-import { serveGroup } from './plates.js';
+import { serveOrder } from './orders.js';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -29,13 +29,13 @@ export class CloudRoom{
     }
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
-  async create({name,count,mode,unit,duration}){
+  async create({name,count,mode,unit,duration,orderTime}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
       this.code=digits();let snap=await this.ops.get(this.path('meta'));
       if(snap.exists())continue;
       let sizes=planTeams(count);
-      await this.ops.set(this.path('meta'),{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),createdAt:now(),startedAt:0});
+      await this.ops.set(this.path('meta'),{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,createdAt:now(),startedAt:0});
       this.connected=true;this.subscribeBase();return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
@@ -83,7 +83,7 @@ export class CloudRoom{
   async begin(){
     if(this.role!=='teacher')throw new Error('교사만 시작할 수 있습니다.');
     let teams=planTeams(this.meta.count);
-    const blank=()=>({orderIndex:0,tray:{},score:0,served:0,correct:0,wrong:0});
+    const blank=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0});
     const writes={};
     for(let i=0;i<teams.length;i++)writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};
     await this.ops.update(this.path(),writes);
@@ -168,10 +168,17 @@ export class CloudRoom{
     const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','plates'),old=>{const n=fn(old||null);ok=Boolean(n);return n||undefined});
     return Boolean(res.committed&&ok);
   }
-  async servePlate(side,contents,allRecipes){
-    let ok=false;
-    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{const n=serveGroup(old,contents,allRecipes);ok=Boolean(n);return n||undefined});
-    return Boolean(res.committed&&ok);
+  // 6단계: 주문 대기열 갱신(만료·추가)과 서빙. 규칙은 orders.js, 여기서는 트랜잭션으로 저장만 함
+  async groupOp(side,fn){
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>fn(old||{})||undefined);
+    return Boolean(res.committed);
+  }
+  async servePlate(side,contents,allRecipes,nowFn){
+    let out=null;
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{out=serveOrder(old||{},contents,allRecipes,nowFn());return out?out.next:undefined});
+    if(!res.committed||!out)return null;
+    this.ops.runTransaction(this.path('results',this.uid,'served'),v=>(v||0)+1).catch(()=>{});   // 개인 기여 기록 (팀 점수와 별도)
+    return out;
   }
   async plateWashed(){
     let ok=false;

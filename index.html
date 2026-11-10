@@ -16,13 +16,15 @@
     </header>
     <main class="main-layout">
       <section class="game-col">
-        <div class="stage-wrap">
+        <div class="stage-wrap" id="stageWrap">
           <div class="stage-top">
             <span class="stage-pill" id="roundLabel">🍰 디저트 주방</span>
             <span class="stage-pill" id="modeLabel">체험 모드</span>
             <span class="stage-pill" id="heldLabel">✋ 빈손</span>
+            <span class="stage-pill rush-pill hidden" id="rushLabel">🔥 러시타임!</span>
             <div class="timer-box">⏳ <b id="timerLabel">03:00</b></div>
           </div>
+          <div class="order-cards" id="orderCards" aria-label="주문 카드"></div>
           <div class="canvas-holder"><canvas id="gameCanvas" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas><canvas id="game3d" class="hidden" aria-label="수학 레스토랑 3D 주방 화면"></canvas></div>
           <div class="game-toast" id="toast" aria-live="polite"></div>
           <div class="controls-bar"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 <kbd>방향키</kbd> 이동</div><div><kbd>Space</kbd> / <kbd>E</kbd> 사용</div><button id="interactBtn" class="touch-btn">✋ 사용하기</button></div>
@@ -49,6 +51,7 @@
     <div class="menu-content"><span class="eyebrow">FOUR CHEFS · ONE KITCHEN</span><h1>우당탕!<br><em>수학 레스토랑</em></h1><p>친구들과 요리를 완성하고, 수학 문제로 재료를 손질해요!<br>협동하다가 짜릿하게 경쟁하는 우리만의 쿠킹 파티.</p>
       <div class="feature-chips"><span>🧑‍🍳 4~5인 협동</span><span>🏁 2대2 / 학급 대항</span><span>📚 6학년 2학기</span></div>
       <label class="field-label">요리사 이름</label><input id="nicknameInput" maxlength="12" placeholder="예: 딸기요리사" value="꼬마셰프" />
+      <label class="field-label">주문 대기 시간 (난이도)</label><select id="orderTimeSelect"><option value="normal">보통 · 75초</option><option value="easy">여유 · 100초</option><option value="fast">빠름 · 55초</option></select>
       <label class="field-label">손질 연타 횟수 (접근성)</label><select id="chopSelect"><option value="10">보통 · 10번</option><option value="6">쉬움 · 6번</option><option value="3">아주 쉬움 · 3번</option></select>
       <label class="field-label">수학 단원</label><select id="unitSelect"><option value="all">🍱 전체 단원 골고루</option><option value="1">1. 분수의 나눗셈</option><option value="2">2. 소수의 나눗셈</option><option value="3">3. 공간과 입체</option><option value="4">4. 비례식과 비례배분</option><option value="5">5. 원의 둘레와 넓이</option><option value="6">6. 원기둥, 원뿔, 구</option></select>
       <button class="primary-btn" id="demoBtn">🎮 먼저 혼자 체험하기 <span>→</span></button><button class="secondary-btn" id="demoBattleBtn" style="width:100%;margin-top:12px">⚔️ 봇과 2대2 배틀 체험하기</button>

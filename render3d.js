@@ -30,15 +30,16 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const needH = H * Math.sin(CAM_ANGLE) + 3.9, needW = W + 1.2;
+    const needH = H * Math.sin(CAM_ANGLE) + 5.4, needW = W + 1.2;
     const dist = Math.max(needH / 2 / t, needW / 2 / t / camera.aspect);
-    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 0.3);
-    camera.lookAt(0, 0.4, -0.3);
+    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 1.1);
+    camera.lookAt(0, 0.4, -1.1);
     camera.updateProjectionMatrix();
   }
 
   // ───────── 조명 ─────────
-  scene.add(new THREE.HemisphereLight(0xfff8ee, 0x8f84c9, 1.25));
+  const hemi = new THREE.HemisphereLight(0xfff8ee, 0x8f84c9, 1.25);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0d6, 2.3);
   sun.position.set(-7, 14, 7);
   sun.castShadow = true;
@@ -380,7 +381,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0 };
   }
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
-  let curOrder = null;
+  let curOrders = [];
   const chefs = new Map();
   function syncChef(c, dt, seen) {
     let v = chefs.get(c.id);
@@ -407,8 +408,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       else if (foods[kind]) v.carry.add(food(kind, lookOf(held)));
     }
     if (held.startsWith('plate:')) {
-      const ok = curOrder ? curOrder.items.join('+') : '';
-      if (v.plateOrder !== ok) { v.plateOrder = ok; v.carry.clear(); const c = held.slice(6).split('+').filter(Boolean); const done = !!curOrder && c.length === curOrder.items.length && curOrder.items.every(i => c.includes(i)); const pm = plateModel(c, done, curOrder && curOrder.emoji); pm.scale.setScalar(0.8); pm.position.y = -0.05; v.carry.add(pm); }
+      const ok = curOrders.map(o => o.items.join('+')).join('|');
+      if (v.plateOrder !== ok) { v.plateOrder = ok; v.carry.clear(); const c = held.slice(6).split('+').filter(Boolean); const hit = curOrders.find(o => o.items.length && c.length === o.items.length && o.items.every(i => c.includes(i))); const pm = plateModel(c, !!hit, hit && hit.emoji); pm.scale.setScalar(0.8); pm.position.y = -0.05; v.carry.add(pm); }
     }
     const carrying = !!held;
     const chop = Math.max(0, 1 - (lastT - (v.chopT || -1e9)) / 160), cu = Math.sin(chop * Math.PI);   // 칼질 팔 동작
@@ -432,7 +433,10 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     const raw = lastT ? (t - lastT) / 1000 : 0.016, dt = Math.min(0.1, raw);
     lastT = t;
     resize();
-    curOrder = state.order || null;
+    curOrders = state.orders || [];
+    // 러시타임: 주방 조명이 붉게 깜빡임
+    const rk = state.rush ? 0.5 + Math.sin(t / 130) * 0.5 : 0;
+    sun.color.setRGB(1, 0.94 - rk * 0.35, 0.84 - rk * 0.45); hemi.intensity = 1.25 - rk * 0.25;
     const seen = new Set();
     for (const c of state.chefs) syncChef(c, dt, seen);
     for (const [id, v] of chefs) if (!seen.has(id)) { scene.remove(v.root); chefs.delete(id); }

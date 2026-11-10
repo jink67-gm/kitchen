@@ -12,3 +12,30 @@
 
 /* 알림 문구가 뒷줄 설비의 게이지를 가리지 않도록 화면 아래쪽으로 */
 .game-toast{top:auto;bottom:64px}
+
+/* ── 6단계: 왼쪽 위 주문 카드, 러시타임 ── */
+.stage-top{justify-content:flex-end}
+.stage-top .timer-box{margin-left:0}
+.order-cards{position:absolute;z-index:3;left:12px;top:10px;display:flex;gap:10px;pointer-events:none}
+.ocard{position:relative;width:132px;padding:12px 8px 7px;border-radius:12px;background:repeating-linear-gradient(#fffdf5 0 17px,#d9e8ff 17px 18px);border:2px solid #fff;box-shadow:0 5px 0 #c9bfe6,0 10px 18px #0006;text-align:center;color:#3b3558;transform:rotate(-1.2deg);animation:cardIn .35s ease-out}
+.ocard:nth-child(2){transform:rotate(1deg)}
+.ocard .oc-tape{position:absolute;left:50%;top:-8px;width:52px;height:15px;margin-left:-26px;background:#ffd66bcc;border-radius:3px;transform:rotate(-3deg)}
+.ocard .oc-dish{font-size:34px;line-height:1}
+.ocard h3{margin:2px 0 4px;font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-needs{display:flex;justify-content:center;gap:9px}
+.oc-need{position:relative;display:grid;place-items:center;width:36px;height:36px;font-size:21px;background:#fff;border-radius:10px;border:2px solid #cfc6ee}
+.oc-need em{font-style:normal}
+.oc-need i{position:absolute;right:-8px;bottom:-7px;display:grid;place-items:center;width:20px;height:20px;font-size:11px;font-style:normal;background:#ffe9a8;border:2px solid #fff;border-radius:50%}
+.oc-need.done{background:#d8f7e3;border-color:#5fcf8f}
+.oc-need.done::after{content:"✓";position:absolute;left:-6px;top:-8px;width:17px;height:17px;border-radius:50%;background:#3fb873;color:#fff;font-size:12px;font-weight:900;line-height:17px}
+.oc-bar{height:9px;margin-top:9px;background:#e6e0f7;border-radius:6px;overflow:hidden}
+.oc-bar b{display:block;height:100%;border-radius:6px;background:#5fcf8f}
+.oc-bar b.yellow{background:#ffc94a}.oc-bar b.red{background:#ff6b57}
+.ocard.hurry{animation:cardShake .3s infinite}
+.stage-wrap.rush .ocard{animation:cardShake .45s infinite}
+.stage-wrap.rush::after{content:"";position:absolute;inset:0;z-index:2;border:6px solid #ff5a4d;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 60px #ff3b2f66;animation:rushPulse .8s ease-in-out infinite}
+.rush-pill{background:#ff5a4d!important;border-color:#ffd0c8!important;animation:rushPulse .8s ease-in-out infinite}
+@keyframes cardIn{from{opacity:0;margin-top:-40px}to{opacity:1;margin-top:0}}
+@keyframes cardShake{0%,100%{margin-left:0}25%{margin-left:-2px}75%{margin-left:2px}}
+@keyframes rushPulse{50%{opacity:.45}}
+@media (max-width:900px){.ocard{width:104px;padding:9px 5px 5px}.ocard .oc-dish{font-size:24px}.ocard h3{font-size:11px}.oc-need{width:28px;height:28px;font-size:16px}}
