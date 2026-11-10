@@ -1,0 +1,478 @@
+// 3D 렌더링 어댑터 (1B)
+// 게임 규칙·점수·수학·Firebase는 전혀 모릅니다. game.js가 매 프레임 넘겨주는 "상태"를 그리기만 합니다.
+// 상태 형식: { chefs:[{id,x,y,held,name,seat,mine}], focus:설비|null, tray:{재료:true}, particles:[{x,y,life,color}], dim:boolean }
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
+
+const TOP = 0.88;                                   // 조리대 윗면 높이
+const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
+const FONT = '"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+
+export function createRenderer3D(canvas, { W, H, stations, foods }) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });   // WebGL 불가면 여기서 예외 → game.js가 2D로 전환
+  let pixelCap = 1.5, quality = 'normal', cw = 0, ch = 0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  const wx = gx => gx - W / 2, wz = gy => gy - H / 2;   // 타일 좌표 → 3D 좌표
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x24223f);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 80);
+  const CAM_ANGLE = THREE.MathUtils.degToRad(56);
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h || (w === cw && h === ch)) return;
+    cw = w; ch = h;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelCap));
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const needH = H * Math.sin(CAM_ANGLE) + 3.9, needW = W + 1.2;
+    const dist = Math.max(needH / 2 / t, needW / 2 / t / camera.aspect);
+    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 0.3);
+    camera.lookAt(0, 0.4, -0.3);
+    camera.updateProjectionMatrix();
+  }
+
+  // ───────── 조명 ─────────
+  scene.add(new THREE.HemisphereLight(0xfff8ee, 0x8f84c9, 1.25));
+  const sun = new THREE.DirectionalLight(0xfff0d6, 2.3);
+  sun.position.set(-7, 14, 7);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 9, bottom: -9, near: 2, far: 34 });
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
+  scene.add(sun);
+
+  // ───────── 재질·도형 도우미 ─────────
+  const matCache = new Map(), geoCache = new Map();
+  function mat(color, rough = 0.75, extra) {
+    const key = color + '|' + rough;
+    if (!extra && matCache.has(key)) return matCache.get(key);
+    const m = new THREE.MeshStandardMaterial({ color, roughness: rough, ...extra });
+    if (!extra) matCache.set(key, m);
+    return m;
+  }
+  const geo = (key, make) => { if (!geoCache.has(key)) geoCache.set(key, make()); return geoCache.get(key); };
+  const rbox = (w, h, d, r = 0.05) => geo(`rb${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, 2, r));
+  const cyl = (rt, rb, h, seg = 20) => geo(`cy${rt},${rb},${h},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg));
+  const sph = (r, ws = 18, hs = 12) => geo(`sp${r},${ws},${hs}`, () => new THREE.SphereGeometry(r, ws, hs));
+  function add(parent, g, m, x = 0, y = 0, z = 0, shadow = true) {
+    const o = new THREE.Mesh(g, m);
+    o.position.set(x, y, z);
+    o.castShadow = shadow; o.receiveShadow = true;
+    parent.add(o);
+    return o;
+  }
+  function canvasTex(w, h, draw) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+  const floorTex = canvasTex(512, 512, g => {
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const x = i * 256, y = j * 256;
+      g.fillStyle = (i + j) % 2 ? '#fff8e8' : '#eaf6ee'; g.fillRect(x, y, 256, 256);
+      g.strokeStyle = (i + j) % 2 ? '#f0e2c4' : '#cfe6d8'; g.lineWidth = 2;
+      for (let k = 1; k < 4; k++) {
+        g.beginPath(); g.moveTo(x + k * 64, y); g.lineTo(x + k * 64, y + 256); g.stroke();
+        g.beginPath(); g.moveTo(x, y + k * 64); g.lineTo(x + 256, y + k * 64); g.stroke();
+      }
+      g.strokeStyle = '#b9d9c8'; g.lineWidth = 5; g.strokeRect(x, y, 256, 256);
+    }
+  });
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((W - 2) / 2, (H - 2) / 2);
+  const rulerTex = canvasTex(256, 256, (g, s) => {
+    g.fillStyle = '#fff6e0'; g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#c9a877'; g.lineWidth = 4;
+    for (let i = 0; i <= 10; i++) { const x = i * s / 10; g.beginPath(); g.moveTo(x, s); g.lineTo(x, s - (i % 5 ? 22 : 42)); g.stroke(); }
+    g.strokeStyle = '#ecd9b8'; g.lineWidth = 8; g.strokeRect(4, 4, s - 8, s - 8);
+  });
+  const M = {
+    top: mat(0xffffff, 0.55, { map: rulerTex }), wood: mat(0xd9a66b), woodDark: mat(0xb07d48), steel: mat(0xc3c9d6, 0.3, { metalness: 0.6 }),
+    dark: mat(0x3b3558, 0.6), white: mat(0xffffff, 0.35), lav: mat(0xb9aee8), coral: mat(0xff8f7a), mint: mat(0x8ed8c0), gold: mat(0xffd66b, 0.3, { metalness: 0.5 })
+  };
+
+  const world = new THREE.Group();
+  scene.add(world);
+
+  // ───────── 바닥과 벽 ─────────
+  add(world, new THREE.PlaneGeometry(W - 2, H - 2), mat(0xffffff, 0.85, { map: floorTex }), 0, 0, 0, false).rotation.x = -Math.PI / 2;
+  add(world, new THREE.BoxGeometry(W + 0.4, 0.5, H + 0.4), mat(0x4a3f78), 0, -0.26, 0);
+  const wallM = mat(0x9b8fdc, 0.9), trimM = mat(0xfff6e0, 0.7);
+  function wall(x0, y0, x1, y1, h) {
+    const w = x1 - x0 + 1, d = y1 - y0 + 1, cx = wx((x0 + x1 + 1) / 2), cz = wz((y0 + y1 + 1) / 2);
+    add(world, new THREE.BoxGeometry(w, h, d), wallM, cx, h / 2, cz);
+    add(world, new THREE.BoxGeometry(w + 0.06, 0.12, d + 0.06), trimM, cx, h + 0.06, cz);
+  }
+  wall(0, 0, W - 1, 0, 2.7); wall(0, 1, 0, H - 2, 0.7); wall(W - 1, 1, W - 1, H - 2, 0.7); wall(0, H - 1, W - 1, H - 1, 0.45);
+  const boardTex = canvasTex(1024, 320, (g, w, h) => {
+    g.fillStyle = '#2f5d50'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffffffee'; g.textBaseline = 'middle';
+    g.font = `bold 64px ${FONT}`; g.fillText('오늘의 수학 메뉴', 40, 70);
+    // 분수는 분자 위·분모 아래 세로 모양으로 그림
+    const frac = (x, n, d) => { g.font = `bold 62px ${FONT}`; g.textAlign = 'center'; g.fillText(n, x, 165); g.fillText(d, x, 240); g.fillRect(x - 30, 198, 60, 7); g.textAlign = 'left'; };
+    g.fillStyle = '#ffe08a'; frac(80, '3', '4'); frac(250, '1', '2');
+    g.font = `bold 84px ${FONT}`; g.fillText('÷', 135, 203); g.fillText('= ?', 310, 203);
+    g.fillStyle = '#ffb3a6'; g.fillText('3 : 4 = 6 : □', 520, 203);
+    g.strokeStyle = '#bfe8d8'; g.lineWidth = 6; g.beginPath(); g.arc(900, 80, 50, 0, 7); g.moveTo(900, 80); g.lineTo(950, 80); g.stroke();
+  });
+  const backZ = wz(1) + 0.001;
+  add(world, new THREE.BoxGeometry(6.4, 1.5, 0.08), M.wood, 0, 1.75, backZ, false);
+  add(world, new THREE.PlaneGeometry(6.1, 1.25), mat(0xffffff, 0.9, { map: boardTex }), 0, 1.75, backZ + 0.045, false);
+  for (const cx of [-6.2, 6.2]) {
+    add(world, new THREE.BoxGeometry(2.2, 1.3, 0.08), trimM, cx, 1.75, backZ, false);
+    add(world, new THREE.PlaneGeometry(1.95, 1.05), mat(0xbfe9ff, 0.2, { emissive: 0x8fd6ff, emissiveIntensity: 0.55 }), cx, 1.75, backZ + 0.045, false);
+    add(world, new THREE.BoxGeometry(0.07, 1.05, 0.02), trimM, cx, 1.75, backZ + 0.05, false);
+    add(world, new THREE.BoxGeometry(1.95, 0.07, 0.02), trimM, cx, 1.75, backZ + 0.05, false);
+  }
+
+  // ───────── 재료 모형 ─────────
+  // state: 없음 = 손질 전, 'ready' = 손질/조리 완료 (자른 것은 두 조각, 구운 것은 갈색, 섞은 것은 그릇에)
+  function rawFood(kind, cooked) {
+    const g = new THREE.Group();
+    if (kind === 'lettuce') {
+      add(g, sph(0.17), mat(0x7cc65a), 0, 0.14).scale.y = 0.82;
+      for (let i = 0; i < 3; i++) { const l = add(g, sph(0.15), mat(0xa9e07c), Math.cos(i * 2.1) * 0.06, 0.17, Math.sin(i * 2.1) * 0.06); l.scale.set(1, 0.6, 0.75); l.rotation.y = i * 2.1; }
+    } else if (kind === 'tomato') {
+      add(g, sph(0.15), mat(0xf0483e, 0.35), 0, 0.125).scale.y = 0.85;
+      add(g, geo('leaf', () => new THREE.ConeGeometry(0.08, 0.03, 5)), mat(0x4fa84a), 0, 0.26);
+    } else if (kind === 'meat') {
+      add(g, rbox(0.34, 0.09, 0.24, 0.04), mat(cooked ? 0x8a5433 : 0xe5596a, 0.5), 0, 0.05);
+      add(g, rbox(0.08, 0.095, 0.24, 0.04), mat(cooked ? 0xd9b98a : 0xfff0ee, 0.5), -0.15, 0.05);
+    } else if (kind === 'flour') {
+      add(g, rbox(0.28, 0.3, 0.2, 0.07), mat(0xf6ead2), 0, 0.15);
+      add(g, cyl(0.07, 0.05, 0.08, 10), mat(0xf6ead2), 0, 0.33);
+      add(g, rbox(0.2, 0.12, 0.21, 0.02), mat(0x7fa8ff), 0, 0.15);
+    } else if (kind === 'berry') {
+      add(g, geo('berry', () => new THREE.ConeGeometry(0.12, 0.22, 14)), mat(0xf23f5f, 0.4), 0, 0.12).rotation.x = Math.PI;
+      add(g, geo('leaf', () => new THREE.ConeGeometry(0.08, 0.03, 5)), mat(0x4fa84a), 0, 0.24);
+    } else if (kind === 'cheese') {
+      add(g, geo('cheese', () => new THREE.CylinderGeometry(0.3, 0.3, 0.15, 12, 1, false, 0, Math.PI / 3)), mat(0xffc93c, 0.5, { side: THREE.DoubleSide }), -0.07, 0.08, -0.12);
+    } else if (kind === 'bread') {
+      add(g, cyl(0.17, 0.15, 0.06), mat(cooked ? 0xc98a3c : 0xe2a85c), 0, 0.03);
+      add(g, geo('bun', () => new THREE.SphereGeometry(0.18, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2)), mat(cooked ? 0xb06a24 : 0xd9903f, 0.5), 0, 0.07).scale.y = 0.7;
+    } else if (kind === 'milk') {
+      add(g, rbox(0.17, 0.26, 0.17, 0.02), mat(0xffffff, 0.4), 0, 0.13);
+      add(g, rbox(0.175, 0.1, 0.175, 0.02), mat(0x6fb4ff, 0.4), 0, 0.12);
+      add(g, geo('roof', () => new THREE.ConeGeometry(0.125, 0.09, 4)), mat(0xffffff, 0.4), 0, 0.3).rotation.y = Math.PI / 4;
+    } else if (kind === 'dough') {
+      add(g, sph(0.18), mat(cooked ? 0xe0a85a : 0xf5deb0, 0.85), 0, 0.09).scale.y = cooked ? 0.35 : 0.5;
+    }
+    return g;
+  }
+  const MIX_COLOR = { flour: 0xfff3dc, milk: 0xffffff };
+  function food(kind, state) {
+    if (state !== 'ready') return rawFood(kind);
+    const prep = foods[kind]?.prep, g = new THREE.Group();
+    if (prep === 'cook') g.add(rawFood(kind, true));
+    else if (prep === 'mix') {                     // 그릇에 담긴 모습
+      add(g, cyl(0.2, 0.12, 0.13, 18), M.mint, 0, 0.065);
+      add(g, cyl(0.175, 0.175, 0.02, 18), mat(MIX_COLOR[kind] || 0xfff3dc, 0.6), 0, 0.125);
+    } else {                                       // 자른 모습: 작은 조각 두 개
+      for (const s of [-1, 1]) { const h = rawFood(kind); h.scale.set(0.62, 0.62, 0.62); h.position.set(s * 0.1, 0, s * 0.03); h.rotation.set(0, s * 0.6, s * 0.5); h.position.y = 0.03; g.add(h); }
+    }
+    return g;
+  }
+
+  // ───────── 설비 ─────────
+  const BODY = { counter: M.lav, bin: M.wood, cut: M.lav, cook: M.dark, mix: M.mint, plate: M.lav, serve: M.coral, storage: M.woodDark, sink: M.steel, trash: M.dark };
+  const fires = [];
+  const boards = new Map();       // 도마별 움직이는 부품
+  const storageSlots = [];        // 보관대 5칸의 위치
+  let plateSpot = null;            // 접시에 담긴 재료를 보여줄 자리 (첫 번째 플레이팅대)
+  let storageN = 0;
+  function buildStation(s) {
+    const g = new THREE.Group();
+    g.position.set(wx(s.x + 0.5), 0, wz(s.y + 0.5));
+    world.add(g);
+    const y = TOP;
+    if (s.type !== 'trash') {
+      add(g, rbox(0.96, 0.8, 0.96, 0.06), BODY[s.type] || M.lav, 0, 0.4);
+      add(g, rbox(1, 0.09, 1, 0.035), s.type === 'cook' || s.type === 'sink' ? M.steel : s.type === 'bin' || s.type === 'storage' ? M.wood : M.top, 0, TOP - 0.045);
+    }
+    if (s.type === 'bin') {
+      for (const [bx, bz, bw, bd] of [[0, -0.42, 0.92, 0.08], [0, 0.42, 0.92, 0.08], [-0.42, 0, 0.08, 0.84], [0.42, 0, 0.08, 0.84]]) add(g, rbox(bw, 0.2, bd, 0.02), M.woodDark, bx, y + 0.1, bz);
+      [[-0.19, -0.17], [0.19, -0.17], [-0.19, 0.19], [0.19, 0.19], [0, 0.02]].forEach(([fx, fz], i) => {
+        const f = food(s.food); f.position.set(fx, y + (i === 4 ? 0.14 : 0.01), fz); f.rotation.y = i * 1.3; f.scale.setScalar(i === 4 ? 1.1 : 0.95); g.add(f);
+      });
+    } else if (s.type === 'cut') {
+      add(g, rbox(0.74, 0.06, 0.52, 0.025), mat(0xe9bd82), 0, y + 0.03, 0.02);
+      // 칼·도마 위 재료·게이지는 움직이므로 병합하지 않음
+      const knife = new THREE.Group(); knife.userData.dynamic = true; knife.position.set(0.24, y + 0.075, 0.05); g.add(knife);
+      add(knife, rbox(0.07, 0.015, 0.32, 0.005), M.steel, 0, 0, -0.08);
+      add(knife, rbox(0.05, 0.035, 0.16, 0.015), M.dark, 0, 0.005, 0.16);
+      const spot = new THREE.Group(); spot.userData.dynamic = true; spot.position.set(-0.08, y + 0.06, 0.02); g.add(spot);
+      const bar = new THREE.Group(); bar.userData.dynamic = true; bar.position.set(0, y + 1.3, 0); bar.visible = false; g.add(bar);
+      const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.3), new THREE.MeshBasicMaterial({ color: 0x3b3558, depthTest: false })); bg.renderOrder = 18; bar.add(bg);
+      const fill = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.2), new THREE.MeshBasicMaterial({ color: 0xffd166, depthTest: false })); fill.renderOrder = 19; fill.position.z = 0.001; bar.add(fill);
+      boards.set(s.x + ',' + s.y, { knife, knifeY: y + 0.075, spot, bar, fill, key: '', count: 0, swing: -1e9, label: null, labelText: '', g });
+    } else if (s.type === 'cook') {
+      add(g, cyl(0.3, 0.3, 0.03, 24), M.dark, 0, y + 0.015);
+      const fm = mat(0xff7a3c, 0.5, { emissive: 0xff5a1f, emissiveIntensity: 1.2 });
+      add(g, geo('ring', () => new THREE.TorusGeometry(0.2, 0.035, 8, 24)), fm, 0, y + 0.035, 0, false).rotation.x = Math.PI / 2;
+      fires.push(fm);
+      add(g, cyl(0.32, 0.26, 0.09, 24), mat(0x4b4860, 0.4, { metalness: 0.5 }), 0, y + 0.1);
+      add(g, cyl(0.29, 0.25, 0.02, 24), mat(0x2b293a, 0.5), 0, y + 0.14, 0, false);
+      add(g, rbox(0.34, 0.04, 0.07, 0.015), M.woodDark, 0.44, y + 0.12, 0.12).rotation.y = -0.3;
+      for (const kx of [-0.25, 0.25]) add(g, cyl(0.05, 0.05, 0.04, 12), M.coral, kx, 0.62, 0.49).rotation.x = Math.PI / 2;
+    } else if (s.type === 'mix') {
+      add(g, cyl(0.2, 0.25, 0.16), M.coral, 0, y + 0.08);
+      add(g, cyl(0.2, 0.15, 0.36, 20), mat(0xdff3ff, 0.1, { transparent: true, opacity: 0.55 }), 0, y + 0.34, 0, false);
+      add(g, cyl(0.21, 0.21, 0.05), M.dark, 0, y + 0.54);
+    } else if (s.type === 'plate') {
+      add(g, cyl(0.36, 0.24, 0.04, 24), M.white, 0, y + 0.02);
+      add(g, geo('rim', () => new THREE.TorusGeometry(0.35, 0.015, 6, 24)), mat(0x9fd8ff, 0.4), 0, y + 0.04).rotation.x = Math.PI / 2;
+      if (!plateSpot) { plateSpot = new THREE.Group(); plateSpot.position.set(g.position.x, y + 0.045, g.position.z); scene.add(plateSpot); }
+    } else if (s.type === 'serve') {
+      add(g, rbox(0.7, 0.02, 0.7, 0.01), M.white, 0, y + 0.01);
+      add(g, cyl(0.15, 0.15, 0.03), M.dark, 0.26, y + 0.035, -0.26);
+      add(g, geo('bell', () => new THREE.SphereGeometry(0.13, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.gold, 0.26, y + 0.05, -0.26);
+      add(g, sph(0.03, 8, 6), M.gold, 0.26, y + 0.19, -0.26);
+    } else if (s.type === 'storage') {
+      for (const sx of storageN++ % 2 === 0 ? [-0.3, 0.1, 0.5] : [-0.1, 0.3]) { add(g, rbox(0.34, 0.03, 0.6, 0.012), mat(0xfff6e0), sx, y + 0.015, 0); storageSlots.push(new THREE.Vector3(g.position.x + sx, y + 0.03, g.position.z)); }
+    } else if (s.type === 'sink') {
+      add(g, rbox(0.76, 0.05, 0.6, 0.02), M.dark, 0, y - 0.01, 0.06);
+      add(g, rbox(0.7, 0.02, 0.54, 0.01), mat(0x7fd0ff, 0.1, { transparent: true, opacity: 0.85 }), 0, y + 0.012, 0.06, false);
+      add(g, cyl(0.03, 0.03, 0.3, 10), M.steel, 0, y + 0.15, -0.36);
+      add(g, cyl(0.025, 0.025, 0.2, 10), M.steel, 0, y + 0.29, -0.27).rotation.x = Math.PI / 2;
+    } else if (s.type === 'trash') {
+      add(g, cyl(0.4, 0.33, 0.78, 20), mat(0x6f6a8c), 0, 0.39);
+      add(g, cyl(0.42, 0.42, 0.06, 20), M.dark, 0, 0.8);
+      add(g, cyl(0.3, 0.3, 0.02, 20), mat(0x1d1b2e), 0, 0.835, 0, false);
+    }
+  }
+  stations.forEach(buildStation);
+  mergeStatic(world);
+
+  // 움직이지 않는 메시를 재질별로 하나로 합쳐 그리기 횟수를 줄입니다 (저사양 PC 대책)
+  function mergeStatic(root) {
+    root.updateMatrixWorld(true);
+    const buckets = new Map(), done = [];
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      for (let q = o; q && q !== root; q = q.parent) if (q.userData.dynamic) return;
+      const key = o.material.uuid + (o.castShadow ? 'c' : 'n');
+      if (!buckets.has(key)) buckets.set(key, { material: o.material, cast: o.castShadow, list: [] });
+      buckets.get(key).list.push(o); done.push(o);
+    });
+    for (const o of done) o.parent.remove(o);
+    for (const b of buckets.values()) {
+      const parts = b.list.map(o => { const gm = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); gm.applyMatrix4(o.matrixWorld); return gm; });
+      const n = parts.reduce((a, gm) => a + gm.attributes.position.count, 0);
+      const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+      let k = 0;
+      for (const gm of parts) {
+        pos.set(gm.attributes.position.array, k * 3); nor.set(gm.attributes.normal.array, k * 3);
+        if (gm.attributes.uv) uv.set(gm.attributes.uv.array, k * 2);
+        k += gm.attributes.position.count; gm.dispose();
+      }
+      const merged = new THREE.BufferGeometry();
+      merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      merged.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      const mesh = new THREE.Mesh(merged, b.material);
+      mesh.castShadow = b.cast; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
+      scene.add(mesh);
+    }
+  }
+
+  // ───────── 강조 표시, E 표시, 색종이 ─────────
+  const focusRing = new THREE.Mesh(rbox(1.08, 0.06, 1.08, 0.03), new THREE.MeshBasicMaterial({ color: 0xffdf6b, transparent: true, opacity: 0.6, depthWrite: false }));
+  focusRing.visible = false; scene.add(focusRing);
+  function textSprite(text, bg, fg, scale, cw = 256) {
+    const tex = canvasTex(cw, 80, (g, w, h) => {
+      g.font = `bold 40px ${FONT}`;
+      const tw = Math.min(w - 8, g.measureText(text).width + 44);
+      g.fillStyle = bg; g.beginPath(); g.roundRect((w - tw) / 2, 8, tw, h - 16, 28); g.fill();
+      g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2, w - 40);
+    });
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    sp.scale.set(scale * cw / 80, scale, 1); sp.renderOrder = 20;
+    return sp;
+  }
+  // E 말풍선: 지금 누르면 무슨 일이 일어나는지 글자로 보여줌 (집기 / 돌려놓기 / 보관 / 꺼내기 / 버리기)
+  const marks = new Map();
+  let eMark = null;
+  function setMark(text) {
+    if (eMark) eMark.visible = false;
+    if (!text) { eMark = null; return; }
+    if (!marks.has(text)) { const bad = text === '✕'; const sp = textSprite(text === 'E' || bad ? text : 'E ' + text, bad ? '#ff8f7a' : '#ffd66b', '#3b3558', 0.5); scene.add(sp); marks.set(text, sp); }
+    eMark = marks.get(text); eMark.visible = true;
+  }
+  const storageGroup = new THREE.Group(); scene.add(storageGroup);
+  const fxMap = new Map();          // 날아가는 재료 (반환·보관·버리기·접시 담기)
+  const CONFETTI = 80, confGeo = sph(0.07, 6, 4);
+  const confetti = Array.from({ length: CONFETTI }, () => { const m = new THREE.Mesh(confGeo, new THREE.MeshBasicMaterial()); m.visible = false; scene.add(m); return m; });
+  const dimmer = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x24223f, transparent: true, opacity: 0.55, depthTest: false }));
+  dimmer.renderOrder = 15; dimmer.visible = false; scene.add(dimmer);
+
+  // ───────── 셰프 ─────────
+  function buildChef(color) {
+    const root = new THREE.Group(), body = new THREE.Group();
+    root.add(body);
+    const skin = mat(0xffd2ad, 0.6), coat = mat(0xffffff, 0.6), accent = mat(color, 0.6);
+    add(body, cyl(0.2, 0.28, 0.44, 20), coat, 0, 0.36);
+    add(body, rbox(0.3, 0.3, 0.06, 0.03), accent, 0, 0.32, 0.2).rotation.x = -0.18;
+    add(body, cyl(0.215, 0.225, 0.07, 20), accent, 0, 0.58);
+    add(body, sph(0.07, 10, 8), accent, 0, 0.56, -0.22);
+    add(body, sph(0.25, 22, 16), skin, 0, 0.86);
+    add(body, cyl(0.21, 0.2, 0.17, 20), coat, 0, 1.11);
+    add(body, sph(0.25, 18, 12), coat, 0, 1.26).scale.y = 0.68;
+    for (const ex of [-0.09, 0.09]) {
+      add(body, sph(0.035, 10, 8), M.dark, ex, 0.89, 0.225);
+      add(body, sph(0.045, 10, 8), mat(0xffa3a3), ex * 1.8, 0.81, 0.19).scale.set(1, 0.6, 0.5);
+    }
+    add(body, rbox(0.07, 0.025, 0.02, 0.008), mat(0xc4594f), 0, 0.79, 0.24);
+    const handL = add(body, sph(0.08, 12, 8), skin, -0.31, 0.4, 0.06), handR = add(body, sph(0.08, 12, 8), skin, 0.31, 0.4, 0.06);
+    const footL = add(root, sph(0.1, 12, 8), M.dark, -0.12, 0.07, 0.03), footR = add(root, sph(0.1, 12, 8), M.dark, 0.12, 0.07, 0.03);
+    footL.scale.set(1, 0.7, 1.45); footR.scale.set(1, 0.7, 1.45);
+    const carry = new THREE.Group(); carry.position.set(0, 0.42, 0.34); body.add(carry);
+    const ring = new THREE.Mesh(geo('mine', () => new THREE.TorusGeometry(0.38, 0.035, 6, 28)), new THREE.MeshBasicMaterial({ color: 0xffd66b }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.03; ring.visible = false; root.add(ring);
+    scene.add(root);
+    return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0 };
+  }
+  const chefs = new Map();
+  function syncChef(c, dt, seen) {
+    let v = chefs.get(c.id);
+    if (!v) { v = buildChef(SEAT_COLOR[(c.seat || 0) % SEAT_COLOR.length]); chefs.set(c.id, v); }
+    seen.add(c.id);
+    if (v.x === null || Math.hypot(c.x - v.x, c.y - v.y) > 3) { v.x = c.x; v.y = c.y; }   // 처음이거나 순간이동이면 바로 이동
+    const k = c.mine ? 1 : Math.min(1, dt * 10);        // 다른 사람은 부드럽게 따라가기 (온라인 끊김 완화)
+    const dx = (c.x - v.x) * k, dy = (c.y - v.y) * k, moved = Math.hypot(dx, dy);
+    v.x += dx; v.y += dy;
+    const moving = moved > dt * 0.25;
+    if (moving) { const target = Math.atan2(dx, dy); v.angle += Math.atan2(Math.sin(target - v.angle), Math.cos(target - v.angle)) * Math.min(1, dt * 14); v.walk += moved * 3.2; }
+    v.moveAmt += ((moving ? 1 : 0) - v.moveAmt) * Math.min(1, dt * 12);
+    const a = v.moveAmt, s = Math.sin(v.walk);
+    v.root.position.set(wx(v.x), 0, wz(v.y));
+    v.root.rotation.y = v.angle;
+    v.body.position.y = a * Math.abs(s) * 0.055;
+    v.body.rotation.x = a * 0.1;
+    v.footL.position.z = 0.03 + a * s * 0.14; v.footR.position.z = 0.03 - a * s * 0.14;
+    const held = c.held || '';
+    if (held !== v.held) {
+      v.held = held; v.carry.clear();
+      const kind = held.replace('ready:', '');
+      if (foods[kind]) v.carry.add(food(kind, held.startsWith('ready:') ? 'ready' : ''));
+    }
+    const carrying = !!held;
+    const chop = Math.max(0, 1 - (lastT - (v.chopT || -1e9)) / 160), cu = Math.sin(chop * Math.PI);   // 칼질 팔 동작
+    v.handL.position.set(carrying ? -0.16 : -0.31, carrying ? 0.44 : 0.4, carrying ? 0.3 : 0.06 - a * s * 0.13);
+    v.handR.position.set(carrying ? 0.16 : 0.31 - cu * 0.1, carrying ? 0.44 : 0.4 + cu * 0.28, carrying ? 0.3 : 0.06 + a * s * 0.13 + cu * 0.22);
+    v.body.rotation.x += cu * 0.12;
+    v.ring.visible = !!c.mine;
+    const name = String(c.name || '셰프').slice(0, 8);
+    if (name !== v.name || !!c.mine !== v.tagMine) {
+      if (v.tag) { v.root.remove(v.tag); v.tag.material.map.dispose(); v.tag.material.dispose(); }
+      v.name = name; v.tagMine = !!c.mine;
+      v.tag = textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
+      v.tag.position.y = 1.72; v.root.add(v.tag);
+    }
+  }
+
+  // ───────── 한 프레임 그리기 ─────────
+  let lastT = 0, trayKey = null, storageKey = null;
+  const perf = { fps: 0, frames: 0, acc: 0, slow: 0, samples: 0 };
+  function render(state, t) {
+    const raw = lastT ? (t - lastT) / 1000 : 0.016, dt = Math.min(0.1, raw);
+    lastT = t;
+    resize();
+    const seen = new Set();
+    for (const c of state.chefs) syncChef(c, dt, seen);
+    for (const [id, v] of chefs) if (!seen.has(id)) { scene.remove(v.root); chefs.delete(id); }
+
+    const f = state.focus;
+    focusRing.visible = !!f;
+    const busy = f && (state.boards || []).some(b => b.x === f.x && b.y === f.y);   // 도마에 이미 상태 글자가 떠 있으면 E 말풍선은 생략
+    setMark(f && !busy ? state.focusLabel || 'E' : '');
+    if (f) {
+      focusRing.position.set(wx(f.x + 0.5), f.type === 'trash' ? 0.84 : TOP - 0.04, wz(f.y + 0.5));
+      focusRing.material.opacity = 0.45 + Math.sin(t / 160) * 0.15;
+      if (eMark) eMark.position.set(wx(f.x + 0.5), TOP + 0.95, wz(f.y + 0.5));
+    }
+    // 접시에 담긴 재료: 게임 상태(tray)를 그대로 따라감
+    const key = Object.keys(state.tray || {}).filter(k => state.tray[k]).sort().join(',');
+    if (plateSpot && key !== trayKey) {
+      trayKey = key; plateSpot.clear();
+      const list = key ? key.split(',') : [];
+      list.forEach((kind, i) => {
+        if (!foods[kind]) return;
+        const m = food(kind, 'ready'); m.scale.multiplyScalar(0.85);
+        m.position.set(list.length > 1 ? (i - (list.length - 1) / 2) * 0.3 : 0, 0, 0);
+        plateSpot.add(m);
+      });
+    }
+    // 보관대 위 재료: 게임 상태(storage)를 그대로 따라감
+    const sKey = (state.storage || []).map(r => r.id).join(',');
+    if (sKey !== storageKey) {
+      storageKey = sKey; storageGroup.clear();
+      (state.storage || []).slice(0, storageSlots.length).forEach((rec, i) => {
+        if (!foods[rec.kind]) return;
+        const m = food(rec.kind, rec.state === 'raw' ? '' : 'ready'); m.scale.multiplyScalar(0.8); m.position.copy(storageSlots[i]); storageGroup.add(m);
+      });
+    }
+    // 도마: 올려둔 재료, 게이지, 상태 글자, 칼질 동작 — 게임 상태(boards)를 그대로 따라감
+    const active = new Map((state.boards || []).map(b => [b.x + ',' + b.y, b]));
+    for (const [k, v] of boards) {
+      const b = active.get(k), key = b ? b.kind + (b.ready ? ':r' : '') : '';
+      if (key !== v.key) { v.key = key; v.spot.clear(); if (b && foods[b.kind]) v.spot.add(food(b.kind, b.ready ? 'ready' : '')); }
+      const count = b ? b.count : 0;
+      if (b && count > v.count) { v.swing = t; const c = chefs.get(b.owner); if (c) c.chopT = t; }   // 진행이 늘면 칼질 한 번 (다른 사람 것도 보임)
+      v.count = count;
+      const sw = Math.max(0, 1 - (t - v.swing) / 160), up = Math.sin(sw * Math.PI);
+      v.knife.position.y = v.knifeY + up * 0.22; v.knife.rotation.z = up * 0.5; v.knife.position.x = 0.24 - up * 0.2;
+      v.spot.position.y = TOP + 0.06 - up * 0.02; v.spot.rotation.z = (sw > 0 ? Math.sin(t / 18) : 0) * 0.08;
+      v.bar.visible = !!b;
+      if (b) {
+        v.bar.quaternion.copy(camera.quaternion);
+        v.fill.scale.x = Math.max(0.02, b.progress); v.fill.position.x = -0.7 * (1 - Math.max(0.02, b.progress));
+        v.fill.material.color.set(b.ready ? 0x5fcf8f : b.state === 'stale' ? 0x9aa7b8 : 0xffd166);
+      }
+      const text = b ? b.label : '';
+      if (text !== v.labelText) {
+        if (v.label) { scene.remove(v.label); v.label.material.map.dispose(); v.label.material.dispose(); v.label = null; }
+        v.labelText = text;
+        if (text) { v.label = textSprite(text, '#fffdf5', '#3b3558', 0.56, 384); v.label.position.set(v.g.position.x, TOP + 1.8, v.g.position.z); scene.add(v.label); }
+      }
+    }
+    for (const fobj of state.fx || []) {
+      let m = fxMap.get(fobj);
+      if (!m) { const kind = fobj.held.replace(/^\w+:/, ''); m = food(kind, fobj.held.includes(':') ? 'ready' : ''); scene.add(m); fxMap.set(fobj, m); }
+      const k = Math.min(1, (t - fobj.t) / 300);
+      m.position.set(wx(fobj.x0 + (fobj.x1 - fobj.x0) * k), 0.8 + Math.sin(k * Math.PI) * 0.7 + (TOP - 0.8) * k, wz(fobj.y0 + (fobj.y1 - fobj.y0) * k));
+      m.scale.setScalar(1 - k * 0.4); m.visible = k < 1;
+    }
+    for (const [fobj, m] of fxMap) if (!(state.fx || []).includes(fobj)) { scene.remove(m); fxMap.delete(fobj); }
+    for (const fm of fires) fm.emissiveIntensity = 1.1 + Math.sin(t / 60 + fm.id) * 0.3;
+    const ps = state.particles || [];
+    for (let i = 0; i < CONFETTI; i++) {
+      const m = confetti[i], p = ps[i];
+      m.visible = !!p;
+      if (p) { m.position.set(wx(p.x), 0.9 + (1 - p.life) * 1.6 * p.life * 4, wz(p.y)); m.material.color.set(p.color); m.scale.setScalar(0.5 + p.life); }
+    }
+    dimmer.visible = !!state.dim;
+    if (state.dim) { dimmer.position.copy(camera.position).multiplyScalar(0.5); dimmer.quaternion.copy(camera.quaternion); }
+    renderer.render(scene, camera);
+
+    // 성능 측정: 3초 연속 28FPS 미만이면 그림자를 끄고 해상도를 낮춤
+    perf.frames++; perf.acc += raw;
+    if (perf.acc >= 0.5) {
+      perf.fps = Math.round(perf.frames / perf.acc); perf.frames = 0; perf.acc = 0; perf.samples++;
+      perf.slow = perf.fps < 28 && perf.samples > 3 ? perf.slow + 1 : 0;
+      if (perf.slow >= 6 && quality !== 'low') {
+        quality = 'low'; pixelCap = 1; renderer.shadowMap.enabled = false; sun.castShadow = false;
+        scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+        cw = 0;
+      }
+    }
+  }
+
+  return { render, perf, renderer, get quality() { return quality; }, get trayKey() { return trayKey; }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
+}
