@@ -202,7 +202,7 @@ function drawOrderCards(){
    c.querySelector('.oc-dish').textContent=r.emoji;c.querySelector('h3').textContent=r.title;
    c.querySelector('.oc-needs').replaceChildren(...r.items.map(k=>{const n=document.createElement('span');n.className='oc-need';n.dataset.kind=k;n.title=FOOD[k].name;n.innerHTML='<em></em><i></i>';n.querySelector('em').textContent=FOOD[k].emoji;n.querySelector('i').textContent=PREP_ICON[FOOD[k].prep];return n}));return c}))}
  const plated=platedKinds();
- for(const c of holder.children){const o=list.find(v=>v.id===c.dataset.id);if(!o)continue;const f=patience(o,now),b=c.querySelector('.oc-bar b');b.style.width=(f*100).toFixed(1)+'%';b.className=patienceColor(f);c.classList.toggle('hurry',f<=.25);for(const n of c.querySelectorAll('.oc-need'))n.classList.toggle('done',plated.has(n.dataset.kind))}
+ for(const c of holder.children){const o=list.find(v=>v.id===c.dataset.id);if(!o)continue;const f=patience(o,now),b=c.querySelector('.oc-bar b');b.style.width=(f*100).toFixed(1)+'%';b.className=patienceColor(f);c.classList.toggle('hurry',f>0&&f<=.25);c.classList.toggle('late',f<=0);for(const n of c.querySelectorAll('.oc-need'))n.classList.toggle('done',plated.has(n.dataset.kind))}
 }
 
 function getName(){return safeName($('nicknameInput').value)}

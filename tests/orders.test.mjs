@@ -41,14 +41,17 @@ test('러시는 한 번만 발동하고, 여러 컴퓨터가 같은 시각에 �
   assert.equal(ordersTick(a, T0 + 144000, c), null, '이미 반영된 뒤에는 다시 추가하지 않음');
   assert.equal(a.rushAdds, 1);
 });
-test('주문 만료: 감점 없이 사라지고 새 주문으로 교체, 콤보만 끊김', () => {
+test('주문은 대기 시간이 지나도 사라지지 않음: 팁만 0점, 만들던 접시는 그대로 서빙 가능', () => {
   const c = cfg(180, 20000);
   let g = { ...ordersTick({}, T0, c), score: 150, combo: 2 };
   assert.equal(count(g, 19999), 1);
-  assert.equal(count(g, 20000), 0, '만료 시각이 지나면 유효 주문에서 빠짐');
-  g = ordersTick(g, T0 + 20000, c);
-  assert.equal(g.score, 150); assert.equal(g.expired, 1); assert.equal(g.combo, 0);
-  assert.deepEqual(activeOrders(g, T0 + 20000).map(o => RECIPES[o.recipeId].title), ['햄버거']);
+  assert.equal(count(g, 20000), 1);
+  assert.equal(ordersTick(g, T0 + 60000, c), null, '시간이 지나도 주문 목록은 바뀌지 않음');
+  assert.deepEqual(activeOrders(g, T0 + 60000).map(o => RECIPES[o.recipeId].title), ['샐러드']);
+  assert.equal(patience(activeOrders(g, T0 + 60000)[0], T0 + 60000), 0);
+  const r = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 60000);
+  assert.equal(r.gained, 100, '늦어도 기본 100점은 그대로');
+  assert.equal(r.tip, 0);
 });
 test('대기 게이지: 초록 → 노랑 → 빨강', () => {
   const o = { createdAt: T0, expiresAt: T0 + 80000 };
@@ -61,7 +64,7 @@ test('점수: 기본 100 + 팁(빠를수록 최대 20, 늦어도 감점 없음)'
   assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000).gained, 120);
   assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 40000).gained, 110);
   assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 79000).gained, 100);
-  assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 80000), null, '만료된 주문은 서빙 불가');
+  assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 80000).gained, 100, '대기 시간이 지나도 서빙 가능, 팁만 0');
   assert.equal(serveOrder(g, ['lettuce'], RECIPES, T0 + 1000), null);
 });
 test('콤보: 14초 안 연속 서빙마다 +20씩, 14초를 넘기면 처음부터, 상한 +100', () => {

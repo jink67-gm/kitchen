@@ -15,20 +15,20 @@ export const SERVE_SCORE = 100;            // 서빙 기본 점수
 export const COMBO_WINDOW_MS = 14000;      // 이 시간 안에 연속 서빙하면 콤보
 export const COMBO_STEP = 20;              // 콤보 1단계마다 추가 점수
 export const COMBO_CAP = 5;                // 콤보 상한 (+100까지)
-export const TIP_MAX = 20;                 // 빨리 서빙하면 받는 팁 (늦을수록 줄어들 뿐, 감점은 없음)
+export const TIP_MAX = 20;                 // 빨리 서빙하면 받는 팁 (늦을수록 줄어 0점까지. 감점도, 주문 취소도 없음)
 
 export function rushStartMs(durationMs) { return durationMs - Math.min(RUSH_SECONDS * 1000, durationMs * RUSH_FRACTION); }
 export function isRush(elapsedMs, durationMs) { return elapsedMs >= rushStartMs(durationMs) && elapsedMs < durationMs; }
 
-// 지금 유효한 주문 (먼저 온 순서)
+// 떠 있는 주문 (먼저 온 순서). 주문은 서빙할 때까지 사라지지 않습니다. 대기 시간이 지나면 팁만 0점이 됩니다.
 export function activeOrders(g, now) {
-  return Object.values((g && g.orders) || {}).filter(o => o.expiresAt > now).sort((a, b) => a.n - b.n);
+  return Object.values((g && g.orders) || {}).sort((a, b) => a.n - b.n);
 }
 // 남은 대기 시간 비율 1 → 0, 그리고 게이지 색
 export function patience(o, now) { return Math.max(0, Math.min(1, (o.expiresAt - now) / (o.expiresAt - o.createdAt))); }
 export const patienceColor = f => (f > 0.5 ? 'green' : f > 0.25 ? 'yellow' : 'red');
 
-// 주문 대기열 갱신: 만료 정리, 주문이 없으면 1개 추가, 러시 시작 시 +1, 러시 중 10초마다 +1 (최대 3개)
+// 주문 대기열 갱신: 주문이 없으면 1개 추가, 러시 시작 시 +1, 러시 중 10초마다 +1 (최대 3개)
 // 바뀐 것이 없으면 null. cfg: { startedAt, durationMs, orderTimeMs, recipeCount }
 export function ordersTick(g, now, cfg) {
   g = g || {};
@@ -36,7 +36,6 @@ export function ordersTick(g, now, cfg) {
   if (elapsed < 0 || elapsed >= cfg.durationMs) return null;
   const orders = { ...(g.orders || {}) };
   let changed = false, seq = g.orderSeq || 0, expired = g.expired || 0, combo = g.combo || 0, rushAdds = g.rushAdds || 0;
-  for (const id of Object.keys(orders)) if (orders[id].expiresAt <= now) { delete orders[id]; expired++; combo = 0; changed = true; }   // 만료: 감점 없이 사라지고 콤보만 끊김
   let n = Object.keys(orders).length;
   const add = () => { const id = 'o' + seq; orders[id] = { id, n: seq, recipeId: seq % cfg.recipeCount, createdAt: now, expiresAt: now + cfg.orderTimeMs }; seq++; n++; changed = true; };
   if (n === 0) add();
