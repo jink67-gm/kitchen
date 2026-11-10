@@ -186,7 +186,6 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
   const fires = [];
   const boards = new Map();       // 도마별 움직이는 부품
   const storageSlots = [];        // 보관대 5칸의 위치
-  let plateSpot = null;            // 접시에 담긴 재료를 보여줄 자리 (첫 번째 플레이팅대)
   let storageN = 0;
   // 설비 위에서 바뀌는 것들(올려둔 재료, 게이지, 상태 글자). 병합하지 않고 매 프레임 게임 상태를 따라감
   function dynParts(g, s, sx, sy, sz, extra) {
@@ -236,9 +235,11 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       add(g, cyl(0.21, 0.21, 0.05), M.dark, 0, y + 0.54);
       dynParts(g, s, 0, y + 0.2, 0, {}).mini = 0.6;
     } else if (s.type === 'plate') {
-      add(g, cyl(0.36, 0.24, 0.04, 24), M.white, 0, y + 0.02);
-      add(g, geo('rim', () => new THREE.TorusGeometry(0.35, 0.015, 6, 24)), mat(0x9fd8ff, 0.4), 0, y + 0.04).rotation.x = Math.PI / 2;
-      if (!plateSpot) { plateSpot = new THREE.Group(); plateSpot.position.set(g.position.x, y + 0.045, g.position.z); scene.add(plateSpot); }
+      add(g, rbox(0.8, 0.02, 0.8, 0.01), mat(0xd9f0ff, 0.6), 0, y + 0.01);      // 접시 놓는 자리 표시
+      dynParts(g, s, 0, y + 0.02, 0, {});
+    } else if (s.type === 'rack') {
+      add(g, rbox(0.8, 0.04, 0.8, 0.015), M.wood, 0, y + 0.02);
+      dynParts(g, s, 0, y + 0.04, 0, {});
     } else if (s.type === 'serve') {
       add(g, rbox(0.7, 0.02, 0.7, 0.01), M.white, 0, y + 0.01);
       add(g, cyl(0.15, 0.15, 0.03), M.dark, 0.26, y + 0.035, -0.26);
@@ -317,11 +318,40 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     eMark = marks.get(text); eMark.visible = true;
   }
   const storageGroup = new THREE.Group(); scene.add(storageGroup);
+  const popMap = new Map();
   const fxMap = new Map();          // 날아가는 재료 (반환·보관·버리기·접시 담기)
   const CONFETTI = 80, confGeo = sph(0.07, 6, 4);
   const confetti = Array.from({ length: CONFETTI }, () => { const m = new THREE.Mesh(confGeo, new THREE.MeshBasicMaterial()); m.visible = false; scene.add(m); return m; });
   const dimmer = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x24223f, transparent: true, opacity: 0.55, depthTest: false }));
   dimmer.renderOrder = 15; dimmer.visible = false; scene.add(dimmer);
+
+  // ───────── 접시 ─────────
+  // 층으로 쌓는 재료(빵·고기·치즈·반죽)는 위로, 나머지는 접시 위에 나란히. 완성되면 금색 테두리 + 요리 그림
+  const STACK = new Set(['bread', 'meat', 'cheese', 'dough']);
+  const dishCache = new Map();
+  function dishSprite(emoji) {
+    if (!dishCache.has(emoji)) dishCache.set(emoji, canvasTex(128, 128, (g, w) => { g.font = '96px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(emoji, w / 2, w / 2 + 6); }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dishCache.get(emoji), depthTest: false, transparent: true }));
+    sp.scale.set(0.62, 0.62, 1); sp.renderOrder = 17;
+    return sp;
+  }
+  function plateModel(contents, complete, emoji, dirty) {
+    const g = new THREE.Group();
+    const pm = new THREE.Mesh(cyl(0.36, 0.24, 0.04, 24), dirty ? mat(0xb9a78a, 0.8) : M.white); pm.position.y = 0.02; pm.castShadow = true; g.add(pm);
+    const rim = new THREE.Mesh(geo('rim', () => new THREE.TorusGeometry(0.35, 0.02, 6, 24)), complete ? M.gold : mat(0x9fd8ff, 0.4)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.04; g.add(rim);
+    const flat = (contents || []).filter(k => foods[k] && !STACK.has(k)), stack = (contents || []).filter(k => foods[k] && STACK.has(k));
+    let h = 0.045;
+    stack.sort((a, b) => (a === 'bread' || a === 'dough' ? -1 : 0) - (b === 'bread' || b === 'dough' ? -1 : 0)).forEach(k => {
+      const m = food(k, 'ready'); m.scale.multiplyScalar(0.9); m.position.set(flat.length ? -0.12 : 0, h, 0); g.add(m); h += k === 'bread' ? 0.12 : 0.08;
+    });
+    flat.forEach((k, i) => {
+      const m = food(k, 'ready'); m.scale.multiplyScalar(0.7);
+      const a = (i / Math.max(1, flat.length)) * Math.PI * 2 + 0.6, r = flat.length > 1 || stack.length ? 0.14 : 0;
+      m.position.set(Math.cos(a) * r + (stack.length ? 0.1 : 0), 0.045, Math.sin(a) * r); g.add(m);
+    });
+    if (complete && emoji) { const sp = dishSprite(emoji); sp.position.y = 0.62; g.add(sp); g.userData.sprite = sp; }
+    return g;
+  }
 
   // ───────── 셰프 ─────────
   function buildChef(color) {
@@ -350,6 +380,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0 };
   }
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
+  let curOrder = null;
   const chefs = new Map();
   function syncChef(c, dt, seen) {
     let v = chefs.get(c.id);
@@ -372,7 +403,12 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     if (held !== v.held) {
       v.held = held; v.carry.clear();
       const kind = held.replace(/^\w+:/, '');
-      if (foods[kind]) v.carry.add(food(kind, lookOf(held)));
+      if (held.startsWith('plate:')) { v.plateOrder = null; }       // 접시는 아래에서 주문 상태에 맞춰 그림
+      else if (foods[kind]) v.carry.add(food(kind, lookOf(held)));
+    }
+    if (held.startsWith('plate:')) {
+      const ok = curOrder ? curOrder.items.join('+') : '';
+      if (v.plateOrder !== ok) { v.plateOrder = ok; v.carry.clear(); const c = held.slice(6).split('+').filter(Boolean); const done = !!curOrder && c.length === curOrder.items.length && curOrder.items.every(i => c.includes(i)); const pm = plateModel(c, done, curOrder && curOrder.emoji); pm.scale.setScalar(0.8); pm.position.y = -0.05; v.carry.add(pm); }
     }
     const carrying = !!held;
     const chop = Math.max(0, 1 - (lastT - (v.chopT || -1e9)) / 160), cu = Math.sin(chop * Math.PI);   // 칼질 팔 동작
@@ -390,12 +426,13 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
   }
 
   // ───────── 한 프레임 그리기 ─────────
-  let lastT = 0, trayKey = null, storageKey = null;
+  let lastT = 0, storageKey = null;
   const perf = { fps: 0, frames: 0, acc: 0, slow: 0, samples: 0 };
   function render(state, t) {
     const raw = lastT ? (t - lastT) / 1000 : 0.016, dt = Math.min(0.1, raw);
     lastT = t;
     resize();
+    curOrder = state.order || null;
     const seen = new Set();
     for (const c of state.chefs) syncChef(c, dt, seen);
     for (const [id, v] of chefs) if (!seen.has(id)) { scene.remove(v.root); chefs.delete(id); }
@@ -409,18 +446,6 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
       focusRing.material.opacity = 0.45 + Math.sin(t / 160) * 0.15;
       if (eMark) eMark.position.set(wx(f.x + 0.5), TOP + 0.95, wz(f.y + 0.5));
     }
-    // 접시에 담긴 재료: 게임 상태(tray)를 그대로 따라감
-    const key = Object.keys(state.tray || {}).filter(k => state.tray[k]).sort().join(',');
-    if (plateSpot && key !== trayKey) {
-      trayKey = key; plateSpot.clear();
-      const list = key ? key.split(',') : [];
-      list.forEach((kind, i) => {
-        if (!foods[kind]) return;
-        const m = food(kind, 'ready'); m.scale.multiplyScalar(0.85);
-        m.position.set(list.length > 1 ? (i - (list.length - 1) / 2) * 0.3 : 0, 0, 0);
-        plateSpot.add(m);
-      });
-    }
     // 보관대 위 재료: 게임 상태(storage)를 그대로 따라감
     const sKey = (state.storage || []).map(r => r.id).join(',');
     if (sKey !== storageKey) {
@@ -433,12 +458,16 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     // 도마: 올려둔 재료, 게이지, 상태 글자, 칼질 동작 — 게임 상태(boards)를 그대로 따라감
     const active = new Map((state.boards || []).map(b => [b.x + ',' + b.y, b]));
     for (const [k, v] of boards) {
-      const b = active.get(k), key = b ? (b.type === 'sink' ? 'plates' + b.dirty + '/' + b.clean : b.kind + (b.look === 'ready' ? ':r' : b.look === 'burnt' ? ':b' : '')) : '';
+      const b = active.get(k), key = b ? (b.type === 'sink' ? 'dirty' + b.dirty : b.type === 'rack' ? 'clean' + b.clean : b.type === 'plate' ? 'P:' + b.contents.join('+') + (b.complete ? ':done' : '') : b.kind + (b.look === 'ready' ? ':r' : b.look === 'burnt' ? ':b' : '')) : '';
       if (key !== v.key) {
         v.key = key; v.spot.clear();
         if (b && b.type === 'sink') {       // 더러운 접시 더미(왼쪽)와 깨끗한 접시 더미(오른쪽)
-          for (let i = 0; i < Math.min(4, b.dirty); i++) { const pm = new THREE.Mesh(cyl(0.17, 0.12, 0.03, 16), mat(0xb9a78a, 0.8)); pm.position.set(-0.2, i * 0.035, 0); v.spot.add(pm); }
-          for (let i = 0; i < Math.min(4, b.clean); i++) { const pm = new THREE.Mesh(cyl(0.17, 0.12, 0.03, 16), M.white); pm.position.set(0.2, i * 0.035, 0); v.spot.add(pm); }
+          for (let i = 0; i < Math.min(5, b.dirty); i++) { const pm = new THREE.Mesh(cyl(0.2, 0.14, 0.03, 16), mat(0xb9a78a, 0.8)); pm.position.set(0, i * 0.04, 0); v.spot.add(pm); }
+        } else if (b && b.type === 'rack') {       // 깨끗한 접시 더미
+          for (let i = 0; i < Math.min(6, b.clean); i++) { const pm = new THREE.Mesh(cyl(0.32, 0.22, 0.035, 20), M.white); pm.position.y = 0.02 + i * 0.045; pm.castShadow = true; v.spot.add(pm); }
+        } else if (b && b.type === 'plate') {      // 플레이팅대의 접시: 올린 재료가 그대로 보임
+          v.spot.add(plateModel(b.contents, b.complete, b.emoji));
+          v.pop = t;
         } else if (b && foods[b.kind]) { const fm2 = food(b.kind, b.look === 'raw' ? '' : b.look); if (v.mini) fm2.scale.setScalar(v.mini); v.spot.add(fm2); }
       }
       const count = b ? b.count : 0;
@@ -461,7 +490,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
           pm.material.color.setHex(smoky ? 0x4a4458 : 0xffffff);
         }
       }
-      v.bar.visible = !!b && !(b.type === 'sink' && b.state !== 'working');
+      v.bar.visible = !!b && !(b.type === 'sink' && b.state !== 'working') && b.type !== 'plate' && b.type !== 'rack';
+      if (v.type === 'plate') { const pk = Math.max(0, 1 - (t - (v.pop || -1e9)) / 220); v.spot.scale.setScalar(1 + Math.sin(pk * Math.PI) * 0.18); const d = v.spot.children[0]; if (d && d.userData.sprite) d.userData.sprite.position.y = 0.62 + Math.sin(t / 260) * 0.05; }   // 놓일 때 통 튀는 동작, 완성 그림은 둥실
       if (b) {
         v.bar.quaternion.copy(camera.quaternion);
         v.fill.scale.x = Math.max(0.02, b.progress); v.fill.position.x = -0.7 * (1 - Math.max(0.02, b.progress));
@@ -474,9 +504,17 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
         if (text) { v.label = textSprite(text, '#fffdf5', '#3b3558', 0.56, 384); v.label.position.set(v.g.position.x, TOP + 1.8, v.g.position.z); scene.add(v.label); }
       }
     }
+    // 점수 팝업 (+100)
+    for (const pu of state.popups || []) {
+      let sp = popMap.get(pu);
+      if (!sp) { sp = textSprite(pu.text, '#ffd66b', '#3b3558', 0.75); scene.add(sp); popMap.set(pu, sp); }
+      const k = Math.min(1, (t - pu.t) / 1400);
+      sp.position.set(wx(pu.x), TOP + 0.8 + k * 1.4, wz(pu.y)); sp.material.opacity = 1 - k * k;
+    }
+    for (const [pu, sp] of popMap) if (!(state.popups || []).includes(pu)) { scene.remove(sp); sp.material.map.dispose(); sp.material.dispose(); popMap.delete(pu); }
     for (const fobj of state.fx || []) {
       let m = fxMap.get(fobj);
-      if (!m) { const kind = fobj.held.replace(/^\w+:/, ''); m = food(kind, lookOf(fobj.held)); scene.add(m); fxMap.set(fobj, m); }
+      if (!m) { const kind = fobj.held.replace(/^\w+:/, ''); m = fobj.held.startsWith('plate:') ? plateModel(fobj.held.slice(6).split('+').filter(Boolean), false) : food(kind, lookOf(fobj.held)); scene.add(m); fxMap.set(fobj, m); }
       const k = Math.min(1, (t - fobj.t) / 300);
       m.position.set(wx(fobj.x0 + (fobj.x1 - fobj.x0) * k), 0.8 + Math.sin(k * Math.PI) * 0.7 + (TOP - 0.8) * k, wz(fobj.y0 + (fobj.y1 - fobj.y0) * k));
       m.scale.setScalar(1 - k * 0.4); m.visible = k < 1;
@@ -505,5 +543,5 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
     }
   }
 
-  return { render, perf, renderer, get quality() { return quality; }, get trayKey() { return trayKey; }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
+  return { render, perf, renderer, get quality() { return quality; }, get plateKeys() { return [...boards.values()].filter(v => v.type === 'plate' && v.key).map(v => v.key); }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
 }

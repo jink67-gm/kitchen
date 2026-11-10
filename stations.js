@@ -58,7 +58,7 @@ export const COOK_TIMES = { meat: { cook: 6000, grace: 4000 }, bread: { cook: 50
 export const COOK_DEFAULT = { cook: 6000, grace: 4000 };
 export const MIX_PRESSES = 6;                    // 믹서 젓기 횟수
 export const WASH_PRESSES = 5;                   // 설거지 문지르기 횟수
-export const TEST_DIRTY_PLATES = 2;              // 4단계 검증용 더러운 접시 수 (5단계에서 실제 접시 순환으로 교체)
+export const PLATES_START = 3;                   // 판을 시작할 때 접시대에 있는 깨끗한 접시 수
 
 // 수학 정답 → 굽기 시작. 이후 상태는 시각만으로 계산하므로 아무도 "익었다/탔다"를 따로 기록하지 않음 (중복 확정 없음)
 export function cookStart(s, owner, now, times) {
@@ -98,7 +98,7 @@ export function washFinish(s) {
   if (!s || s.item || s.state !== 'ready') return null;
   return { next: null };
 }
-export const defaultPlates = () => ({ dirty: TEST_DIRTY_PLATES, clean: 0 });
+export const defaultPlates = () => ({ dirty: 0, clean: PLATES_START });
 export function plateWashed(pl) {
   pl = pl || defaultPlates();
   if (!(pl.dirty > 0)) return null;

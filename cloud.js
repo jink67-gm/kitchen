@@ -1,6 +1,7 @@
 import { firebaseConfig } from './firebase-config.js';
 import { storePut, storeTake, applyPenalty } from './items.js';
 import { plateWashed } from './stations.js';
+import { serveGroup } from './plates.js';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -160,6 +161,17 @@ export class CloudRoom{
       return out?out.next:undefined;
     });
     return res.committed?out:null;
+  }
+  // ── 5단계: 접시 수 변경과 접시 서빙 (규칙은 plates.js) ──
+  async platesOp(fn){
+    let ok=false;
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','plates'),old=>{const n=fn(old||null);ok=Boolean(n);return n||undefined});
+    return Boolean(res.committed&&ok);
+  }
+  async servePlate(side,contents,allRecipes){
+    let ok=false;
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{const n=serveGroup(old,contents,allRecipes);ok=Boolean(n);return n||undefined});
+    return Boolean(res.committed&&ok);
   }
   async plateWashed(){
     let ok=false;

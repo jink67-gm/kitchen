@@ -1,5 +1,6 @@
 import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
 import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
+import { newPlate, isPlate, contentsOf, plateComplete, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift, serveGroup, SERVE_SCORE } from './plates.js';
 import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
@@ -18,7 +19,7 @@ const RECIPES=[
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
 const LAYOUT=[
  '##################',
- '#==LT=KK=PP=HB=S=#',
+ '#==LT=KK=PPAHB=S=#',
  '#=..............=#',
  '#M..............I#',
  '#=..............=#',
@@ -30,7 +31,7 @@ const LAYOUT=[
  '#..=OO==VV==ZZ=..#',
  '##################'
 ];
-const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'],P:['plate','플레이팅대'],O:['cook','화덕'],V:['serve','서빙 벨'],Z:['mix','믹서'],R:['storage','보관대'],X:['trash','쓰레기통'],
+const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'],P:['plate','플레이팅대'],O:['cook','화덕'],V:['serve','서빙 벨'],Z:['mix','믹서'],A:['rack','접시대'],R:['storage','보관대'],X:['trash','쓰레기통'],
  L:['bin','양상추 상자','lettuce'],T:['bin','토마토 상자','tomato'],H:['bin','치즈 상자','cheese'],B:['bin','빵 상자','bread'],M:['bin','고기 상자','meat'],F:['bin','밀가루 상자','flour'],Y:['bin','딸기 상자','berry'],I:['bin','우유 상자','milk'],D:['bin','반죽 상자','dough']};
 const STATIONS=[];
 LAYOUT.forEach((row,y)=>[...row].forEach((ch,x)=>{const k=KIND[ch];if(k)STATIONS.push({x,y,type:k[0],label:k[1],...(k[2]?{food:k[2]}:{})})}));
@@ -40,7 +41,7 @@ let mode='demo',cloud=null,meta=null,players={},members={},allTeams={},teamData=
 let p={x:7,y:7,dir:'down',held:'',item:null,seat:0,name:'꼬마셰프',updatedAt:0};
 // 들고 있는 재료는 p.item(객체)이 기준. p.held(문자열)는 화면·온라인 동기화용으로 여기서만 만들어집니다.
 function setHeld(item){p.item=item?{...item,loc:'held'}:null;p.held=heldString(p.item)}
-let pickerOpen=false,fx=[];
+let pickerOpen=false,fx=[],popups=[];
 const getStorage=()=>teamData?.storage||{};
 // ── 도마 상태 (3단계). 규칙은 stations.js, 여기서는 저장 위치(혼자 체험=메모리, 온라인=Firebase 트랜잭션)만 고릅니다 ──
 const srvNow=()=>Date.now()+(cloud?.serverOffset||0);
@@ -180,7 +181,7 @@ function playerColor(n){return COLOR[n%COLOR.length]}
 function resetLocal(kind="coop"){
  mode='demo';cloud=null;myUid='demo';seat=0;team=0;members={demo:{name:p.name,seat:0,team:'0'},bot1:{name:'도우미1',seat:1,team:'0'},bot2:{name:'도우미2',seat:2,team:'0'},bot3:{name:'도우미3',seat:3,team:'0'}};currentMode=kind;
  meta={phase:'playing',mode:kind,unit,startedAt:Date.now(),duration:180,sizes:[4],count:4};
- teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates()};cookSeen={};fx=[];closePicker();
+ teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates()};cookSeen={};popups=[];fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=180;nowTime=180;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
  setRoomStatus();setText('modeLabel',kind==='duel'?'⚔️ 봇 대결 체험':'🤝 연습용 협동');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
@@ -190,15 +191,16 @@ function setModeUI(){let nm={coop:'🤝 협동 주방',duel:'⚔️ 2대2 배틀
 function updateUI(){
  if(!roundStarted)return;
  let side=getSide(),grp=getGroup(side),rec=order(side);
+ const plated=platedKinds();
  setText('orderEmoji',rec.emoji);setText('orderTitle',rec.title);setText('orderDesc',rec.desc);setText('orderCount','ORDER '+String(grp.orderIndex+1).padStart(2,'0'));
- $('orderIngredients').replaceChildren(...rec.items.map(k=>{let e=document.createElement('div');e.className='ingredient-chip'+(grp.tray?.[k]?' done':'');e.innerHTML='<span>'+FOOD[k].emoji+'</span><div>'+FOOD[k].name+'<small style="display:block;color:#afc6d5">'+(grp.tray?.[k]?'✅ 준비 완료':'손질 후 담기')+'</small></div>';return e}));
+ $('orderIngredients').replaceChildren(...rec.items.map(k=>{let e=document.createElement('div');e.className='ingredient-chip'+(plated.has(k)?' done':'');e.innerHTML='<span>'+FOOD[k].emoji+'</span><div>'+FOOD[k].name+'<small style="display:block;color:#afc6d5">'+(plated.has(k)?'✅ 접시에 담김':'준비해서 접시에 담기')+'</small></div>';return e}));
  let roster=mode==='demo'?[{id:'demo',...p},...bots.map((b,i)=>({id:'bot'+i,...b}))]:Object.entries(players||{}).map(([id,v])=>({id,...v})).sort((a,b)=>a.seat-b.seat);
  $('playerRoster').replaceChildren(...roster.map(v=>{const e=document.createElement('div');e.className='roster-item';let side=currentMode==='duel'?(v.seat%4<2?'A팀':'B팀'):(v.id===myUid?'나':'팀원');e.innerHTML='<span class="roster-avatar" style="background:'+playerColor(v.seat)+'">🍳</span><span class="roster-name"></span><span class="roster-team">'+side+'</span>';e.querySelector('.roster-name').textContent=v.name+(v.id===myUid?' ✨':'');return e}));
  setText('scoreLabel',grp.score||0);setText('scoreDetail',`완성 요리 ${grp.served||0}개 · 수학 정답 ${grp.correct||0}개`);
  if(currentMode==='duel'){let a=getGroup('A'),b=getGroup('B');$('teamRanking').innerHTML=`<div class="ranking-item">🌸 A팀 <b>${a.score||0}점</b></div><div class="ranking-item">🌊 B팀 <b>${b.score||0}점</b></div>`}
  else if(meta?.sizes?.length>1){let ranking=Object.entries(allTeams).map(([id,v])=>{let d=v?.data?.groups?.ALL||{};let size=meta.sizes[Number(id)]||4;return {id,score:d.score||0,normalized:Math.round((d.score||0)/size*4)}}).sort((a,b)=>b.normalized-a.normalized);$('teamRanking').replaceChildren(...ranking.map(v=>{let e=document.createElement('div');e.className='ranking-item';e.textContent=`${Number(v.id)+1}팀 · 보정 ${v.normalized}점`;return e}));}
  else $('teamRanking').textContent='함께 만들면 점수가 올라가요!';
- const hi=p.item;setText('heldLabel',hi?`✋ ${FOOD[hi.kind].emoji} ${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`:'✋ 빈손');
+ const hi=p.item;setText('heldLabel',!hi?'✋ 빈손':isPlate(hi)?`✋ 🍽️ 접시 · ${contentsOf(hi).length?contentsOf(hi).map(k=>FOOD[k].emoji).join('')+(plateComplete(contentsOf(hi),rec)?' 완성!':' 미완성'):'비어 있음'}`:`✋ ${FOOD[hi.kind].emoji} ${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`);
  let station=nearestStation();
  let h=station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',h);setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
  setModeUI();
@@ -209,7 +211,7 @@ function getStationHint(st){
  if(st.type==='trash')return `🗑️ 쓰레기통: 손질한 재료를 E로 버리기 (-${TRASH_PENALTY}점)`;
  if(st.type==='cut'){const b=boardOf(st);if(!b)return '🔪 도마: 손질할 재료를 들고 E';if(b.state==='ready')return '🔪 도마: 완성! 빈손으로 E를 눌러 집기';if(isStale(b,srvNow()))return '🔪 도마: 주인 없는 재료예요. 빈손으로 E를 눌러 회수';if(b.owner===myUid)return b.state==='working'?`🔪 도마: E나 Space를 연타! (${b.progress}/${b.need})`:'🔪 도마: E를 눌러 수학 문제 풀기';return `🔪 도마: ${b.name||'친구'}님이 사용 중`}if(st.type==='cook'){const b=boardOf(st);if(!b)return '🔥 화덕: 구울 재료를 들고 E. 올려두고 다른 일을 해도 돼요';const ph=cookPhase(b,srvNow());return ph==='cooking'?'🔥 화덕: 굽는 중. 다 익으면 꺼내요':ph==='burnt'?'🔥 화덕: 타 버렸어요. 빈손으로 꺼내서 쓰레기통에 버려요':ph==='reserved'?'🔥 화덕: 수학 문제를 풀면 굽기 시작':'🔥 화덕: 다 익었어요! 빈손으로 E를 눌러 꺼내기'}
  if(st.type==='mix')return boardOf(st)?'🥣 믹서: 사용 중 (E나 Space로 젓기 / 완성되면 빈손으로 집기)':'🥣 믹서: 섞을 재료를 들고 E';
- if(st.type==='sink')return '🚰 싱크대: 빈손으로 E를 눌러 더러운 접시 씻기';if(st.type==='plate')return '🍽️ 플레이팅대: 완성 재료를 들고 E';if(st.type==='serve')return '🔔 서빙대: 재료가 다 모이면 E';return '중앙 조리대';}
+ if(st.type==='sink')return '🚰 싱크대: 빈손으로 E를 눌러 더러운 접시 씻기';if(st.type==='plate')return boardOf(st)?'🍽️ 플레이팅대: 준비된 재료를 E로 하나씩 올려요. 빈손이면 접시를 들어요':'🍽️ 플레이팅대: 먼저 접시대에서 접시를 가져와 놓아요';if(st.type==='serve')return '🔔 서빙 벨: 완성한 접시를 직접 들고 와서 E';if(st.type==='rack')return '🍽️ 접시대: 빈손으로 E를 눌러 깨끗한 접시 꺼내기';return '중앙 조리대';}
 function nearestStation(){let best=null,dist=1.55;for(let s of STATIONS){if(PASSIVE.has(s.type))continue;let d=Math.hypot((s.x+.5)-p.x,(s.y+.5)-p.y);if(d<dist){dist=d;best=s}}return best}
 function walkable(x,y){if(x<1.1||x>W-1.1||y<1.1||y>H-1.1)return false;const radius=.29;for(let sx of [-radius,radius])for(let sy of [-radius,radius])if(blocked.has(Math.floor(x+sx)+','+Math.floor(y+sy)))return false;return true}
 function tryMove(dx,dy){let speed=0.115;let nx=p.x+dx*speed,ny=p.y+dy*speed;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.updatedAt=Date.now();}
@@ -218,6 +220,7 @@ async function interact(){
  if(!roundStarted||ended||activeQuestion||pending||pickerOpen)return;
  const st=nearestStation();if(!st){toast('조리대나 재료 상자 가까이 가보세요!');return}
  let held=p.held;
+ if(isPlate(p.item)&&!['plate','serve','rack','trash'].includes(st.type)){toast('접시는 🍽️ 플레이팅대에 놓거나 🔔 서빙 벨로 가져가요.');sound('error');return}
  if(st.type==='bin'){
   if(p.item){
    const r=checkReturn(p.item,st),nm=FOOD[p.item.kind].name;
@@ -231,26 +234,69 @@ async function interact(){
  if(st.type==='sink')return useSink(st);
  if(st.type==='storage')return useStorage(st);
  if(st.type==='trash')return useTrash(st);
- if(st.type==='plate'){
-  if(held.startsWith('burnt:')){toast('탄 재료는 접시에 담을 수 없어요. 🗑️ 쓰레기통에 버려요.');sound('error');return}
-  if(!held||!held.startsWith('ready:')){toast('손질이나 조리를 마친 재료를 가져오세요!');return}
-  let item=held.slice(6),rec=order();if(!rec.items.includes(item)){toast('이번 주문에 필요한 재료가 아니에요!');sound('error');return}
-  if(getGroup().tray?.[item]){toast('이 재료는 이미 접시에 담았어요!');return}
-  pending=true;
-  try{
-    let accepted=await deposit(item,rec);
-    if(accepted){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);celebrate(st.x+.5,st.y+.5,5);toast('🍽️ '+FOOD[item].name+' 접시 준비 완료!');sound('success');}
-    else toast('다른 친구가 먼저 접시에 담았어요!');
-  }catch(e){toast('접시 동기화에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
-  return;
- }
- if(st.type==='serve'){
-  let rec=order(),gr=getGroup();if(!rec.items.every(i=>gr.tray?.[i])){toast('재료가 아직 모두 모이지 않았어요!');sound('error');return}
-  pending=true;
-  try{if(await serve(rec)){celebrate(st.x+.5,st.y+.5,25);toast('🎉 '+rec.title+' 완성! +100점');sound('success')}else toast('서빙 주문이 갱신되었어요!')}
-  catch(e){toast('서빙에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
-  return;
- }
+ if(st.type==='rack')return useRack(st);
+ if(st.type==='plate')return usePlateTable(st);
+ if(st.type==='serve')return useServe(st);
+}
+// ── 5단계: 실제 접시 ──
+// 접시대: 깨끗한 접시를 한 장 꺼내거나, 빈 접시를 돌려놓음
+async function platesOp(fn){
+ if(mode!=='demo')return cloud.platesOp(fn);
+ const n=fn(teamData.plates||null);if(!n)return false;teamData.plates=n;return true;
+}
+async function useRack(st){
+ const it=p.item;
+ if(it&&!isPlate(it)){toast('접시대에는 접시만 둘 수 있어요.');sound('error');return}
+ if(it&&contentsOf(it).length){toast('재료가 담긴 접시는 접시대에 못 둬요. 플레이팅대에 놓아요.');sound('error');return}
+ pending=true;
+ try{
+  if(it){if(await platesOp(rackReturn)){flyFx('plate:',p,st);setHeld(null);await updatePlayer(true);toast('접시를 접시대에 돌려놓았어요.');sound('pickup')}}
+  else if(await platesOp(rackTake)){setHeld(newPlate(myUid));await updatePlayer(true);toast('🍽️ 깨끗한 접시를 들었어요. 플레이팅대에 놓아요!');sound('pickup')}
+  else{toast(getPlates().dirty>0?'깨끗한 접시가 없어요. 🚰 싱크대에서 설거지해요!':'접시가 모두 사용 중이에요.');sound('error')}
+ }catch(e){toast('접시대 사용에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+}
+// 플레이팅대: 접시 놓기 → 준비된 재료를 하나씩 올리기 → 접시 들기
+async function usePlateTable(st){
+ const b=boardOf(st),it=p.item,rec=order();
+ pending=true;
+ try{
+  if(isPlate(it)){
+   if(b){toast('이미 접시가 놓여 있어요. 다른 플레이팅대를 써요.');sound('error');return}
+   const r=await stationOp(st,s=>tablePut(s,it,srvNow()));
+   if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);sound('pickup')}else toast('다른 친구가 먼저 접시를 놓았어요!');
+   return;
+  }
+  if(!it){
+   if(!b){toast('먼저 접시대에서 접시를 가져와 놓아요!');return}
+   const r=await stationOp(st,s=>tableLift(s));
+   if(r){setHeld(r.item);await updatePlayer(true);sound('pickup');toast(plateComplete(contentsOf(r.item),rec)?'✨ 완성 접시! 🔔 서빙 벨로 가져가요.':'접시를 들었어요.')}else toast('다른 친구가 먼저 들었어요!');
+   return;
+  }
+  const chk=tableAddCheck(b,it,rec),nm=FOOD[it.kind].name;
+  if(!chk.ok){toast({noPlate:'먼저 접시대에서 접시를 가져와 놓아요!',notPrepared:'손질이나 조리를 마친 재료만 담을 수 있어요.',burnt:'탄 재료는 접시에 담을 수 없어요. 🗑️ 쓰레기통에 버려요.',notNeeded:'이번 주문에 필요한 재료가 아니에요!',duplicate:`${nm}은(는) 이미 접시에 있어요!`}[chk.reason]);sound('error');return}
+  const r=await stationOp(st,s=>tableAdd(s,it,order(),srvNow()));
+  if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);
+   if(plateComplete(contentsOf(r.next.plate),rec)){celebrate(st.x+.5,st.y+.5,18);toast('✨ '+rec.title+' 완성! 접시를 들고 🔔 서빙 벨로 가요.');sound('success')}
+   else{celebrate(st.x+.5,st.y+.5,4);toast('🍽️ '+nm+' 담기 완료! 남은 재료: '+missingOf(contentsOf(r.next.plate),rec).map(k=>FOOD[k].name).join(', '));sound('pickup')}}
+  else toast('다른 친구가 먼저 담았어요!');
+ }catch(e){toast('플레이팅에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+}
+// 서빙 벨: 완성 접시를 직접 들고 와야만 점수. 서빙한 접시는 더러운 접시가 되어 싱크대로 감
+function bellSound(){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();for(const [f,d] of [[1318,0],[1760,.09]]){const o=audio.createOscillator(),gn=audio.createGain(),tm=audio.currentTime+d;o.type='sine';o.frequency.setValueAtTime(f,tm);gn.gain.setValueAtTime(.09,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+.5);o.connect(gn).connect(audio.destination);o.start(tm);o.stop(tm+.52)}}catch{}}
+async function useServe(st){
+ const it=p.item,rec=order();
+ if(!isPlate(it)){toast('완성한 접시를 직접 들고 와야 서빙할 수 있어요!');sound('error');return}
+ const c=contentsOf(it);
+ if(!plateComplete(c,rec)){toast(c.length?'아직 완성되지 않은 접시예요. 남은 재료: '+(missingOf(c,rec).map(k=>FOOD[k].name).join(', ')||'주문과 다른 요리예요'):'빈 접시는 서빙할 수 없어요!');sound('error');return}
+ pending=true;
+ try{
+  let ok;
+  if(mode!=='demo')ok=await cloud.servePlate(getSide(),c,RECIPES);
+  else{const n=serveGroup(getGroup(),c,RECIPES);ok=Boolean(n);if(ok)Object.assign(getGroup(),n)}
+  if(ok){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);await platesOp(plateDirtied);
+   celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+SERVE_SCORE,x:st.x+.5,y:st.y+.5,t:performance.now()});bellSound();toast('🎉 '+rec.title+' 서빙 완료! +'+SERVE_SCORE+'점');}
+  else{toast('주문이 바뀌었어요. 주문 카드를 다시 확인해요!');sound('error')}
+ }catch(e){toast('서빙에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
 // ── 보관대: 손질한 재료만 최대 5칸. 꺼낼 때는 목록에서 직접 고름 ──
 async function useStorage(st){
@@ -288,7 +334,14 @@ async function takeFromStorage(id){
 }
 // ── 쓰레기통: 손질한 재료만 버릴 수 있고 -8점 (0점 아래로는 안 내려감) ──
 async function useTrash(st){
- const it=p.item,r=checkTrash(it);
+ const it=p.item;
+ if(isPlate(it)){
+  if(!contentsOf(it).length){toast('빈 접시는 버리지 않아요. 접시대에 돌려놓아요.');return}
+  pending=true;
+  try{flyFx(p.held,p,st);setHeld({...it,contents:[]});await updatePlayer(true);if(mode!=='demo')await cloud.penalize(getSide());else{const gr=getGroup();gr.score=applyPenalty(gr.score)}toast(`🗑️ 접시 위 음식을 버렸어요. -${TRASH_PENALTY}점`);sound('error')}catch(e){toast('버리기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  return;
+ }
+ const r=checkTrash(it);
  if(!r.ok){toast(r.reason==='raw'?`손질 전 재료는 ${FOOD[it.kind].name} 상자에 돌려놓으면 감점이 없어요.`:'버릴 재료가 없어요.');if(it)sound('error');return}
  pending=true;
  try{
@@ -304,12 +357,13 @@ function actionLabel(st){
  if(st.type==='storage')return it?(it.state==='raw'?'✕':'보관'):'꺼내기';
  if(st.type==='trash')return it&&it.state!=='raw'?`버리기 -${TRASH_PENALTY}`:'✕';
  if(st.type==='sink')return it?'✕':getPlates().dirty>0||boardOf(st)?'설거지':'E';
+ if(st.type==='rack')return !it?(getPlates().clean>0?'접시 꺼내기':'✕'):isPlate(it)&&!contentsOf(it).length?'접시 놓기':'✕';
+ if(st.type==='plate'){const b=boardOf(st);if(isPlate(it))return b?'✕':'접시 놓기';if(!it)return b?'접시 들기':'✕';return tableAddCheck(b,it,order()).ok?'담기':'✕'}
+ if(st.type==='serve')return isPlate(it)&&plateComplete(contentsOf(it),order())?'서빙!':'✕';
  if(st.type==='cook'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep==='cook'?'굽기':it?'✕':'E';return 'E'}
  if(st.type==='cut'||st.type==='mix'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep===st.type?(st.type==='mix'?'섞기':'손질'):it?'✕':'E';if(b.state==='ready'||isStale(b,srvNow()))return it?'✕':'집기';return b.owner===myUid?(b.state==='working'?'연타!':'문제 풀기'):'✕'}
  return 'E';
 }
-async function deposit(item,rec){if(mode!=='demo')return cloud.deposit(getSide(),item,rec);let gr=getGroup();if(!rec.items.includes(item)||gr.tray[item])return false;gr.tray[item]=true;return true}
-async function serve(rec){if(mode!=='demo')return cloud.serve(getSide(),rec,RECIPES);let gr=getGroup();if(!rec.items.every(i=>gr.tray[i]))return false;gr.score+=100;gr.served++;gr.orderIndex++;gr.tray={};return true}
 async function mathStat(correct,unitNum){let gr=getGroup();if(mode==='demo'){gr[correct?'correct':'wrong']++;return}await cloud.writeMath(getSide(),correct,unitNum)}
 function shuffle(a){let z=[...a];for(let i=z.length-1;i>0;i--){let j=rnd(0,i);[z[i],z[j]]=[z[j],z[i]]}return z}
 function mkProblem(u){
@@ -379,7 +433,7 @@ function drawStation(st,t){
  else if(st.type==='cut'){fillRounded(x+7,y+7,34,16,3,'#d3b480');drawEmoji('🔪',cx+3,y+15,22)}
  else if(st.type==='cook'){fillRounded(x+6,y+4,35,25,6,'#283443');fillRounded(x+13,y+9,22,15,7,'#ea6a48');drawEmoji('🔥',cx,y+14,22);if(Math.sin(t/300+st.x)>0){glow(cx,y+17,38,'#ff7d4a44')}}
  else if(st.type==='mix'){fillRounded(x+7,y+6,33,19,4,'#457185');drawEmoji('🥣',cx,y+16,26)}
- else if(st.type==='plate'){fillRounded(x+6,y+6,35,18,4,'#ddd8c5');drawEmoji('🍽️',cx,y+15,24)}
+ else if(st.type==='plate'){fillRounded(x+6,y+6,35,18,4,'#ddd8c5')}
  else if(st.type==='serve'){fillRounded(x+6,y+6,35,19,4,'#ece2bc');drawEmoji('🔔',cx,y+14,23)}
  else {const em={sink:'🚰',trash:'🗑️',storage:'🗄️'}[st.type];if(em)drawEmoji(em,cx,y+14,22);if(st.type==='storage'){g.font='800 10px Nunito,sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(storageList(getStorage()).length+'/'+STORAGE_MAX,cx,y+32)}}
  if(st.type==='counter')return;
@@ -395,7 +449,7 @@ function drawChef(ch,isMine,t){
  fillRounded(x-13,y-31+bounce,26,16,8,'#f4f8ff');
  for(let i=-1;i<=1;i++){g.fillStyle='#fff';g.beginPath();g.arc(x+i*8,y-27+bounce,8,0,Math.PI*2);g.fill()}
  fillRounded(x-13,y-19+bounce,26,6,2,'#d7eaf2');
- if(ch.held){let it=ch.held.replace(/^\w+:/,'');if(FOOD[it]){fillRounded(x+4,y-40,30,28,9,ch.held.startsWith('ready:')?'#2d8d70':'#fff8e4');drawEmoji(FOOD[it].emoji,x+19,y-26,19)}}
+ if(ch.held&&ch.held.startsWith('plate:')){fillRounded(x+4,y-40,30,28,9,'#fff8e4');drawEmoji('🍽️',x+19,y-26,19);ch.held.slice(6).split('+').filter(k=>FOOD[k]).forEach((k,i)=>drawEmoji(FOOD[k].emoji,x+12+i*13,y-44,12))}else if(ch.held){let it=ch.held.replace(/^\w+:/,'');if(FOOD[it]){fillRounded(x+4,y-40,30,28,9,ch.held.startsWith('ready:')?'#2d8d70':'#fff8e4');drawEmoji(FOOD[it].emoji,x+19,y-26,19)}}
  if(isMine){g.strokeStyle='#ffd775';g.lineWidth=3;g.beginPath();g.ellipse(x,y+12,20,10,0,0,Math.PI*2);g.stroke()}
  let nm=String(ch.name||'셰프').slice(0,8);g.font='800 11px Nunito,"Noto Sans KR",sans-serif';let width=Math.max(52,g.measureText(nm).width+14);fillRounded(x-width/2,y-53+bounce,width,18,8,isMine?'#4c785d':'#293d53');g.fillStyle='#fff';g.textAlign='center';g.fillText(nm,x,y-40+bounce);
 }
@@ -405,24 +459,28 @@ function drawGame(t){
    const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch}));
    if(roundStarted)chefs.push({id:'me',...p,mine:true});
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
-   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,tray:roundStarted?getGroup().tray:{},particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
+   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
    return;
   }catch(e){console.warn('3D 오류 → 2D로 전환',e);set3D(false);toast('3D 화면에 문제가 생겨 2D로 바꿨어요.')}
  }
  drawFloor();let focus=nearestStation();
  for(let st of STATIONS){drawStation(st,t);if(focus===st&&roundStarted&&!activeQuestion){let [x,y]=canvasPos(st.x+.5,st.y+.1);g.strokeStyle='#ffdf94';g.lineWidth=3;g.strokeRect(x-24,y-6,47,43);drawEmoji('E',x+21,y-8,12)}}
- for(const b of boardViews()){let [bx,by]=canvasPos(b.x,b.y);if(b.kind)drawEmoji(b.look==='burnt'?'⚫':FOOD[b.kind].emoji,bx+14,by+15,b.ready?20:16);if(b.ready)drawEmoji('✨',bx+34,by+8,11);fillRounded(bx+4,by-9,40,6,3,'#1d2a3d');fillRounded(bx+4,by-9,Math.max(3,40*b.progress),6,3,b.state==='warning'?'#ff6b57':b.state==='burnt'?'#555':b.ready?'#61e4a0':b.state==='stale'?'#9aa7b8':'#ffd166');g.font='800 9px Nunito,"Noto Sans KR",sans-serif';g.textAlign='center';g.fillStyle='#fff';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(b.label,bx+24,by-13);g.shadowBlur=0}
+ for(const b of boardViews()){let [bx,by]=canvasPos(b.x,b.y);if(b.type==='plate'){drawEmoji(b.complete?b.emoji:'⚪',bx+24,by+14,b.complete?24:22);if(!b.complete)b.contents.forEach((k,i)=>drawEmoji(FOOD[k].emoji,bx+15+i*16,by+14,14))}if(b.type==='rack')drawEmoji('🍽️',bx+24,by+14,20);if(b.kind)drawEmoji(b.look==='burnt'?'⚫':FOOD[b.kind].emoji,bx+14,by+15,b.ready?20:16);if(b.ready)drawEmoji('✨',bx+34,by+8,11);if(b.type!=='plate'&&b.type!=='rack'&&!(b.type==='sink'&&b.state!=='working')){fillRounded(bx+4,by-9,40,6,3,'#1d2a3d');fillRounded(bx+4,by-9,Math.max(3,40*b.progress),6,3,b.state==='warning'?'#ff6b57':b.state==='burnt'?'#555':b.ready?'#61e4a0':b.state==='stale'?'#9aa7b8':'#ffd166')}g.font='800 9px Nunito,"Noto Sans KR",sans-serif';g.textAlign='center';g.fillStyle='#fff';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(b.label,bx+24,by-13);g.shadowBlur=0}
  if(mode==='demo'){for(let b of bots)drawChef(b,false,t)}else{let list=Object.entries(players).sort((a,b)=>a[1].y-b[1].y);for(let [id,ch] of list){if(id===myUid)continue;drawChef(ch,false,t)}}
  if(roundStarted)drawChef(p,true,t);
  for(let pt of particles){g.globalAlpha=pt.life;g.fillStyle=pt.color;g.beginPath();g.arc(pt.x,pt.y,4*pt.life+1,0,Math.PI*2);g.fill();g.globalAlpha=1}
  if(!roundStarted){g.fillStyle='#101d3699';g.fillRect(OX,OY,W*T,H*T);g.fillStyle='#fce8c6';g.textAlign='center';g.font='900 26px Nunito,"Noto Sans KR"';g.fillText('주방에 오신 것을 환영합니다!',500,315);g.font='700 14px Nunito,"Noto Sans KR"';g.fillText('시작 화면에서 체험하거나 학급방에 입장하세요.',500,350)}
 }
+// 주문 카드에 '담김' 표시를 할 재료: 플레이팅대의 접시들과 내가 든 접시에 올라간 것
+function platedKinds(){const set=new Set();for(const st of STATIONS){if(st.type!=='plate')continue;const b=boardOf(st);if(b)contentsOf(b.plate).forEach(k=>set.add(k))}if(isPlate(p.item))contentsOf(p.item).forEach(k=>set.add(k));return set}
 // 화면에 보여줄 도마 상태 (2D·3D 공용)
 function boardViews(){
  const now=srvNow(),out=[];
  for(const st of STATIONS){
   const b=boardOf(st);
-  if(st.type==='sink'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'sink',kind:null,look:'raw',state:b?b.state:'idle',progress:b?b.progress/b.need:0,count:b?b.progress:0,need:b?b.need:0,owner:b&&b.owner===myUid?'me':b?.owner,dirty:pl.dirty,clean:pl.clean,label:b&&b.state==='working'?`${b.name||'친구'} 설거지 ${b.progress}/${b.need}`:`더러운 접시 ${pl.dirty} · 깨끗한 접시 ${pl.clean}`});continue}
+  if(st.type==='sink'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'sink',kind:null,look:'raw',state:b?b.state:'idle',progress:b?b.progress/b.need:0,count:b?b.progress:0,need:b?b.need:0,owner:b&&b.owner===myUid?'me':b?.owner,dirty:pl.dirty,clean:pl.clean,label:b&&b.state==='working'?`${b.name||'친구'} 설거지 ${b.progress}/${b.need}`:pl.dirty>0?`더러운 접시 ${pl.dirty}장 · E로 설거지`:''});continue}
+  if(st.type==='rack'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'rack',kind:null,look:'raw',state:'idle',progress:0,count:0,need:0,clean:pl.clean,label:pl.clean?'':'깨끗한 접시 없음'});continue}
+  if(st.type==='plate'){if(b&&b.state==='plate'){const c=contentsOf(b.plate),done=plateComplete(c,order());out.push({x:st.x,y:st.y,type:'plate',kind:null,look:'raw',state:done?'complete':'plate',progress:0,count:0,need:0,contents:c,complete:done,emoji:order().emoji,label:done?'✨ 완성! E로 들기':c.length?'남은 재료: '+missingOf(c,order()).map(k=>FOOD[k].name).join(', '):'빈 접시 · 재료를 올려요'})}continue}
   if(!b||!['cut','mix','cook'].includes(st.type))continue;
   const stale=isStale(b,now),who=b.name||'친구';
   if(st.type==='cook'){
@@ -444,8 +502,8 @@ async function init3D(){
  try{const mod=await import('./render3d.js');view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(saved!=='2d');window.__view3d=view3d}
  catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
 }
-window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
-function animate(t){fx=fx.filter(f=>t-f.t<450);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().orderIndex},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
+function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1400);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
  if(roundStarted&&!ended){
   if(!activeQuestion&&!pickerOpen){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
    if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2;let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}

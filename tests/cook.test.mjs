@@ -61,6 +61,6 @@ test('싱크대: 연타 완료 후 마무리하면 더러운 접시 -1, 깨끗�
   s = boardChop(s, 'u1', T0 + 200).next;
   assert.equal(s.state, 'ready'); assert.equal(s.item, null);
   assert.deepEqual(washFinish(s), { next: null });
-  assert.deepEqual(plateWashed(defaultPlates()), { dirty: 1, clean: 1 });
+  assert.deepEqual(plateWashed({ dirty: 2, clean: 0 }), { dirty: 1, clean: 1 });
   assert.equal(plateWashed({ dirty: 0, clean: 2 }), null);
 });

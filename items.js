@@ -18,6 +18,7 @@ export function newItem(kind, owner) {
 // 예전 p.held 문자열('tomato', 'ready:tomato')과의 호환 어댑터. 온라인 위치 동기화와 화면 그리기가 이 문자열을 씁니다.
 export function heldString(item) {
   if (!item) return '';
+  if (item.kind === 'plate') return 'plate:' + (item.contents || []).join('+');   // 접시: 'plate:lettuce+tomato'
   return item.state === 'raw' ? item.kind : (item.state === 'burnt' ? 'burnt:' : 'ready:') + item.kind;
 }
 
