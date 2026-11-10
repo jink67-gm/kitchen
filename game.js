@@ -2,6 +2,7 @@ import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
 import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js';
 import { ordersTick, activeOrders, serveOrder, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
+import * as sfx from './sfx.js';
 import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
@@ -59,8 +60,8 @@ async function stationOp(st,fn){
 let chopNeed=CHOPS_DEFAULT;try{const v=Number(localStorage.getItem('mathcook-chops'));if(CHOP_OPTIONS.includes(v))chopNeed=v}catch{}
 let chopChain=Promise.resolve(),cookSeen={};
 // 화덕 상태가 바뀌는 순간 소리로 알림 (익음 → 경고 → 탐). 상태 자체는 시각으로 계산되므로 여기서는 알리기만 함
-function cookAlerts(){const now=srvNow();for(const st of STATIONS){if(st.type!=='cook')continue;const id=stationId(st),b=boardOf(st),ph=b?cookPhase(b,now):'idle';if(cookSeen[id]!==ph){const prev=cookSeen[id];cookSeen[id]=ph;if(prev===undefined)continue;if(ph==='ready')sound('success');else if(ph==='warning'||ph==='burnt')sound('error')}}}
-function chopSound(){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),gn=audio.createGain(),tm=audio.currentTime;o.type='square';o.frequency.setValueAtTime(240,tm);o.frequency.exponentialRampToValueAtTime(90,tm+.06);gn.gain.setValueAtTime(.07,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+.08);o.connect(gn).connect(audio.destination);o.start(tm);o.stop(tm+.09)}catch{}}
+function cookAlerts(){const now=srvNow();let hot=false;for(const st of STATIONS){if(st.type!=='cook')continue;const id=stationId(st),b=boardOf(st),ph=b?cookPhase(b,now):'idle';if(cookSeen[id]!==ph){const prev=cookSeen[id];cookSeen[id]=ph;if(prev===undefined)continue;if(ph==='ready')sound('cookDone');else if(ph==='warning')sound('warn');else if(ph==='burnt')sound('burnt')}if(ph==='cooking'||ph==='ready'||ph==='warning')hot=true}sfx.setSizzle(hot&&roundStarted&&!ended)}
+function chopSound(kind='chop'){sfx.play(kind)}
 async function useBoard(st){
  const b=boardOf(st),it=p.item,now=srvNow();
  // 내가 연타 중인 도마: 누를 때마다 1회 (키를 꾹 누르는 반복 입력은 keydown에서 이미 걸러짐)
@@ -68,7 +69,7 @@ async function useBoard(st){
   chopChain=chopChain.then(async()=>{
    const r=await stationOp(st,s=>boardChop(s,myUid,srvNow()));
    if(!r)return;
-   chopSound();celebrate(st.x+.5,st.y+.3,r.done?12:2);
+   chopSound(st.type==='mix'?'stir':'chop');celebrate(st.x+.5,st.y+.3,r.done?12:2);
    if(r.done){toast((st.type==='mix'?'🥣 ':'🔪 ')+FOOD[r.next.item.kind].name+' 준비 완료! E로 집어요.');sound('success')}
    updateUI();
   }).catch(e=>console.warn('연타 동기화',e));
@@ -139,7 +140,7 @@ async function useSink(st){
   chopChain=chopChain.then(async()=>{
    const r=await stationOp(st,s=>boardChop(s,myUid,srvNow()));
    if(!r)return;
-   chopSound();celebrate(st.x+.5,st.y+.3,2);
+   chopSound('wash');celebrate(st.x+.5,st.y+.3,2);
    if(r.done)await washedOne(st);else updateUI();
   }).catch(e=>console.warn('설거지 동기화',e));
   return;
@@ -172,7 +173,7 @@ const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const blankGroup=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0,orders:{}});
 const safeName=s=>String(s||'꼬마셰프').trim().slice(0,12)||'꼬마셰프';
 function toast(t){setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
-function sound(type){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();let osc=audio.createOscillator(),gain=audio.createGain(),time=audio.currentTime;osc.type=type==='success'?'triangle':'sine';osc.frequency.setValueAtTime(type==='success'?523:type==='error'?185:390,time);osc.frequency.exponentialRampToValueAtTime(type==='success'?784:type==='error'?125:510,time+.14);gain.gain.setValueAtTime(.08,time);gain.gain.exponentialRampToValueAtTime(.001,time+.21);osc.connect(gain).connect(audio.destination);osc.start(time);osc.stop(time+.22)}catch{}}
+function sound(type){sfx.play(type)}
 function getSide(){if(currentMode!=='duel')return 'ALL';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return (list.findIndex(([uid])=>uid===myUid)<2)?'A':'B'}
 function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 // ── 6단계: 주문 대기열. 규칙은 orders.js, 여기서는 설정값과 저장 위치만 정함 ──
@@ -191,7 +192,7 @@ function orderTick(t){
  if(mode==='demo'){teamData.groups[side]=change;updateUI()}
  else{tickBusy=true;cloud.groupOp(side,old=>ordersTick(old,srvNow(),orderCfg())).catch(e=>console.warn('주문 갱신',e)).finally(()=>{tickBusy=false})}
 }
-function rushSound(){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();for(let i=0;i<3;i++){const o=audio.createOscillator(),gn=audio.createGain(),tm=audio.currentTime+i*.22;o.type='sawtooth';o.frequency.setValueAtTime(660,tm);o.frequency.linearRampToValueAtTime(880,tm+.16);gn.gain.setValueAtTime(.06,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+.2);o.connect(gn).connect(audio.destination);o.start(tm);o.stop(tm+.21)}}catch{}}
+function rushSound(){sfx.play('rush')}
 function setRush(on){if(rushNow===on)return;rushNow=on;$('stageWrap').classList.toggle('rush',on);$('rushLabel').classList.toggle('hidden',!on);if(on){rushSound();toast('🔥 러시타임! 주문이 몰려와요. 발이 빨라졌어요!')}}
 // 왼쪽 위 주문 카드: 주문 목록이 바뀔 때만 다시 만들고, 게이지와 '담김' 표시는 매 프레임 갱신
 function drawOrderCards(){
@@ -254,7 +255,7 @@ async function interact(){
  if(st.type==='bin'){
   if(p.item){
    const r=checkReturn(p.item,st),nm=FOOD[p.item.kind].name;
-   if(r.ok){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);toast('↩️ '+nm+'을(를) 상자에 돌려놓았어요.');sound('pickup');updateUI();return}
+   if(r.ok){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);toast('↩️ '+nm+'을(를) 상자에 돌려놓았어요.');sound('return');updateUI();return}
    toast(r.reason==='wrongBin'?`이 재료는 ${nm} 상자에만 돌려놓을 수 있어요.`:'손질한 재료는 상자에 넣을 수 없어요. 🗄️ 보관대에 두거나 🗑️ 쓰레기통에 버려요.');sound('error');return;
   }
   setHeld(newItem(st.food,myUid));await updatePlayer(true);toast(FOOD[st.food].emoji+' '+FOOD[st.food].name+'을(를) 들었어요!');sound('pickup');updateUI();return;
@@ -293,7 +294,7 @@ async function usePlateTable(st){
   if(isPlate(it)){
    if(b){toast('이미 접시가 놓여 있어요. 다른 플레이팅대를 써요.');sound('error');return}
    const r=await stationOp(st,s=>tablePut(s,it,srvNow()));
-   if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);sound('pickup')}else toast('다른 친구가 먼저 접시를 놓았어요!');
+   if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);sound('plate')}else toast('다른 친구가 먼저 접시를 놓았어요!');
    return;
   }
   if(!it){
@@ -308,12 +309,12 @@ async function usePlateTable(st){
   if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);
    const done=plateMatch(contentsOf(r.next.plate),recs);
    if(done){celebrate(st.x+.5,st.y+.5,18);toast('✨ '+done.title+' 완성! 접시를 들고 🔔 서빙 벨로 가요.');sound('success')}
-   else{celebrate(st.x+.5,st.y+.5,4);toast('🍽️ '+nm+' 담기 완료! 남은 재료: '+missingOf(contentsOf(r.next.plate),recs).map(k=>FOOD[k].name).join(', '));sound('pickup')}}
+   else{celebrate(st.x+.5,st.y+.5,4);toast('🍽️ '+nm+' 담기 완료! 남은 재료: '+missingOf(contentsOf(r.next.plate),recs).map(k=>FOOD[k].name).join(', '));sound('plate')}}
   else toast('다른 친구가 먼저 담았어요!');
  }catch(e){toast('플레이팅에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
 // 서빙 벨: 완성 접시를 직접 들고 와야만 점수. 서빙한 접시는 더러운 접시가 되어 싱크대로 감
-function bellSound(){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();for(const [f,d] of [[1318,0],[1760,.09]]){const o=audio.createOscillator(),gn=audio.createGain(),tm=audio.currentTime+d;o.type='sine';o.frequency.setValueAtTime(f,tm);gn.gain.setValueAtTime(.09,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+.5);o.connect(gn).connect(audio.destination);o.start(tm);o.stop(tm+.52)}}catch{}}
+function bellSound(){sfx.play('serve')}
 async function useServe(st){
  const it=p.item,recs=liveRecipes();
  if(!isPlate(it)){toast('완성한 접시를 직접 들고 와야 서빙할 수 있어요!');sound('error');return}
@@ -326,7 +327,7 @@ async function useServe(st){
   else{out=serveOrder(getGroup(side),c,RECIPES,srvNow());if(out)teamData.groups[side]=out.next}
   if(out){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);await platesOp(plateDirtied);myServed++;
    const title=RECIPES[out.order.recipeId].title,extra=[out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
-   celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+out.gained,x:st.x+.5,y:st.y+.5,t:performance.now()});bellSound();toast(`🎉 ${title} 서빙 완료! +${out.gained}점`+(extra?` (${extra})`:''));}
+   celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+out.gained,x:st.x+.5,y:st.y+.5,t:performance.now()});p.cheer=performance.now();bellSound();if(out.combo>0){popups.push({text:`🔥 콤보 ×${out.combo+1}`,x:st.x+.5,y:st.y-.6,t:performance.now()+250,hot:true});sound('combo')}toast(`🎉 ${title} 서빙 완료! +${out.gained}점`+(extra?` (${extra})`:''));}
   else{toast('주문이 바뀌었어요. 주문 카드를 다시 확인해요!');sound('error')}
  }catch(e){toast('서빙에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
@@ -341,7 +342,7 @@ async function useStorage(st){
   let ok;
   if(mode!=='demo')ok=await cloud.storagePut(it);
   else{const next=storePut(getStorage(),it);ok=Boolean(next);if(ok)teamData.storage=next}
-  if(ok){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);toast('🗄️ '+FOOD[it.kind].name+' 보관 완료!');sound('pickup')}
+  if(ok){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);toast('🗄️ '+FOOD[it.kind].name+' 보관 완료!');sound('store')}
   else{toast('보관대가 꽉 찼어요!');sound('error')}
  }catch(e){toast('보관에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
@@ -370,7 +371,7 @@ async function useTrash(st){
  if(isPlate(it)){
   if(!contentsOf(it).length){toast('빈 접시는 버리지 않아요. 접시대에 돌려놓아요.');return}
   pending=true;
-  try{flyFx(p.held,p,st);setHeld({...it,contents:[]});await updatePlayer(true);if(mode!=='demo')await cloud.penalize(getSide());else{const gr=getGroup();gr.score=applyPenalty(gr.score)}toast(`🗑️ 접시 위 음식을 버렸어요. -${TRASH_PENALTY}점`);sound('error')}catch(e){toast('버리기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  try{flyFx(p.held,p,st);setHeld({...it,contents:[]});await updatePlayer(true);if(mode!=='demo')await cloud.penalize(getSide());else{const gr=getGroup();gr.score=applyPenalty(gr.score)}toast(`🗑️ 접시 위 음식을 버렸어요. -${TRASH_PENALTY}점`);sound('trash')}catch(e){toast('버리기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
   return;
  }
  const r=checkTrash(it);
@@ -379,7 +380,7 @@ async function useTrash(st){
  try{
   flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);
   if(mode!=='demo')await cloud.penalize(getSide());else{const gr=getGroup();gr.score=applyPenalty(gr.score)}
-  toast(`🗑️ ${FOOD[it.kind].name}을(를) 버렸어요. -${TRASH_PENALTY}점`);sound('error');
+  toast(`🗑️ ${FOOD[it.kind].name}을(를) 버렸어요. -${TRASH_PENALTY}점`);sound('trash');
  }catch(e){toast('버리기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
 // 지금 E를 누르면 무슨 일이 일어나는지 (3D 말풍선·힌트에 사용)
@@ -422,7 +423,7 @@ async function answerMath(choice,button){if(!activeQuestion||activeQuestion.solv
  q.solving=true;button.classList.add('correct');setMath('questionFeedback','정답! '+q.pz.explanation+' ✨');sound('success');await mathStat(true,q.pz.unit);
  setTimeout(async()=>{if(activeQuestion!==q)return;document.activeElement?.blur?.();
   if(q.board){activeQuestion=null;hide('questionOverlay');let r,msg;
-   if(q.kind==='cook'){r=await stationOp(q.board,s=>cookStart(s,myUid,srvNow()));msg='🔥 정답! 굽기 시작. 다 익으면 타기 전에 E로 꺼내요!'}
+   if(q.kind==='cook'){r=await stationOp(q.board,s=>cookStart(s,myUid,srvNow()));msg='🔥 정답! 굽기 시작. 다 익으면 타기 전에 E로 꺼내요!';if(r)sound('panStart')}
    else{const n=q.kind==='mix'?Math.min(chopNeed,MIX_PRESSES):chopNeed;r=await stationOp(q.board,s=>boardStart(s,myUid,n,srvNow()));msg=`${q.kind==='mix'?'🥣 정답! 이제 E나 Space를 '+n+'번 눌러 저어요!':'🔪 정답! 이제 E나 Space를 '+n+'번 눌러 손질해요!'}`}
    toast(r?msg:'다시 사용해 주세요.');updateUI();return}
   setHeld(prepare(p.item)||{...newItem(q.food,myUid),state:'prepared'});activeQuestion=null;hide('questionOverlay');await updatePlayer(true);celebrate(p.x,p.y,10);toast(FOOD[q.food].emoji+' 손질 완료! 🍽️ 접시로 가져가요.');updateUI();},700);
@@ -534,8 +535,8 @@ async function init3D(){
  try{const mod=await import('./render3d.js');view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(saved!=='2d');window.__view3d=view3d}
  catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
 }
-window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
-function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1400);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get volume(){return sfx.getVolume()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
+function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
  if(roundStarted&&!ended){
   if(!activeQuestion&&!pickerOpen){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
    if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2*(rushNow?RUSH_SPEED:1);let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}
@@ -553,7 +554,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<140
  if(cloud?.role==='teacher' && cloud.meta?.phase==='playing' && Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))updateTeacherMonitor();
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
-function finishRound(){if(ended)return;ended=true;setRush(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);
+function finishRound(){if(ended)return;ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);
  let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg);show('endOverlay');sound('success');}
 function beginOnline(){
  if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
@@ -624,7 +625,8 @@ function boot(){
  $('copyCodeBtn').onclick=async()=>{try{await navigator.clipboard.writeText(cloud.code);toast('학급방 코드가 복사됐어요!')}catch{toast('방 코드: '+cloud.code)}};
  $('helpBtn').onclick=()=>show('helpOverlay');
  document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>hide(x.dataset.close)));
- $('soundBtn').onclick=()=>{muted=!muted;setText('soundBtn',muted?'🔇':'🔊')};
+ $('soundBtn').onclick=()=>{const i=sfx.VOLUME_STEPS.findIndex(v=>Math.abs(v-sfx.getVolume())<.01);sfx.setVolume(sfx.VOLUME_STEPS[(i+1)%sfx.VOLUME_STEPS.length]);muted=sfx.getVolume()<=0;setText('soundBtn',sfx.volumeIcon());sfx.play('pickup')};
+ setText('soundBtn',sfx.volumeIcon());$('soundBtn').title='소리: 크게 → 작게 → 끔';
  $('interactBtn').onclick=interact;
  $('viewBtn').onclick=()=>set3D(!use3D);init3D();
  $('storageCloseBtn').onclick=closePicker;
@@ -650,7 +652,7 @@ function boot(){
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
 async function goHome(){
- closePicker();setHeld(null);
+ closePicker();setHeld(null);sfx.setSizzle(false);
  if(cloud)await cloud.disconnect();cloud=null;mode='demo';teacher=false;roundStarted=false;ended=false;activeQuestion=null;sentPhase='';keys.clear();hide('endOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('questionOverlay');show('menuOverlay');setRoomStatus();
 }
 boot();
