@@ -77,7 +77,7 @@ function fakeRoom(db) {
   const room = new CloudRoom();
   room.team = 0; room.code = 'T';
   room.path = (...p) => p.join('/');
-  room.ops = { runTransaction: async (path, fn) => { const next = fn(structuredClone(db[path] ?? null)); if (next === undefined) return { committed: false }; if (next === null) delete db[path]; else db[path] = next; return { committed: true }; } };
+  room.ops = { runTransaction: async (path, fn) => { const next = fn(structuredClone(db[path] ?? null)); if (next === undefined) return { committed: false }; if (next === null) delete db[path]; else db[path] = next; return { committed: true, snapshot: { val: () => db[path] ?? null } }; }, update: async (path, v) => { db[path] = { ...(db[path] || {}), ...v }; } };
   return room;
 }
 test('온라인(가짜 DB): 같은 재료를 동시에 올려도 한 명만, 접시도 한 명만 들고, 마지막 접시도 한 명만 꺼냄', async () => {

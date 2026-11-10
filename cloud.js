@@ -46,8 +46,8 @@ export class CloudRoom{
     if(!snap.exists())throw new Error('방을 찾지 못했습니다. 코드를 다시 확인해 주세요.');
     const meta=snap.val();
     if(meta.phase==='ended')throw new Error('종료된 게임방입니다. 새 방을 만들어 주세요.');
-    if(meta.phase==='playing')throw new Error('게임이 이미 진행 중입니다. 다음 게임을 기다려 주세요.');
     const mine=await this.ops.get(this.path('members',this.uid));
+    if(meta.phase==='playing'&&!mine.exists())throw new Error('게임이 이미 진행 중입니다. 다음 게임을 기다려 주세요.');   // 이미 입장했던 학생은 끊겼다가 다시 들어올 수 있음
     if(mine.exists()){this.seat=mine.val().seat;this.team=Number(mine.val().team);}
     else{
       const trans=await this.ops.runTransaction(this.path('nextSeat'),num=>{
@@ -70,7 +70,7 @@ export class CloudRoom{
       this.meta=v;this.fire('meta',v);
       if(v && !scoresAttached){
         scoresAttached=true;
-        (v.sizes||[]).forEach((_,i)=>listen(['teams',String(i),'data'],d=>{this.allTeams[i]={data:d||null};this.fire('teams',this.allTeams)}));
+        (v.sizes||[]).forEach((_,i)=>listen(['scores',String(i)],d=>{this.allTeams[i]={data:{groups:d||{}}};this.fire('teams',this.allTeams)}));   // 8단계: 다른 팀은 점수만 볼 수 있음
       }
     });
     listen(['members'],v=>{this.allMembers=v||{};this.fire('members',this.allMembers)});
@@ -85,7 +85,7 @@ export class CloudRoom{
     let teams=planTeams(this.meta.count);
     const blank=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0});
     const writes={};
-    for(let i=0;i<teams.length;i++)writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};
+    for(let i=0;i<teams.length;i++){writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};writes['scores/'+i]=null}
     await this.ops.update(this.path(),writes);
     await this.ops.update(this.path('meta'),{phase:'playing',startedAt:this.ops.serverTimestamp()});
   }
@@ -178,6 +178,7 @@ export class CloudRoom{
     const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{out=serveOrder(old||{},contents,allRecipes,nowFn());return out?out.next:undefined});
     if(!res.committed||!out)return null;
     this.ops.runTransaction(this.path('results',this.uid,'served'),v=>(v||0)+1).catch(()=>{});   // 개인 기여 기록 (팀 점수와 별도)
+    this.publishScore(side,out.next);
     return out;
   }
   async plateWashed(){
@@ -186,7 +187,13 @@ export class CloudRoom{
     return Boolean(res.committed&&ok);
   }
   async penalize(side){
-    await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side,'score'),v=>applyPenalty(v));
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side,'score'),v=>applyPenalty(v));
+    if(res.committed)this.publishScore(side,{score:res.snapshot.val()||0});
+  }
+  // 공개 점수판: 다른 팀과 교사는 이 값만 봄 (주방 안의 재료·접시·주문은 팀원만 볼 수 있음)
+  publishScore(side,g){
+    const v={score:Math.max(0,Number(g.score)||0)};if(g.served!==undefined)v.served=Number(g.served)||0;
+    this.ops.update(this.path('scores',String(this.team),side),v).catch(()=>{});
   }
   async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;}
 }

@@ -118,7 +118,7 @@ function fakeRoom(db, uid) {
   const room = new CloudRoom();
   room.team = 0; room.code = 'T'; room.uid = uid;
   room.path = (...p) => p.join('/');
-  room.ops = { runTransaction: async (path, fn) => { const next = fn(structuredClone(db[path] ?? null)); if (next === undefined) return { committed: false }; if (next === null) delete db[path]; else db[path] = next; return { committed: true }; } };
+  room.ops = { runTransaction: async (path, fn) => { const next = fn(structuredClone(db[path] ?? null)); if (next === undefined) return { committed: false }; if (next === null) delete db[path]; else db[path] = next; return { committed: true, snapshot: { val: () => db[path] ?? null } }; }, update: async (path, v) => { db[path] = { ...(db[path] || {}), ...v }; } };
   return room;
 }
 test('온라인(가짜 DB): 5명이 동시에 주문 갱신을 요청해도 주문은 한 번만 생기고, 동시 서빙은 한 번만 인정', async () => {
