@@ -448,29 +448,28 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     scene.add(root);
     return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0, run: 0 };
   }
-  // Kenney Mini Characters 셰프: 동작(대기·걷기·달리기·들기·집기·작업·환호)이 모델에 들어 있음. 모델이 없으면 위의 기본 셰프를 씀
+  // 토끼·판다 요리사 (Quaternius Sushi Restaurant Kit): 동작(대기·걷기·달리기·들고 걷기·칼질·작업·환호)이 모델에 들어 있음. 모델이 없으면 위의 기본 셰프를 씀
   function buildChefModel(seat, color) {
     const src = models.get('char:' + (seat % 5));
     if (!src) return null;
     const root = new THREE.Group(), obj = cloneSkinned(src.scene);
     const b = new THREE.Box3().setFromObject(obj), h = b.max.y - b.min.y;
-    const CH = 1.42;                                   // 셰프 키 (멀리서도 보이도록 조금 크게)
+    const CH = 1.35;                                   // 셰프 키 (귀 포함)
     obj.scale.setScalar(CH / h); root.add(obj);
-    const hat = new THREE.Group(); hat.position.y = CH * 0.97; hat.scale.setScalar(0.8); root.add(hat);                 // 요리 모자는 직접 만들어 씌움
-    add(hat, cyl(0.17, 0.16, 0.13, 16), mat(0xffffff, 0.6), 0, 0.06);
-    add(hat, sph(0.2, 14, 10), mat(0xffffff, 0.6), 0, 0.18).scale.y = 0.65;
-    add(hat, cyl(0.172, 0.172, 0.04, 16), mat(color, 0.6), 0, 0.02);
+    const hat = new THREE.Group(); root.add(hat);        // 이 캐릭터들은 이미 요리사 차림이라 모자를 따로 씌우지 않음
     const blob = new THREE.Mesh(geo('blob', () => new THREE.CircleGeometry(0.3, 20)), new THREE.MeshBasicMaterial({ color: 0x1b1830, transparent: true, opacity: 0.22, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; root.add(blob);
     const ring = new THREE.Mesh(geo('mine', () => new THREE.TorusGeometry(0.38, 0.035, 6, 28)), new THREE.MeshBasicMaterial({ color: 0xffd66b })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.03; ring.visible = false; root.add(ring);
-    const carry = new THREE.Group(); carry.position.set(0, 0.62, 0.44); root.add(carry);
+    const carry = new THREE.Group(); carry.position.set(0, 0.58, 0.42); root.add(carry);
     const mixer = new THREE.AnimationMixer(obj), actions = {};
     for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
+    const N = src.names || {};
     const dummy = () => new THREE.Group();
     scene.add(root);
-    return { root, body: dummy(), handL: dummy(), handR: dummy(), footL: dummy(), footR: dummy(), carry, ring, obj, hat, mixer, actions, cur: '', x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0, run: 0 };
+    return { root, body: dummy(), handL: dummy(), handR: dummy(), footL: dummy(), footR: dummy(), carry, ring, obj, hat, mixer, actions, N, cur: '', x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0, run: 0 };
   }
   function playAnim(v, name, speed = 1) {
-    const a = v.actions[name] || v.actions.idle; if (!a) return;
+    name = v.N[name] || v.N.idle || name;
+    const a = v.actions[name]; if (!a) return;
     a.timeScale = speed;
     if (v.cur === name) return;
     a.reset().fadeIn(0.12).play();
@@ -528,12 +527,11 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     v.body.rotation.x += cu * (act === 'cut' ? 0.12 : 0.05);
     if (v.mixer) {                                   // 모델 셰프: 상황에 맞는 동작을 골라 재생
       const jump = Math.sin(cheer * Math.PI) * 0.3;
-      v.obj.position.y = jump; v.hat.position.y = 1.42 * 0.97 + jump;
-      if (cheer > 0) playAnim(v, 'emote-yes', 1.6);
-      else if (actK > 0) playAnim(v, 'interact-right', 2.2);
-      else if (reach > 0) playAnim(v, 'pick-up', 2);
-      else if (a > 0.3) playAnim(v, v.run > 0.5 ? 'sprint' : 'walk', 1.25);
-      else playAnim(v, carrying ? 'holding-both' : 'idle');
+      v.obj.position.y = jump;
+      if (cheer > 0) playAnim(v, 'cheer', 1.4);
+      else if (lastT - (v.actT || -1e9) < 450) playAnim(v, v.act === 'cut' ? 'cut' : 'work', 1.5);      // 연타하는 동안 칼질/작업 동작 유지
+      else if (a > 0.3) playAnim(v, (v.run > 0.5 ? 'run' : 'walk') + (carrying ? 'Hold' : ''), 1.2);
+      else playAnim(v, carrying ? 'hold' : 'idle');
       v.mixer.update(dt);
     }
     v.ring.visible = !!c.mine;

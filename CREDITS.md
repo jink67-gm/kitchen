@@ -11,8 +11,8 @@
 | [Fluent Emoji Flat](https://github.com/microsoft/fluentui-emoji) | Microsoft | MIT | 주문 카드·주문 현황의 음식 그림, 3D 완성 요리 그림 | `assets/icons/` |
 | [갈무리 Galmuri11](https://galmuri.quiple.dev) | Lee Minseo (quiple) | SIL OFL 1.1 | 주문 카드·타이머·알림·3D 글자 | `assets/fonts/` (라이선스 전문 `Galmuri-OFL.md`) |
 | [Food Kit](https://kenney.nl/assets/food-kit) | Kenney | CC0 | 3D 재료 9종 중 8종과 완성 요리 6종 모델 | `assets/models/` (라이선스 `Kenney-FoodKit-License.txt`) |
-| [Mini Characters](https://kenney.nl/assets/mini-characters) | Kenney | CC0 | 셰프 5종과 동작(대기·걷기·달리기·들기·집기·작업·환호) | `assets/models/characters/` |
-| [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 | 조리대 수납장, 가스레인지, 싱크대, 믹서기, 쓰레기통 | `assets/models/furniture/` |
+| [Sushi Restaurant Kit](https://quaternius.com/packs/sushirestaurantkit.html) | Quaternius | CC0 | 토끼·판다 요리사 5종과 동작(대기, 걷기, 달리기, 들고 걷기, 칼질, 작업, 환호), 빨간 오븐 | `assets/models/chefs/`, `assets/models/furniture/sushi-oven.glb` (원본 .gltf를 .glb로 바꾸고 쓰지 않는 동작을 뺌) |
+| [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 | 조리대 수납장, 싱크대, 믹서기, 쓰레기통 | `assets/models/furniture/` |
 | three.js GLTFLoader 등 부속 | three.js authors | MIT | 모델 파일 읽기 | `vendor/three/jsm/` |
 | 그 밖의 3D 모형 (바닥, 벽, 칠판, 조리대 윗면, 재료 상자, 도마, 팬, 접시, 요리 모자, 반죽, 그릇) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | 3D 화면 | `render3d.js` |
 | 합성 효과음 (젓기, 설거지, 지글지글, 익음·경고·탐) | 이 프로젝트에서 직접 만듦 | 프로젝트 자체 | 녹음 파일이 없는 소리 | `sfx.js` |
@@ -23,6 +23,7 @@ CC0는 출처 표시 없이도 쓸 수 있는 라이선스이지만 여기 기�
 UI Pack, Board Game Icons, Animal Pack Remastered — 지금 화면 구성에 맞는 자리가 없어 보류
 
 ## 쓰지 않은 것과 이유
+- Kenney Mini Characters (CC0): 적용해 봤으나 Sushi Restaurant Kit의 동물 요리사가 요리 동작을 갖추고 있어 교체함
 - Quaternius Ultimate Food Pack (CC0): 받아서 Kenney Food Kit과 같은 조명에서 비교함(`screenshots/8/compare_quaternius_vs_kenney.png`). 색이 어두워 파스텔 주방과 덜 어울리고 딸기·밀가루·우유·샐러드 모델이 없어 Kenney를 선택
 - Poly Haven HDRI, ambientCG Ground 037 (CC0): 실내 주방 장면에 야외 하늘·흙바닥이 어울리지 않고, 파일이 커서 저사양 PC에 부담
 - Kenney Platformer Kit, Pixel Platformer: 발판 게임용 그림이라 요리 게임에 맞지 않음
