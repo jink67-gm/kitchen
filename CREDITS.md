@@ -13,6 +13,7 @@
 | [Food Kit](https://kenney.nl/assets/food-kit) | Kenney | CC0 | 3D 재료 9종 중 8종과 완성 요리 6종 모델 | `assets/models/` (라이선스 `Kenney-FoodKit-License.txt`) |
 | [Sushi Restaurant Kit](https://quaternius.com/packs/sushirestaurantkit.html) | Quaternius | CC0 | 토끼·판다 요리사 5종과 동작(대기, 걷기, 달리기, 들고 걷기, 칼질, 작업, 환호), 빨간 오븐 | `assets/models/chefs/`, `assets/models/furniture/sushi-oven.glb` (원본 .gltf를 .glb로 바꾸고 쓰지 않는 동작을 뺌) |
 | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 | 조리대 수납장, 싱크대, 믹서기, 쓰레기통, 뒷벽 패널과 창문 / 주방 바깥 식당 홀의 식탁·의자·화분·러그·조명·책장·소파 (색은 게임에 맞게 바꿈) | `assets/models/furniture/`, `assets/models/decor/` |
+| [Mini Characters](https://kenney.nl/assets/mini-characters) | Kenney | CC0 | 서빙 창구 앞에 줄 서는 손님 6종과 동작 | `assets/models/guests/` |
 | three.js GLTFLoader 등 부속 | three.js authors | MIT | 모델 파일 읽기 | `vendor/three/jsm/` |
 | 그 밖의 3D 모형 (타일 바닥, 옆벽, 메뉴판, 조리대 윗면, 재료 상자, 도마, 팬, 접시, 반죽, 그릇) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | 3D 화면 | `render3d.js` |
 | 합성 효과음 (젓기, 설거지, 지글지글, 익음·경고·탐) | 이 프로젝트에서 직접 만듦 | 프로젝트 자체 | 녹음 파일이 없는 소리 | `sfx.js` |
