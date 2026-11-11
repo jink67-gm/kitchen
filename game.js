@@ -593,7 +593,7 @@ function updateTeacherMonitor(){
  setText('teacherTime','남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'));
  let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
  $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
- $('endRoundBtn').disabled=!running;
+ $('endRoundBtn').disabled=!running;setText('teacherScoreTitle',running?'실시간 팀 점수':'이번 라운드 최종 팀 점수');
  const rows=Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat),tb=$('teacherStudents');
  tb.replaceChildren();
  if(rows.length){const t=document.createElement('table');t.className='student-table';t.innerHTML='<thead><tr><th>별명</th><th>팀</th><th>푼 문제</th><th>정답</th><th>정답률</th><th>힌트</th><th>서빙</th><th>다시 볼 단원</th></tr></thead>';const body=t.createTBody();
@@ -645,7 +645,7 @@ function boot(){
    let header=['번호','별명','팀','푼 문제','정답','오답','정답률(%)','힌트','서빙',...Array.from({length:6},(_,i)=>(i+1)+'단원 정답'),...Array.from({length:6},(_,i)=>(i+1)+'단원 오답'),'다시 볼 단원'];
    let lines=[header,...Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat).map((v,i)=>[i+1,v.name||'',Number(v.team)+1,(v.correct||0)+(v.wrong||0),v.correct||0,v.wrong||0,(v.correct||0)+(v.wrong||0)?Math.round((v.correct||0)/((v.correct||0)+(v.wrong||0))*100):'',v.hints||0,v.served||0,...Array.from({length:6},(_,j)=>v.units?.[j+1]?.correct||0),...Array.from({length:6},(_,j)=>v.units?.[j+1]?.wrong||0),weakUnit(v.units)?weakUnit(v.units)+'단원 '+UNIT_NAMES[weakUnit(v.units)]:''])];
    let csv='\ufeff'+lines.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"').join(',')).join('\r\n');
-   let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='수학레스토랑_학생별결과_'+cloud.code+'.csv';a.click();URL.revokeObjectURL(url);
+   let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='math-restaurant-result_'+cloud.code+'.csv';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},1000);
  };
  $('endRoundBtn').onclick=async()=>{if(!cloud||cloud.role!=='teacher')return;try{await cloud.finish();refreshLobby()}catch(e){toast(e.message)}};
  $('copyCodeBtn').onclick=async()=>{try{await navigator.clipboard.writeText(cloud.code);toast('학급방 코드가 복사됐어요!')}catch{toast('방 코드: '+cloud.code)}};

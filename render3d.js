@@ -31,10 +31,10 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const needH = H * Math.sin(CAM_ANGLE) + 5.4, needW = W + 1.2;
+    const needH = H * Math.sin(CAM_ANGLE) + 5.6, needW = W + 3.4;   // 앞줄 설비와 아래 버튼이 잘리지 않을 여유
     const dist = Math.max(needH / 2 / t, needW / 2 / t / camera.aspect);
-    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 1.1);
-    camera.lookAt(0, 0.4, -1.1);
+    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 0.2);
+    camera.lookAt(0, 0.4, -0.2);
     camera.updateProjectionMatrix();
   }
 
