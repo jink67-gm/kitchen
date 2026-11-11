@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>수학 레스토랑 2.0 — 3D 주방 시제품 (1A)</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js"}}</script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="scene" aria-label="3D 주방 시제품 화면"></canvas>
+
+    <!-- HUD: 주문 카드 · 타이머 · 점수 (시제품용 고정 데이터) -->
+    <div class="hud orders">
+      <article class="order-card">
+        <div class="tape"></div>
+        <div class="dish">🍔</div>
+        <h2>왕왕 햄버거</h2>
+        <div class="needs">
+          <span class="need">🍞<i>🔥</i></span>
+          <span class="plus">+</span>
+          <span class="need">🥩<i>🔥</i></span>
+        </div>
+        <div class="patience"><b style="width:72%"></b></div>
+      </article>
+      <article class="order-card tilt">
+        <div class="tape"></div>
+        <div class="dish">🥗</div>
+        <h2>무지개 샐러드</h2>
+        <div class="needs">
+          <span class="need">🥬<i>🔪</i></span>
+          <span class="plus">+</span>
+          <span class="need">🍅<i>🔪</i></span>
+        </div>
+        <div class="patience warn"><b style="width:38%"></b></div>
+      </article>
+    </div>
+
+    <div class="hud timer">⏳ <b id="timer">02:45</b></div>
+    <div class="hud score">🏆 <b>300</b><small>점</small></div>
+    <div class="hud badge">시제품 1A · 3D 주방</div>
+    <div class="hud keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>방향키</kbd> 이동</div>
+    <div class="hud perf" id="perf">측정 중…</div>
+
+    <!-- 3D 위치를 따라다니는 표시 -->
+    <div class="anchor name" id="nameTag">꼬마셰프</div>
+    <div class="anchor gauge" id="gaugeStove"><span>🥩 굽는 중</span><div><b></b></div></div>
+    <div class="anchor gauge" id="gaugeCut"><span>🍅 연타!</span><div><b style="width:60%"></b></div></div>
+    <div class="anchor hint" id="hint"><kbd>E</kbd><span></span></div>
+
+    <div id="fail" class="hidden">이 컴퓨터에서는 3D(WebGL)를 실행할 수 없습니다.<br>본 게임에서는 2D 화면으로 자동 전환됩니다.</div>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

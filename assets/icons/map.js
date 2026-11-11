@@ -1,0 +1,28 @@
+// 이모지 → Fluent Emoji Flat 그림 파일 (기기마다 이모지 모양이 달라지지 않게 함)
+export const ICONS = {
+ "🥬": "assets/icons/leafy-green.svg",
+ "🍅": "assets/icons/tomato.svg",
+ "🥩": "assets/icons/cut-of-meat.svg",
+ "🥣": "assets/icons/bowl-with-spoon.svg",
+ "🍓": "assets/icons/strawberry.svg",
+ "🧀": "assets/icons/cheese-wedge.svg",
+ "🍞": "assets/icons/bread.svg",
+ "🥛": "assets/icons/glass-of-milk.svg",
+ "🫓": "assets/icons/flatbread.svg",
+ "🥗": "assets/icons/green-salad.svg",
+ "🍔": "assets/icons/hamburger.svg",
+ "🍰": "assets/icons/shortcake.svg",
+ "🍕": "assets/icons/pizza.svg",
+ "🥤": "assets/icons/cup-with-straw.svg",
+ "🥙": "assets/icons/stuffed-flatbread.svg",
+ "🔪": "assets/icons/kitchen-knife.svg",
+ "🔥": "assets/icons/fire.svg",
+ "🍽️": "assets/icons/fork-and-knife-with-plate.svg",
+ "🔔": "assets/icons/bell.svg",
+ "🗑️": "assets/icons/wastebasket.svg",
+ "🚰": "assets/icons/potable-water.svg",
+ "🗄️": "assets/icons/file-cabinet.svg",
+ "⏳": "assets/icons/hourglass-not-done.svg",
+ "🏆": "assets/icons/trophy.svg",
+ "🍳": "assets/icons/cooking.svg"
+};

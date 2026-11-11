@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#141c33" />
+  <title>우당탕! 수학 레스토랑 — 쿠킹 파티</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="theme.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js"}}</script>
+</head>
+<body>
+  <div class="app-shell">
+    <main class="main-layout">
+      <section class="game-col">
+        <div class="stage-wrap" id="stageWrap">
+          <div class="stage-top">
+            <span class="stage-pill hidden" id="roundLabel"></span>
+            <span class="stage-pill" id="modeLabel">체험 모드</span>
+            <span class="stage-pill" id="heldLabel">빈손</span>
+            <span class="stage-pill rush-pill hidden" id="rushLabel">러시타임!</span>
+            <div class="timer-box"><img src="assets/icons/hourglass-not-done.svg" alt="남은 시간" /><b id="timerLabel">03:00</b></div>
+            <button id="soundBtn" class="icon-btn" title="소리 켜기/끄기">🔊</button><button id="helpBtn" class="icon-btn" title="하는 방법">?</button>
+          </div>
+          <div class="order-cards" id="orderCards" aria-label="주문 카드"></div>
+          <div class="canvas-holder"><canvas id="gameCanvas" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas><canvas id="game3d" class="hidden" aria-label="수학 레스토랑 3D 주방 화면"></canvas></div>
+          <div class="game-toast" id="toast" aria-live="polite"></div>
+          <div class="under-stage">
+            <div class="quick-note"><span>도움말</span><span id="statusHint">재료 상자로 이동해서 E를 눌러 보세요!</span></div>
+            <div class="bottom-controls"><button id="viewBtn" class="subtle-btn hidden">2D로 보기</button><button id="roomInfoBtn" class="subtle-btn">게임방 정보</button><button id="leaveBtn" class="subtle-btn">처음으로</button><button id="interactBtn" class="touch-btn">사용하기</button></div>
+          </div>
+        </div>
+      </section>
+      <!-- 예전 오른쪽 주문서: 화면에는 보이지 않음 (주문은 왼쪽 위 카드, 점수는 교사 화면에서 확인) -->
+      <aside class="side-panel" hidden>
+        <span class="status-dot" id="connectionDot"></span><span id="connectionLabel">체험 모드</span>
+        <span id="orderCount"></span><div id="orderEmoji"></div><h2 id="orderTitle"></h2><p id="orderDesc"></p>
+        <div class="order-ingredients" id="orderIngredients"></div>
+        <div id="playerRoster" class="roster"></div>
+        <span id="scoreLabel">0</span><div id="scoreDetail"></div><div id="teamRanking"></div><p id="missionText"></p>
+      </aside>
+    </main>
+  </div>
+
+  <div id="menuOverlay" class="overlay"><section class="menu-card">
+    <div class="menu-content"><h1>우당탕! <em>수학 레스토랑</em></h1><p>수학 문제를 풀어 재료를 손질하고, 친구들과 주문을 완성해요.</p>
+      <div class="feature-chips"><span>4~5명 협동</span><span>2대2 · 학급 대항</span><span>6학년 2학기</span></div>
+      <label class="field-label">요리사 이름</label><input id="nicknameInput" maxlength="12" placeholder="예: 딸기요리사" value="꼬마셰프" />
+      <label class="field-label">난이도</label><select id="presetSelect"><option value="comfy">편안함 · 느긋하게, 쉬운 문제</option><option value="basic" selected>기본</option><option value="hard">도전 · 빠르게, 어려운 문제</option></select>
+      <details class="detail-box"><summary>세부 설정 (선생님용)</summary>
+        <label class="field-label">수학 문제 난이도</label><select id="mathLevelSelect"><option value="0">편안함</option><option value="1">기본</option><option value="2">도전</option></select>
+        <label class="field-label">도마 연타 횟수</label><select id="chopSelect"><option value="3">3번 (손이 불편한 학생)</option><option value="5">5번</option><option value="6">6번</option><option value="10">10번</option><option value="12">12번</option></select>
+        <label class="field-label">굽는 시간</label><select id="cookSelect"><option value="1.3">느긋하게</option><option value="1">보통</option><option value="0.85">빠르게</option></select>
+        <label class="field-label">익은 뒤 타기까지</label><select id="graceSelect"><option value="2">넉넉하게 (2배)</option><option value="1">보통</option><option value="0.75">짧게</option></select>
+        <label class="field-label">주문 대기 시간 (지나면 팁만 없어짐)</label><select id="orderTimeSelect"><option value="easy">100초</option><option value="normal">75초</option><option value="fast">55초</option></select>
+        <label class="field-label">러시타임 이동 속도</label><select id="rushSpeedSelect"><option value="1.2">1.2배</option><option value="1.35">1.35배</option><option value="1.45">1.45배</option></select>
+        <label class="field-label">러시타임 새 주문 간격</label><select id="rushIntervalSelect"><option value="15000">15초</option><option value="10000">10초</option><option value="8000">8초</option></select>
+      </details>
+      <label class="field-label">수학 단원</label><select id="unitSelect"><option value="all">전체 단원 골고루</option><option value="1">1. 분수의 나눗셈</option><option value="2">2. 소수의 나눗셈</option><option value="3">3. 공간과 입체</option><option value="4">4. 비례식과 비례배분</option><option value="5">5. 원의 둘레와 넓이</option><option value="6">6. 원기둥, 원뿔, 구</option></select>
+      <button class="primary-btn" id="demoBtn">혼자 체험하기</button><button class="secondary-btn" id="demoBattleBtn" style="width:100%;margin-top:12px">봇과 2대2 대결 체험하기</button>
+      <div class="menu-actions"><button id="teacherBtn" class="secondary-btn">학급방 만들기 (선생님)</button><button id="joinBtn" class="secondary-btn">게임방 입장 (학생)</button></div>
+      <p class="mini-note" id="firebaseNote">혼자 체험은 바로 시작됩니다.</p>
+    </div>
+  </section></div>
+
+  <div id="setupOverlay" class="overlay hidden"><section class="dialog-card setup-card"><button class="close-btn" data-close="setupOverlay">✕</button><h2 id="setupTitle">학급방 만들기</h2><p id="setupIntro" class="muted">학생들이 입장할 수 있는 방을 만들어요.</p>
+    <div id="createForm"><label class="field-label">교사 핀 번호</label><input id="teacherPinInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="선생님만 아는 숫자" /><label class="field-label">학급 예상 인원</label><select id="classCount"><option value="4">4명 (작은 학급)</option><option value="8">8명</option><option value="12">12명</option><option value="16">16명</option><option value="20">20명</option><option value="21">21명</option><option value="22">22명</option><option value="23">23명</option><option value="24">24명</option><option value="25" selected>25명</option></select><label class="field-label">게임 모드</label><select id="createMode"><option value="coop">협동 모드</option><option value="duel">2대2 요리 대결 (4명 전용)</option><option value="class">학급 주방 대항전</option></select><label class="field-label">게임 시간</label><select id="durationSelect"><option value="180">3분</option><option value="300" selected>5분</option><option value="420">7분</option><option value="600">10분</option></select><button id="createRoomBtn" class="primary-btn">학급방 만들기</button></div>
+    <div id="joinForm" class="hidden"><label class="field-label">6자리 학급방 코드</label><input id="roomCodeInput" maxlength="6" inputmode="numeric" placeholder="예: 384912" /><button id="joinRoomBtn" class="primary-btn">입장하기</button></div>
+    <div id="setupError" class="form-error"></div>
+  </section></div>
+
+  <div id="lobbyOverlay" class="overlay hidden"><section class="dialog-card lobby-card"><div class="lobby-title"><div><h2>우리 반 대기실</h2></div><button id="copyCodeBtn" class="copy-code">방 코드 <b id="roomCodeDisplay">000000</b></button></div><div class="lobby-sub"><span id="lobbyCount">0명 입장</span><span id="lobbyMode">협동 모드</span></div><div id="lobbyTeams" class="lobby-teams"></div><div id="teacherMonitor" class="teacher-monitor hidden"><h3 id="teacherScoreTitle">실시간 팀 점수</h3><div id="teacherScores" class="teacher-scores"></div><h3>학생별 학습 결과</h3><div id="teacherStudents" class="teacher-students"></div><button id="csvBtn" class="subtle-btn">학생별 결과 파일(CSV) 저장</button><div class="teacher-monitor-footer"><span id="teacherTime">남은 시간 00:00</span><button id="endRoundBtn" class="subtle-btn">게임 종료</button></div></div><p class="muted" id="lobbyNotice">학생들이 입장하면 이곳에 나타납니다.</p><div class="lobby-actions"><button id="lobbyBackBtn" class="secondary-btn">나가기</button><button id="startBtn" class="primary-btn">게임 시작</button></div><p class="mini-note">교사가 시작하면 모든 학생의 화면에서 게임이 함께 시작됩니다. 참여 학생은 자기 팀 주방에서 협력합니다.</p></section></div>
+
+  <div id="storageOverlay" class="overlay hidden"><section class="dialog-card question-card"><div class="question-top"><span class="unit-chip" id="storageCount">0 / 5칸</span></div><h2>어떤 재료를 꺼낼까요?</h2><p class="question-feedback">재료를 누르거나 숫자 키(1~5)로 골라요. Esc로 닫기</p><div class="answer-grid" id="storageGrid"></div><div class="question-actions"><button id="storageCloseBtn" class="subtle-btn">닫기</button></div></section></div>
+  <div id="questionOverlay" class="overlay hidden"><section class="dialog-card question-card"><div class="question-top"><span class="unit-chip" id="questionUnit">1. 분수의 나눗셈</span></div><div class="question-food" id="questionFood">🔪</div><h2 id="questionTitle">재료 손질하기</h2><p id="questionText" class="question-text">문제를 읽고 정답을 선택하세요.</p><div id="questionGrid"></div><div id="answerGrid" class="answer-grid"></div><div id="questionFeedback" class="question-feedback">정답을 골라 주세요.</div><div class="question-actions"><button id="hintBtn" class="subtle-btn">힌트 보기</button><button id="cancelQuestionBtn" class="subtle-btn">그만두기</button></div></section></div>
+
+  <div id="endOverlay" class="overlay hidden"><section class="dialog-card end-card"><div class="end-icon"><img src="assets/icons/trophy.svg" alt="" /></div><h2>영업 끝! 수고했어요</h2><div class="end-metrics"><div><b id="endScore">0</b><span>요리 점수</span></div><div><b id="endServed">0</b><span>완성 요리</span></div><div><b id="endCorrect">0</b><span>수학 정답</span></div></div><p id="endSummary">친구들과 함께 만든 요리를 확인해 보세요!</p><p id="endStudy" class="end-study"></p><div class="end-actions"><button id="restartBtn" class="primary-btn">한 판 더</button><button id="endHomeBtn" class="secondary-btn">처음으로</button></div></section></div>
+
+  <div id="helpOverlay" class="overlay hidden"><section class="dialog-card help-card"><button class="close-btn" data-close="helpOverlay">✕</button><h2>하는 방법</h2><div class="help-steps"><p><b>움직이기</b> — WASD 또는 방향키. 설비 앞에서 E나 Space를 눌러요.</p><p><b>재료 준비</b> — 상자에서 재료를 집어 도마·화덕·믹서에 올리고 수학 문제를 풀어요.</p><p><b>도마·믹서</b> — 정답 뒤에 E나 Space를 여러 번 눌러 손질해요.</p><p><b>화덕</b> — 올려두면 저절로 익어요. 타기 전에 꺼내요.</p><p><b>접시</b> — 접시대에서 접시를 꺼내 플레이팅대에 놓고, 준비된 재료를 하나씩 올려요.</p><p><b>서빙</b> — 완성된 접시를 들고 서빙 벨로 가요. 빠를수록 팁, 연속이면 콤보!</p><p><b>정리</b> — 손질 전 재료는 원래 상자에 돌려놓고, 손질한 재료는 보관대에 둘 수 있어요. 더러운 접시는 싱크대에서 씻어요.</p></div><button class="primary-btn" data-close="helpOverlay">알겠어요!</button></section></div>
+  <script type="module" src="game.js"></script>
+</body>
+</html>

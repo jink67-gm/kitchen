@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#141c33" />
+  <title>우당탕! 수학 레스토랑 — 쿠킹 파티</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap');
+:root{--bg:#101728;--card:#1c2942;--card2:#243554;--line:#334765;--orange:#ffad5c;--yellow:#ffda89;--text:#f7faff;--muted:#9cabc4;--teal:#43dbbf;--pink:#ff8fb9}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% 0%,#283552 0%,transparent 45%),radial-gradient(circle at 90% 90%,#263047 0%,transparent 40%),#101728;color:var(--text);font-family:Nunito,'Noto Sans KR',sans-serif}button,input,select{font-family:inherit}button{cursor:pointer}button:disabled{opacity:.43;cursor:not-allowed}.hidden{display:none!important}.app-shell{max-width:1520px;margin:auto;padding:16px 22px 12px}.masthead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:10px}.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:900}.brand b{color:var(--orange)}.brand small{display:block;letter-spacing:2.3px;font-size:10px;color:#95a6c8}.brand-icon{display:grid;place-items:center;background:linear-gradient(145deg,#ffb962,#ff7957);width:46px;height:46px;border-radius:15px;font-size:25px;box-shadow:0 7px 17px #ff995844}.header-right{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;font-weight:700}.status-dot{height:9px;width:9px;background:var(--orange);border-radius:50%;box-shadow:0 0 9px var(--orange)}.status-dot.online{background:var(--teal);box-shadow:0 0 9px var(--teal)}.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;color:#fff;padding:9px 11px;font-size:17px}.main-layout{display:grid;grid-template-columns:minmax(0,1fr) 295px;gap:17px}.game-col{min-width:0}.stage-wrap{position:relative;border:1px solid #354964;border-radius:20px;overflow:hidden;background:#1a253a;box-shadow:0 22px 60px #05081399}.stage-top{position:absolute;z-index:2;top:14px;left:15px;right:15px;display:flex;align-items:center;gap:9px;pointer-events:none}.stage-pill{background:#101b31dd;backdrop-filter:blur(9px);border:1px solid #51617a;padding:9px 13px;border-radius:12px;color:#fff;font-weight:800;font-size:12px;box-shadow:0 6px 12px #0004}.timer-box{margin-left:auto;background:#18253cde;border:1px solid #6a7a92;border-radius:12px;padding:8px 14px;font-size:15px;color:var(--yellow)}.timer-box b{font-size:18px;font-variant-numeric:tabular-nums}.canvas-holder{position:relative;aspect-ratio:1000/640;background:#172239}.canvas-holder canvas{width:100%;height:100%;display:block}.controls-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:11px 16px;color:#a2b4cb;font-size:12px;font-weight:700;background:#18253a}.controls-bar div{display:flex;align-items:center;gap:5px}kbd{background:#2d3d57;border:1px solid #51637d;border-bottom-width:3px;border-radius:5px;padding:2px 5px;color:#f7fafc;font-size:10px}.touch-btn{background:#2f6a75;color:#fff;border:1px solid #4db4b3;border-radius:9px;padding:6px 12px;margin-left:auto;font-weight:900}.game-toast{position:absolute;left:50%;top:82px;transform:translateX(-50%);background:#202b44e9;color:#fff;border:1px solid #8397b0;border-radius:12px;padding:9px 18px;font-size:14px;font-weight:900;opacity:0;z-index:3;pointer-events:none;transition:opacity .22s;white-space:nowrap}.game-toast.show{opacity:1}.under-stage{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:58px}.quick-note{color:#c1ceea;font-weight:700;font-size:13px;display:flex;align-items:center;gap:9px}.quick-note span:first-child{font-size:20px}.bottom-controls{display:flex;gap:8px}.subtle-btn{background:#25344d;border:1px solid #3b4c69;color:#e1e9fa;border-radius:10px;padding:9px 13px;font-size:12px;font-weight:800}.subtle-btn:hover,.secondary-btn:hover{background:#304766}.side-panel{background:linear-gradient(150deg,#24324c,#18243a);border-radius:20px;border:1px solid #364760;padding:21px 17px;box-shadow:0 16px 40px #050a1c66}.panel-heading{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:16px}.little-tag{background:#364a69;color:#ffd28a;border-radius:7px;padding:5px 7px;font-size:10px;letter-spacing:1px}.order-card{display:flex;align-items:center;gap:11px;background:#fdf2e8;color:#3d3250;border-radius:15px;padding:10px;margin-top:15px;box-shadow:0 5px 0 #b49a8a}.order-illustration{height:66px;width:65px;display:grid;place-items:center;font-size:39px;background:#fff;border-radius:12px;box-shadow:inset 0 -3px #e3d5c9}.order-card h2{font-size:16px;margin:0 0 5px}.order-card p{font-size:11px;line-height:1.5;margin:0;color:#766b72}.order-ingredients{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:15px}.ingredient-chip{display:flex;align-items:center;gap:8px;border-radius:10px;padding:9px;background:#2e3d57;border:1px solid #41516d;font-size:11px;color:#e6eefa;font-weight:800}.ingredient-chip.done{background:#194c4c;border-color:#34a88e}.ingredient-chip span{font-size:22px}.panel-section{border-top:1px solid #384960;margin-top:20px;padding-top:17px}.panel-section h3{font-size:13px;margin:0 0 13px;color:#f5f7fa}.roster{display:flex;flex-direction:column;gap:8px}.roster-item{display:flex;gap:8px;align-items:center;background:#253650;border-radius:10px;padding:7px}.roster-avatar{width:30px;height:30px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:900;border:2px solid #ffffff66}.roster-name{font-size:12px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.roster-team{font-size:10px;color:#aab7cf}.score-number{display:flex;align-items:baseline;gap:9px;color:var(--yellow)}.score-number span:first-child{font-size:37px;font-weight:900}.score-number span:last-child{font-size:11px;font-weight:900;letter-spacing:2px}.score-detail{font-size:11px;color:#c3cfdf}.team-ranking{margin-top:10px;font-size:11px}.ranking-item{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #34435c}.mission p{color:#c4d7ea;font-size:12px;line-height:1.6;margin:0}.footer{color:#7e91ae;display:flex;justify-content:space-between;margin-top:12px;font-size:11px}.overlay{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#080d1bc9;backdrop-filter:blur(8px);padding:20px;overflow-y:auto}.menu-card{display:grid;grid-template-columns:minmax(280px,45%) minmax(280px,1fr);width:min(920px,95vw);background:#1c2a42;border:1px solid #5a7293;border-radius:27px;box-shadow:0 26px 100px #0009;overflow:hidden}.hero-art{position:relative;min-height:550px;background:radial-gradient(circle at 60% 55%,#526d70 0%,#294657 32%,#1c2a44 74%);display:grid;place-items:center;overflow:hidden}.hero-art:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,#ffffff07 0 3px,transparent 3px 47px);opacity:.7}.hero-logo{position:relative;font-size:165px;filter:drop-shadow(10px 20px 0 #152a47);animation:float 3.5s ease-in-out infinite}.hero-orb{position:absolute;border-radius:50%;filter:blur(4px);opacity:.5}.hero-orb.one{background:#56e4bc;width:280px;height:280px;top:-120px;left:-120px}.hero-orb.two{background:#ed8e71;width:310px;height:310px;bottom:-165px;right:-110px}.floating-food{position:absolute;font-size:64px;filter:drop-shadow(5px 10px 1px #17233b);animation:float 4s ease-in-out infinite}.f1{top:80px;left:55px}.f2{bottom:85px;left:38px;animation-delay:-2s}.f3{right:38px;bottom:115px;animation-delay:-1.5s}@keyframes float{50%{transform:translateY(-13px) rotate(3deg)}}.menu-content{padding:38px 36px}.eyebrow{display:inline-block;color:#72e8c5;font-size:10px;letter-spacing:2.3px;font-weight:900}.menu-content h1{font-size:45px;line-height:1.16;letter-spacing:-2px;margin:11px 0 16px;font-weight:900}.menu-content em{color:var(--orange);font-style:normal}.menu-content p{line-height:1.9;font-size:12px;color:#bac7dc}.feature-chips{display:flex;flex-wrap:wrap;gap:7px;margin:19px 0}.feature-chips span{background:#354662;color:#deebfc;font-size:10px;padding:7px 9px;border-radius:20px;font-weight:800}.field-label{display:block;font-size:11px;color:#bbd0e3;font-weight:900;margin:13px 0 6px}input,select{background:#101b2f;border:1px solid #455675;border-radius:11px;color:#f7fbff;padding:12px 14px;font-size:14px;outline:none;width:100%}input:focus,select:focus{border-color:#f5b976;box-shadow:0 0 0 3px #ffa65822}.primary-btn{border:0;border-radius:12px;background:linear-gradient(135deg,#ffbc71,#ff8d60);box-shadow:0 5px 0 #a85e4b;color:#2c2331;padding:14px 18px;font-weight:900;font-size:14px;width:100%;margin-top:17px;transition:transform .12s}.primary-btn:hover{filter:brightness(1.08)}.primary-btn:active{transform:translateY(3px);box-shadow:0 2px #a85e4b}.primary-btn span{float:right}.menu-actions{display:flex;gap:9px;margin-top:13px}.secondary-btn{border:1px solid #607594;border-radius:11px;background:#354766;color:#e6f1fc;padding:12px 10px;flex:1;font-weight:900;font-size:12px}.mini-note{font-size:10px!important;line-height:1.65!important;color:#8f9eb8!important;margin:18px 0 0!important}.dialog-card{position:relative;background:linear-gradient(150deg,#2a3a55,#172438);border:1px solid #6b7f9c;border-radius:23px;padding:29px;width:min(540px,96vw);box-shadow:0 25px 100px #000a}.dialog-card h2{margin:6px 0 9px;font-size:25px}.muted{color:#b2c2d6;font-size:13px;line-height:1.6}.close-btn{position:absolute;right:19px;top:19px;border:0;background:#384d67;color:#fff;border-radius:9px;width:33px;height:33px}.form-error{font-size:12px;color:#ffc1ad;margin-top:12px;min-height:15px}.lobby-card{width:min(740px,96vw)}.lobby-title{display:flex;justify-content:space-between;gap:15px;align-items:center}.copy-code{border:1px dashed #ffc07d;border-radius:10px;background:#5b4d47;color:#fff0dc;padding:12px 16px;font-size:13px}.copy-code b{font-size:23px;letter-spacing:2px;margin-left:6px}.lobby-sub{display:flex;gap:12px;color:#a5bbd1;font-size:12px;font-weight:900}.lobby-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:22px;max-height:44vh;overflow:auto}.lobby-team{background:#21334c;border:1px solid #465978;border-radius:13px;padding:13px}.lobby-team h3{margin:0 0 8px;font-size:13px}.lobby-member{font-size:12px;color:#d8e3f0;padding:4px 0}.lobby-actions{display:flex;gap:12px;margin-top:14px}.lobby-actions>*{margin:0!important}.question-card{width:min(520px,96vw);text-align:center}.question-top{display:flex;align-items:center;justify-content:space-between}.unit-chip{background:#354d67;padding:6px 9px;border-radius:13px;font-size:10px;color:#c5d6ed}.question-food{font-size:42px;margin-top:12px}.question-card h2{font-size:21px}.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.15;margin:0 .18em;font-size:.92em}.frac>span:first-child{border-bottom:.12em solid currentColor;padding:0 .25em}.frac>span:last-child{padding:0 .25em}.question-text{font-weight:800;font-size:22px;white-space:pre-line;line-height:1.55;margin:15px 0 22px}.answer-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.answer-btn{padding:16px 12px;border-radius:13px;border:2px solid #536889;color:#fff;background:#314561;font-size:18px;font-weight:900}.answer-btn:hover{background:#45627f}.answer-btn.wrong{background:#783e4f;border-color:#ef869a}.answer-btn.correct{background:#236b5a;border-color:#57dc9c}.question-feedback{font-size:12px;color:#c1cfe0;min-height:25px;line-height:1.6;margin-top:15px}.question-actions{display:flex;gap:10px;justify-content:center}.end-card{text-align:center}.end-icon{font-size:66px;filter:drop-shadow(0 8px 1px #161b2a)}.end-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:21px 0}.end-metrics div{background:#354761;padding:13px 7px;border-radius:12px;display:flex;flex-direction:column;gap:5px}.end-metrics b{font-size:28px;color:#ffdb85}.end-metrics span{font-size:11px;color:#c2d2e6;font-weight:800}.end-card p{font-size:12px;color:#c0d2e5;line-height:1.8}.end-actions{display:flex;gap:11px}.end-actions .secondary-btn{margin-top:17px}.help-steps{margin:19px 0}.help-steps p{font-size:13px;color:#d1dced;line-height:1.9;background:#293c55;border-radius:9px;padding:9px 13px}.help-steps b{color:#ffcc8b}@media(max-width:1120px){.main-layout{grid-template-columns:1fr}.side-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px}.panel-heading,.order-card,.order-ingredients{grid-column:1}.panel-section{margin-top:5px}.menu-card{max-width:850px}}@media(max-width:680px){.app-shell{padding:10px}.masthead{flex-wrap:wrap}.brand{font-size:15px}.side-panel{display:block}.stage-top{top:5px;left:5px;right:5px;gap:4px}.stage-pill,.timer-box{padding:5px 6px;font-size:10px}.timer-box b{font-size:12px}.controls-bar{gap:5px;padding:8px;font-size:10px}.under-stage{flex-direction:column;padding:8px;align-items:start}.footer{display:none}.menu-card{grid-template-columns:1fr}.hero-art{min-height:150px}.hero-logo{font-size:80px}.floating-food{font-size:33px}.f1{top:10px}.f2{bottom:12px}.f3{bottom:12px}.menu-content{padding:19px}.menu-content h1{font-size:33px}.menu-actions{flex-direction:column}.dialog-card{padding:21px}.question-text{font-size:17px}}
+
+.teacher-monitor{margin-top:15px;padding:13px;border:1px solid #45607a;background:#1e3148;border-radius:12px}.teacher-monitor h3{font-size:13px;margin:0 0 10px}.teacher-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}.teacher-score{border:1px solid #47627b;border-radius:9px;padding:10px;background:#2c425b;font-size:12px}.teacher-score b{color:#ffd47d;font-size:19px}.teacher-monitor-footer{display:flex;justify-content:space-between;align-items:center;color:#c8d7e8;font-size:12px;margin-top:11px}
+
+#csvBtn{margin-top:9px;background:#365c6a;border-color:#5b9a9b}
+</style>
+</head>
+<body>
+<div style="position:fixed;left:0;right:0;top:0;z-index:99999;background:#d6452f;color:#fff;font:700 13px/1.5 sans-serif;text-align:center;padding:5px 10px">예전 1.0 체험판입니다. 3D 화면·접시·굽기·러시타임이 있는 최신 2.0은 index.html을 웹 주소로 열어야 합니다 (README.md 참고).</div>
+  <div class="app-shell">
+    <header class="masthead">
+      <div class="brand"><span class="brand-icon">🍳</span><span>우당탕! <b>수학 레스토랑</b><small>COOKING MATH PARTY</small></span></div>
+      <div class="header-right"><span class="status-dot" id="connectionDot"></span><span id="connectionLabel">체험 모드</span><button id="soundBtn" class="icon-btn" title="소리 켜기/끄기">🔊</button><button id="helpBtn" class="icon-btn" title="조작 방법">❔</button></div>
+    </header>
+    <main class="main-layout">
+      <section class="game-col">
+        <div class="stage-wrap">
+          <div class="stage-top">
+            <span class="stage-pill" id="roundLabel">🍰 디저트 주방</span>
+            <span class="stage-pill" id="modeLabel">체험 모드</span>
+            <div class="timer-box">⏳ <b id="timerLabel">03:00</b></div>
+          </div>
+          <div class="canvas-holder"><canvas id="gameCanvas" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas></div>
+          <div class="game-toast" id="toast" aria-live="polite"></div>
+          <div class="controls-bar"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 <kbd>방향키</kbd> 이동</div><div><kbd>Space</kbd> / <kbd>E</kbd> 사용</div><div><kbd>Q</kbd> 내려놓기</div><button id="interactBtn" class="touch-btn">✋ 사용하기</button></div>
+        </div>
+        <div class="under-stage">
+          <div class="quick-note"><span>💡</span><span id="statusHint">재료 상자로 이동해서 E를 눌러 보세요!</span></div>
+          <div class="bottom-controls"><button id="roomInfoBtn" class="subtle-btn">🏫 게임방 정보</button><button id="leaveBtn" class="subtle-btn">↩ 처음으로</button></div>
+        </div>
+      </section>
+      <aside class="side-panel">
+        <div class="panel-heading"><span>📋 주문 현황</span><span class="little-tag" id="orderCount">ORDER 01</span></div>
+        <div class="order-card"><div class="order-illustration" id="orderEmoji">🥗</div><div><h2 id="orderTitle">무지개 샐러드</h2><p id="orderDesc">재료를 손질하고 담아주세요</p></div></div>
+        <div class="order-ingredients" id="orderIngredients"></div>
+        <div class="panel-section"><h3>🧑‍🍳 우리 주방</h3><div id="playerRoster" class="roster"></div></div>
+        <div class="panel-section"><h3>🏆 요리 점수</h3><div class="score-number"><span id="scoreLabel">0</span><span>PTS</span></div><div class="score-detail" id="scoreDetail">완성 요리 0개 · 수학 정답 0개</div><div id="teamRanking" class="team-ranking"></div></div>
+        <div class="panel-section mission"><h3>🎯 이번 미션</h3><p id="missionText">재료를 준비하고 요리를 서빙해요!</p></div>
+      </aside>
+    </main>
+    <footer class="footer">수학 6학년 2학기 · 나누고 만들고 함께 완성하는 요리 파티 <span>교육용 오리지널 웹게임</span></footer>
+  </div>
+
+  <div id="menuOverlay" class="overlay"><section class="menu-card">
+    <div class="hero-art"><div class="hero-orb one"></div><div class="hero-orb two"></div><div class="hero-logo">🍕</div><div class="floating-food f1">🍓</div><div class="floating-food f2">🥬</div><div class="floating-food f3">🧀</div></div>
+    <div class="menu-content"><span class="eyebrow">FOUR CHEFS · ONE KITCHEN</span><h1>우당탕!<br><em>수학 레스토랑</em></h1><p>친구들과 요리를 완성하고, 수학 문제로 재료를 손질해요!<br>협동하다가 짜릿하게 경쟁하는 우리만의 쿠킹 파티.</p>
+      <div class="feature-chips"><span>🧑‍🍳 4~5인 협동</span><span>🏁 2대2 / 학급 대항</span><span>📚 6학년 2학기</span></div>
+      <label class="field-label">요리사 이름</label><input id="nicknameInput" maxlength="12" placeholder="예: 딸기요리사" value="꼬마셰프" />
+      <label class="field-label">수학 단원</label><select id="unitSelect"><option value="all">🍱 전체 단원 골고루</option><option value="1">1. 분수의 나눗셈</option><option value="2">2. 소수의 나눗셈</option><option value="3">3. 공간과 입체</option><option value="4">4. 비례식과 비례배분</option><option value="5">5. 원의 둘레와 넓이</option><option value="6">6. 원기둥, 원뿔, 구</option></select>
+      <button class="primary-btn" id="demoBtn">🎮 먼저 혼자 체험하기 <span>→</span></button><button class="secondary-btn" id="demoBattleBtn" style="width:100%;margin-top:12px">⚔️ 봇과 2대2 배틀 체험하기</button>
+      <div class="menu-actions"><button id="teacherBtn" class="secondary-btn">👩‍🏫 학급방 만들기</button><button id="joinBtn" class="secondary-btn">🧑‍🎓 게임방 입장</button></div>
+      <p class="mini-note" id="firebaseNote">체험 모드는 바로 실행됩니다. 실시간 학급방은 Firebase 설정 후 이용할 수 있습니다.</p>
+    </div>
+  </section></div>
+
+  <div id="setupOverlay" class="overlay hidden"><section class="dialog-card setup-card"><button class="close-btn" data-close="setupOverlay">✕</button><h2 id="setupTitle">학급방 만들기</h2><p id="setupIntro" class="muted">학생들이 입장할 수 있는 방을 만들어요.</p>
+    <div id="createForm"><label class="field-label">학급 예상 인원</label><select id="classCount"><option value="4">4명 (작은 학급)</option><option value="8">8명</option><option value="12">12명</option><option value="16">16명</option><option value="20">20명</option><option value="21">21명</option><option value="22">22명</option><option value="23">23명</option><option value="24">24명</option><option value="25" selected>25명</option></select><label class="field-label">게임 모드</label><select id="createMode"><option value="coop">🤝 협동 모드</option><option value="duel">⚔️ 2대2 요리 배틀 (4인 전용)</option><option value="class">🏆 학급 주방 대항전</option></select><label class="field-label">게임 시간</label><select id="durationSelect"><option value="180">3분</option><option value="300" selected>5분</option><option value="420">7분</option><option value="600">10분</option></select><button id="createRoomBtn" class="primary-btn">학급방 생성하기 →</button></div>
+    <div id="joinForm" class="hidden"><label class="field-label">6자리 학급방 코드</label><input id="roomCodeInput" maxlength="6" inputmode="numeric" placeholder="예: 384912" /><button id="joinRoomBtn" class="primary-btn">입장하기 →</button></div>
+    <div id="setupError" class="form-error"></div>
+  </section></div>
+
+  <div id="lobbyOverlay" class="overlay hidden"><section class="dialog-card lobby-card"><div class="lobby-title"><div><span class="eyebrow">CLASSROOM LOBBY</span><h2>🍽️ 우리 반 요리 축제</h2></div><button id="copyCodeBtn" class="copy-code">방 코드 <b id="roomCodeDisplay">000000</b> ⧉</button></div><div class="lobby-sub"><span id="lobbyCount">0명 입장</span><span id="lobbyMode">협동 모드</span></div><div id="lobbyTeams" class="lobby-teams"></div><div id="teacherMonitor" class="teacher-monitor hidden"><h3>📊 실시간 학급 대항전 결과</h3><div id="teacherScores" class="teacher-scores"></div><button id="csvBtn" class="subtle-btn">📥 학생별 수학 결과 CSV 저장</button><div class="teacher-monitor-footer"><span id="teacherTime">남은 시간 00:00</span><button id="endRoundBtn" class="subtle-btn">⏹ 게임 종료</button></div></div><p class="muted" id="lobbyNotice">학생들이 입장하면 이곳에 나타납니다.</p><div class="lobby-actions"><button id="lobbyBackBtn" class="secondary-btn">나가기</button><button id="startBtn" class="primary-btn">게임 시작! 🍳</button></div><p class="mini-note">교사가 시작하면 모든 학생의 화면에서 게임이 함께 시작됩니다. 참여 학생은 자기 팀 주방에서 협력합니다.</p></section></div>
+
+  <div id="questionOverlay" class="overlay hidden"><section class="dialog-card question-card"><div class="question-top"><span class="eyebrow">MATH TO COOK</span><span class="unit-chip" id="questionUnit">1. 분수의 나눗셈</span></div><div class="question-food" id="questionFood">🔪</div><h2 id="questionTitle">재료 손질하기</h2><p id="questionText" class="question-text">문제를 읽고 정답을 선택하세요.</p><div id="answerGrid" class="answer-grid"></div><div id="questionFeedback" class="question-feedback">정답을 골라 주세요.</div><div class="question-actions"><button id="hintBtn" class="subtle-btn">💡 힌트 보기</button><button id="cancelQuestionBtn" class="subtle-btn">그만두기</button></div></section></div>
+
+  <div id="endOverlay" class="overlay hidden"><section class="dialog-card end-card"><div class="end-icon">🏆</div><span class="eyebrow">ROUND COMPLETE</span><h2>오늘의 요리 축제 완료!</h2><div class="end-metrics"><div><b id="endScore">0</b><span>요리 점수</span></div><div><b id="endServed">0</b><span>완성 요리</span></div><div><b id="endCorrect">0</b><span>수학 정답</span></div></div><p id="endSummary">친구들과 함께 만든 요리를 확인해 보세요!</p><div class="end-actions"><button id="restartBtn" class="primary-btn">한 판 더! 🍳</button><button id="endHomeBtn" class="secondary-btn">처음으로</button></div></section></div>
+
+  <div id="helpOverlay" class="overlay hidden"><section class="dialog-card help-card"><button class="close-btn" data-close="helpOverlay">✕</button><h2>🧑‍🍳 요리사가 되는 법</h2><div class="help-steps"><p><b>① 움직이기</b> — WASD 또는 방향키로 걸어 다니세요.</p><p><b>② 재료 들기</b> — 🥬🥩🍓 재료 상자 앞에서 E 또는 Space!</p><p><b>③ 손질하기</b> — 손질대나 화덕 앞에서 수학 문제를 풀면 재료가 완성됩니다.</p><p><b>④ 접시에 담기</b> — 🥗 플레이팅대에 완성 재료를 모아 주세요.</p><p><b>⑤ 서빙하기</b> — 주문 재료가 모두 모이면 🔔 서빙대에서 제출하세요.</p><p><b>⑥ 경쟁하기</b> — 2대2 모드에서는 A팀과 B팀이 같은 주문을 따로 완성합니다.</p></div><button class="primary-btn" data-close="helpOverlay">알겠어요!</button></section></div>
+  <script>const firebaseConfig={apiKey:"",authDomain:"",databaseURL:"",projectId:"",appId:""};
+const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
+const MAX=25;
+const now=()=>Date.now();
+const digits=()=>String(100000+Math.floor(Math.random()*900000));
+function cloudConfigured(){return Boolean(firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId)}
+function planTeams(n){
+  n=Math.min(MAX,Math.max(1,Number(n)||4));
+  if(n<=5)return [n];
+  const groups=Math.ceil(n/5), result=Array(groups).fill(Math.floor(n/groups));
+  for(let i=0;i<n%groups;i++)result[i]++;
+  return result;
+}
+class CloudRoom{
+  constructor(){this.uid='';this.code='';this.db=null;this.ops=null;this.unsubs=[];this.seat=-1;this.team=0;this.role='student';this.name='';this.teamMembers={};this.teamData=null;this.meta=null;this.allMembers={};this.allTeams={};this.listeners={};this.localPos=null;this.lastMotion=0;this.connected=false;this.serverOffset=0;this.results={};}
+  on(event,handler){this.listeners[event]=handler}
+  fire(event,value){this.listeners[event]?.(value)}
+  async init(){
+    if(!cloudConfigured())throw new Error('Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
+    if(!this.db){
+      const [a,b,d]=await Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]);
+      this.ops=d; const app=a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
+      const auth=b.getAuth(app);let credential=auth.currentUser;
+      if(!credential) credential=(await b.signInAnonymously(auth)).user;
+      this.uid=credential.uid;
+    }
+  }
+  path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
+  async create({name,count,mode,unit,duration}){
+    await this.init();this.name=name;this.role='teacher';
+    for(let i=0;i<10;i++){
+      this.code=digits();let snap=await this.ops.get(this.path('meta'));
+      if(snap.exists())continue;
+      let sizes=planTeams(count);
+      await this.ops.set(this.path('meta'),{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),createdAt:now(),startedAt:0});
+      this.connected=true;this.subscribeBase();return this.code;
+    }
+    throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
+  }
+  async join({code,name}){
+    await this.init();this.code=String(code).trim();this.name=name;this.role='student';
+    const snap=await this.ops.get(this.path('meta'));
+    if(!snap.exists())throw new Error('방을 찾지 못했습니다. 코드를 다시 확인해 주세요.');
+    const meta=snap.val();
+    if(meta.phase==='ended')throw new Error('종료된 게임방입니다. 새 방을 만들어 주세요.');
+    if(meta.phase==='playing')throw new Error('게임이 이미 진행 중입니다. 다음 게임을 기다려 주세요.');
+    const mine=await this.ops.get(this.path('members',this.uid));
+    if(mine.exists()){this.seat=mine.val().seat;this.team=Number(mine.val().team);}
+    else{
+      const trans=await this.ops.runTransaction(this.path('nextSeat'),num=>{
+        num=num||0;return num>=meta.count?undefined:num+1;
+      });
+      if(!trans.committed)throw new Error('학급방 정원이 가득 찼습니다.');
+      this.seat=trans.snapshot.val()-1;
+      let acc=0;this.team=meta.sizes.findIndex(n=>{acc+=n;return this.seat<acc});
+      if(this.team<0)throw new Error('팀을 배정하지 못했습니다.');
+      await this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now()});
+    }
+    this.connected=true;this.subscribeBase();
+    await this.ops.update(this.path('results',this.uid),{name:this.name,team:this.team,seat:this.seat});
+    return this.code;
+  }
+  subscribeBase(){
+    const listen=(p,cb)=>this.unsubs.push(this.ops.onValue(this.path(...p),s=>cb(s.val()),e=>this.fire('error',e.message)));
+    let scoresAttached=false;
+    listen(['meta'],v=>{
+      this.meta=v;this.fire('meta',v);
+      if(v && !scoresAttached){
+        scoresAttached=true;
+        (v.sizes||[]).forEach((_,i)=>listen(['teams',String(i),'data'],d=>{this.allTeams[i]={data:d||null};this.fire('teams',this.allTeams)}));
+      }
+    });
+    listen(['members'],v=>{this.allMembers=v||{};this.fire('members',this.allMembers)});
+    if(this.role==='teacher')listen(['results'],v=>{this.results=v||{};this.fire('results',this.results)});
+    if(this.role==='student'){
+      listen(['teams',String(this.team),'players'],v=>{this.teamMembers=v||{};this.fire('players',this.teamMembers)});
+      listen(['teams',String(this.team),'data'],v=>{this.teamData=v||null;this.fire('teamData',this.teamData)});
+    }
+  }
+  async begin(){
+    if(this.role!=='teacher')throw new Error('교사만 시작할 수 있습니다.');
+    let teams=planTeams(this.meta.count);
+    const blank=()=>({orderIndex:0,tray:{},score:0,served:0,correct:0,wrong:0});
+    const writes={};
+    for(let i=0;i<teams.length;i++)writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};
+    await this.ops.update(this.path(),writes);
+    await this.ops.update(this.path('meta'),{phase:'playing',startedAt:this.ops.serverTimestamp()});
+  }
+  async finish(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'ended'})}
+  async reLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby',startedAt:0})}
+  async spawn(pos){
+    if(this.role!=='student')return;
+    const player={name:this.name,seat:this.seat,x:pos.x,y:pos.y,dir:'down',held:'',updatedAt:now()};
+    await this.ops.set(this.path('teams',String(this.team),'players',this.uid),player);
+    this.localPos=player;
+    this.ops.onDisconnect(this.path('teams',String(this.team),'players',this.uid)).remove();
+  }
+  async syncPlayer(player,force=false){
+    if(!this.connected||this.role!=='student')return;
+    if(!force && now()-this.lastMotion<130)return;
+    this.lastMotion=now();
+    this.localPos={name:this.name,seat:this.seat,x:+player.x.toFixed(2),y:+player.y.toFixed(2),dir:player.dir,held:player.held||'',updatedAt:now()};
+    await this.ops.update(this.path('teams',String(this.team),'players',this.uid),this.localPos);
+  }
+  async writeMath(side,correct,unit){
+    const path=this.path('teams',String(this.team),'data','groups',side,correct?'correct':'wrong');
+    await this.ops.runTransaction(path,old=>(old||0)+1);
+    const stat=correct?'correct':'wrong';
+    await Promise.all([
+      this.ops.runTransaction(this.path('results',this.uid,stat),v=>(v||0)+1),
+      this.ops.runTransaction(this.path('results',this.uid,'units',String(unit),stat),v=>(v||0)+1)
+    ]);
+  }
+  async deposit(side,item,recipe){
+    let accepted=false;
+    const r=this.path('teams',String(this.team),'data','groups',side,'tray');
+    const res=await this.ops.runTransaction(r,old=>{
+      old=old||{};
+      if(!recipe.items.includes(item)||old[item])return;
+      accepted=true;return {...old,[item]:true};
+    });
+    return Boolean(res.committed && accepted);
+  }
+  async serve(side,recipe,allRecipes){
+    let success=false;
+    const r=this.path('teams',String(this.team),'data','groups',side);
+    const result=await this.ops.runTransaction(r,old=>{
+      if(!old)return;
+      const current=allRecipes[old.orderIndex%allRecipes.length];
+      if(!current.items.every(i=>old.tray?.[i]))return;
+      success=true;
+      return {...old,orderIndex:old.orderIndex+1,score:(old.score||0)+100,served:(old.served||0)+1,tray:{}};
+    });
+    return Boolean(result.committed && success);
+  }
+  async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;}
+}
+
+
+const $=id=>document.getElementById(id);
+const canvas=$('gameCanvas'),g=canvas.getContext('2d');
+const W=18,H=12,T=48,OX=68,OY=47;
+const COLOR=['#e77e95','#56c5dd','#fac268','#9d88e9','#63c49b'];
+const FOOD={lettuce:{emoji:'🥬',name:'양상추',prep:'cut'},tomato:{emoji:'🍅',name:'토마토',prep:'cut'},meat:{emoji:'🥩',name:'고기',prep:'cook'},flour:{emoji:'🥣',name:'밀가루',prep:'mix'},berry:{emoji:'🍓',name:'딸기',prep:'cut'},cheese:{emoji:'🧀',name:'치즈',prep:'cut'},bread:{emoji:'🍞',name:'빵',prep:'cook'},milk:{emoji:'🥛',name:'우유',prep:'mix'},dough:{emoji:'🫓',name:'반죽',prep:'cook'}};
+const RECIPES=[
+ {emoji:'🥗',title:'무지개 샐러드',desc:'양상추와 토마토를 손질해요',items:['lettuce','tomato']},
+ {emoji:'🍔',title:'왕왕 햄버거',desc:'고기와 빵을 맛있게 준비해요',items:['meat','bread']},
+ {emoji:'🍰',title:'딸기 생크림 케이크',desc:'밀가루와 딸기를 준비해요',items:['flour','berry']},
+ {emoji:'🍕',title:'치즈 폭탄 피자',desc:'반죽을 굽고 치즈를 손질해요',items:['dough','cheese']},
+ {emoji:'🥤',title:'분홍빛 딸기라테',desc:'딸기를 손질하고 우유를 섞어요',items:['berry','milk']},
+ {emoji:'🥙',title:'싱싱 치즈 샌드',desc:'양상추와 치즈를 손질해요',items:['lettuce','cheese']}
+];
+const STATIONS=[
+ {x:2,y:2,type:'bin',food:'lettuce',label:'양상추 상자'},{x:2,y:4,type:'bin',food:'tomato',label:'토마토 상자'},{x:2,y:6,type:'bin',food:'meat',label:'고기 상자'},{x:2,y:8,type:'bin',food:'flour',label:'밀가루 상자'},{x:2,y:9,type:'bin',food:'berry',label:'딸기 상자'},
+ {x:15,y:2,type:'bin',food:'cheese',label:'치즈 상자'},{x:15,y:4,type:'bin',food:'bread',label:'빵 상자'},{x:15,y:6,type:'bin',food:'milk',label:'우유 상자'},{x:15,y:8,type:'bin',food:'dough',label:'반죽 상자'},
+ {x:5,y:2,type:'cut',label:'도마'},{x:12,y:2,type:'cut',label:'도마'},
+ {x:5,y:9,type:'cook',label:'화덕'},{x:12,y:9,type:'cook',label:'화덕'},
+ {x:5,y:5,type:'mix',label:'믹서'},{x:12,y:5,type:'mix',label:'믹서'},
+ {x:8,y:3,type:'plate',label:'플레이팅대'},{x:9,y:3,type:'plate',label:'플레이팅대'},
+ {x:8,y:9,type:'serve',label:'서빙 벨'},{x:9,y:9,type:'serve',label:'서빙 벨'},
+ {x:8,y:6,type:'decor',label:'중앙 조리대'},{x:9,y:6,type:'decor',label:'중앙 조리대'}
+];
+const blocked=new Set(STATIONS.map(s=>s.x+','+s.y));
+let mode='demo',cloud=null,meta=null,players={},members={},allTeams={},teamData=null,localState=null,myUid='demo',seat=0,team=0,roundStarted=false,ended=false,last=performance.now(),totalTime=180,nowTime=180,activeQuestion=null,unit='all',muted=false,toastTimeout=null,teacher=false,currentMode='coop',sentPhase='',helpBefore=false;
+let p={x:7,y:7,dir:'down',held:'',seat:0,name:'꼬마셰프',updatedAt:0};
+const keys=new Set();
+let bots=[{x:10,y:7,seat:1,dir:'left',name:'도우미1',held:'',tx:10,ty:5},{x:6,y:7,seat:2,dir:'right',name:'도우미2',held:'',tx:7,ty:9},{x:11,y:8,seat:3,dir:'up',name:'도우미3',held:'',tx:10,ty:2}];
+let clock=0,particles=[],elapsed=0,pending=false,ambience=0,audio=null,rivalServed=0;
+const show=id=>$(id).classList.remove('hidden');
+const hide=id=>$(id).classList.add('hidden');
+const setText=(id,t)=>$(id).textContent=t;
+const setMath=(id,t)=>{$(id).innerHTML=String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])).replace(/(\d+)\/(\d+)/g,'<span class="frac"><span>$1</span><span>$2</span></span>')};
+const clamp=(a,min,max)=>Math.max(min,Math.min(max,a));
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const blankGroup=()=>({orderIndex:0,tray:{},score:0,served:0,correct:0,wrong:0});
+const safeName=s=>String(s||'꼬마셰프').trim().slice(0,12)||'꼬마셰프';
+function toast(t){setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
+function sound(type){if(muted)return;try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();let osc=audio.createOscillator(),gain=audio.createGain(),time=audio.currentTime;osc.type=type==='success'?'triangle':'sine';osc.frequency.setValueAtTime(type==='success'?523:type==='error'?185:390,time);osc.frequency.exponentialRampToValueAtTime(type==='success'?784:type==='error'?125:510,time+.14);gain.gain.setValueAtTime(.08,time);gain.gain.exponentialRampToValueAtTime(.001,time+.21);osc.connect(gain).connect(audio.destination);osc.start(time);osc.stop(time+.22)}catch{}}
+function getSide(){if(currentMode!=='duel')return 'ALL';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return (list.findIndex(([uid])=>uid===myUid)<2)?'A':'B'}
+function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
+function order(side=getSide()){const r=getGroup(side);return RECIPES[r.orderIndex%RECIPES.length]}
+function getName(){return safeName($('nicknameInput').value)}
+function setRoomStatus(){setText('connectionLabel',mode==='demo'?'혼자 체험하기':cloud?.code?'학급방 '+cloud.code:'학급방');$('connectionDot').classList.toggle('online',mode!=='demo')}
+function playerColor(n){return COLOR[n%COLOR.length]}
+function resetLocal(kind="coop"){
+ mode='demo';cloud=null;myUid='demo';seat=0;team=0;members={demo:{name:p.name,seat:0,team:'0'},bot1:{name:'도우미1',seat:1,team:'0'},bot2:{name:'도우미2',seat:2,team:'0'},bot3:{name:'도우미3',seat:3,team:'0'}};currentMode=kind;
+ meta={phase:'playing',mode:kind,unit,startedAt:Date.now(),duration:180,sizes:[4],count:4};
+ teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()}};
+ players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=180;nowTime=180;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;
+ hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
+ setRoomStatus();setText('modeLabel',kind==='duel'?'⚔️ 봇 대결 체험':'🤝 연습용 협동');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
+}
+function startDemo(kind='coop'){unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
+function setModeUI(){let nm={coop:'🤝 협동 주방',duel:'⚔️ 2대2 배틀',class:'🏆 학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);setText('roundLabel','🍰 '+(['디저트 주방','회전 주방','축제 주방'][Math.floor(elapsed/110)%3]));}
+function updateUI(){
+ if(!roundStarted)return;
+ let side=getSide(),grp=getGroup(side),rec=order(side);
+ setText('orderEmoji',rec.emoji);setText('orderTitle',rec.title);setText('orderDesc',rec.desc);setText('orderCount','ORDER '+String(grp.orderIndex+1).padStart(2,'0'));
+ $('orderIngredients').replaceChildren(...rec.items.map(k=>{let e=document.createElement('div');e.className='ingredient-chip'+(grp.tray?.[k]?' done':'');e.innerHTML='<span>'+FOOD[k].emoji+'</span><div>'+FOOD[k].name+'<small style="display:block;color:#afc6d5">'+(grp.tray?.[k]?'✅ 준비 완료':'손질 후 담기')+'</small></div>';return e}));
+ let roster=mode==='demo'?[{id:'demo',...p},...bots.map((b,i)=>({id:'bot'+i,...b}))]:Object.entries(players||{}).map(([id,v])=>({id,...v})).sort((a,b)=>a.seat-b.seat);
+ $('playerRoster').replaceChildren(...roster.map(v=>{const e=document.createElement('div');e.className='roster-item';let side=currentMode==='duel'?(v.seat%4<2?'A팀':'B팀'):(v.id===myUid?'나':'팀원');e.innerHTML='<span class="roster-avatar" style="background:'+playerColor(v.seat)+'">🍳</span><span class="roster-name"></span><span class="roster-team">'+side+'</span>';e.querySelector('.roster-name').textContent=v.name+(v.id===myUid?' ✨':'');return e}));
+ setText('scoreLabel',grp.score||0);setText('scoreDetail',`완성 요리 ${grp.served||0}개 · 수학 정답 ${grp.correct||0}개`);
+ if(currentMode==='duel'){let a=getGroup('A'),b=getGroup('B');$('teamRanking').innerHTML=`<div class="ranking-item">🌸 A팀 <b>${a.score||0}점</b></div><div class="ranking-item">🌊 B팀 <b>${b.score||0}점</b></div>`}
+ else if(meta?.sizes?.length>1){let ranking=Object.entries(allTeams).map(([id,v])=>{let d=v?.data?.groups?.ALL||{};let size=meta.sizes[Number(id)]||4;return {id,score:d.score||0,normalized:Math.round((d.score||0)/size*4)}}).sort((a,b)=>b.normalized-a.normalized);$('teamRanking').replaceChildren(...ranking.map(v=>{let e=document.createElement('div');e.className='ranking-item';e.textContent=`${Number(v.id)+1}팀 · 보정 ${v.normalized}점`;return e}));}
+ else $('teamRanking').textContent='함께 만들면 점수가 올라가요!';
+ let station=nearestStation();
+ let h=station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',h);setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
+ setModeUI();
+}
+function getStationHint(st){if(st.type==='bin')return `📦 ${st.label}: E를 눌러 재료 집기`;
+ if(st.type==='cut')return '🔪 도마: 손질할 재료를 들고 E';if(st.type==='cook')return '🔥 화덕: 구울 재료를 들고 E';if(st.type==='mix')return '🥣 믹서: 섞을 재료를 들고 E';if(st.type==='plate')return '🍽️ 플레이팅대: 완성 재료를 들고 E';if(st.type==='serve')return '🔔 서빙대: 재료가 다 모이면 E';return '중앙 조리대';}
+function nearestStation(){let best=null,dist=1.55;for(let s of STATIONS){if(s.type==='decor')continue;let d=Math.hypot((s.x+.5)-p.x,(s.y+.5)-p.y);if(d<dist){dist=d;best=s}}return best}
+function walkable(x,y){if(x<1.1||x>W-1.1||y<1.1||y>H-1.1)return false;const radius=.29;for(let sx of [-radius,radius])for(let sy of [-radius,radius])if(blocked.has(Math.floor(x+sx)+','+Math.floor(y+sy)))return false;return true}
+function tryMove(dx,dy){let speed=0.115;let nx=p.x+dx*speed,ny=p.y+dy*speed;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.updatedAt=Date.now();}
+async function updatePlayer(force=false){players[myUid]={...p};if(mode!=='demo'&&cloud){try{await cloud.syncPlayer(p,force)}catch(e){console.warn('위치 동기화',e)}}}
+async function interact(){
+ if(!roundStarted||ended||activeQuestion||pending)return;
+ const st=nearestStation();if(!st){toast('조리대나 재료 상자 가까이 가보세요!');return}
+ let held=p.held;
+ if(st.type==='bin'){
+  if(held){toast('먼저 들고 있는 재료를 손질하거나 Q로 내려놓으세요.');sound('error');return}
+  p.held=st.food;await updatePlayer(true);toast(FOOD[st.food].emoji+' '+FOOD[st.food].name+'을(를) 들었어요!');sound('pickup');updateUI();return;
+ }
+ if(['cut','cook','mix'].includes(st.type)){
+  if(!held){toast('재료를 들고 조리대 앞으로 오세요!');return}
+  if(held.startsWith('ready:')){toast('이미 완성된 재료예요. 🍽️ 접시에 담아 주세요!');return}
+  const food=FOOD[held];if(food?.prep!==st.type){let txt={cut:'도마에서 손질할',cook:'화덕에서 구울',mix:'믹서에서 섞을'}[food?.prep];toast(`이 재료는 ${txt} 수 있어요!`);sound('error');return}
+  askMath(held,st.type);return;
+ }
+ if(st.type==='plate'){
+  if(!held||!held.startsWith('ready:')){toast('손질이나 조리를 마친 재료를 가져오세요!');return}
+  let item=held.slice(6),rec=order();if(!rec.items.includes(item)){toast('이번 주문에 필요한 재료가 아니에요!');sound('error');return}
+  if(getGroup().tray?.[item]){toast('이 재료는 이미 접시에 담았어요!');return}
+  pending=true;
+  try{
+    let accepted=await deposit(item,rec);
+    if(accepted){p.held='';await updatePlayer(true);celebrate(st.x+.5,st.y+.5,5);toast('🍽️ '+FOOD[item].name+' 접시 준비 완료!');sound('success');}
+    else toast('다른 친구가 먼저 접시에 담았어요!');
+  }catch(e){toast('접시 동기화에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  return;
+ }
+ if(st.type==='serve'){
+  let rec=order(),gr=getGroup();if(!rec.items.every(i=>gr.tray?.[i])){toast('재료가 아직 모두 모이지 않았어요!');sound('error');return}
+  pending=true;
+  try{if(await serve(rec)){celebrate(st.x+.5,st.y+.5,25);toast('🎉 '+rec.title+' 완성! +100점');sound('success')}else toast('서빙 주문이 갱신되었어요!')}
+  catch(e){toast('서빙에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  return;
+ }
+}
+async function deposit(item,rec){if(mode!=='demo')return cloud.deposit(getSide(),item,rec);let gr=getGroup();if(!rec.items.includes(item)||gr.tray[item])return false;gr.tray[item]=true;return true}
+async function serve(rec){if(mode!=='demo')return cloud.serve(getSide(),rec,RECIPES);let gr=getGroup();if(!rec.items.every(i=>gr.tray[i]))return false;gr.score+=100;gr.served++;gr.orderIndex++;gr.tray={};return true}
+async function mathStat(correct,unitNum){let gr=getGroup();if(mode==='demo'){gr[correct?'correct':'wrong']++;return}await cloud.writeMath(getSide(),correct,unitNum)}
+function shuffle(a){let z=[...a];for(let i=z.length-1;i>0;i--){let j=rnd(0,i);[z[i],z[j]]=[z[j],z[i]]}return z}
+function mkProblem(u){
+ let unitNum=Number(u)==0?rnd(1,6):Number(u),question='',value=0,hint='',expl='';
+ switch(unitNum){
+ case 1:{const den=[2,3,4,5,6,8][rnd(0,5)],num=rnd(2,6);let whole=rnd(2,6);value=num;question=`${whole* num}/${den} ÷ ${whole}/${den} = ?`;hint='분수의 나눗셈은 뒤의 분수를 뒤집어 곱해요.';expl=`${whole*num}/${den} × ${den}/${whole} = ${num}`;break}
+ case 2:{let a=rnd(2,9),b=[.2,.4,.5,1.2,1.5,2.5][rnd(0,5)];value=a;question=`${+(a*b).toFixed(2)} ÷ ${b} = ?`;hint='나누는 수가 자연수가 되도록 소수점을 옮겨 보세요.';expl=`${+(a*b).toFixed(2)} ÷ ${b} = ${a}`;break}
+ case 3:{let a=rnd(1,3),b=rnd(2,4),c=rnd(1,3);value=a+b+c;question=`쌓기나무가 세 줄로 있어요.\n각 줄 높이가 ${a}개, ${b}개, ${c}개라면\n모두 몇 개일까요?`;hint='줄마다 쌓인 나무 개수를 모두 더해요.';expl=`${a}+${b}+${c}=${value}개`;break}
+ case 4:{let a=rnd(1,4),b=rnd(2,5),t=rnd(2,5);value=a*t;question=`딸기와 우유를 ${a}:${b}로 나눠요.\n총 ${(a+b)*t}컵이면 딸기는 몇 컵?`;hint='전체를 비의 각 항의 합으로 나눈 다음, 딸기 쪽의 비를 곱해요.';expl=`${(a+b)*t} ÷ ${a+b} × ${a} = ${value}`;break}
+ case 5:{let r=[2,3,4,5][rnd(0,3)],circ=Math.random()<.5;value=+(circ?2*r*3.14:r*r*3.14).toFixed(2);question=`반지름이 ${r}cm인 원의\n${circ?'둘레':'넓이'}는 얼마일까요?\n(원주율 3.14)`;hint=circ?'원의 둘레 = 반지름 × 2 × 원주율':'원의 넓이 = 반지름 × 반지름 × 원주율';expl=`${circ?`${r}×2×3.14`:`${r}×${r}×3.14`} = ${value}`;break}
+ case 6:{let q=[['원기둥의 밑면은 몇 개일까요?',2,'원기둥의 위아래에는 같은 크기의 원이 있어요.'],['원뿔의 꼭짓점은 몇 개일까요?',1,'뾰족한 꼭짓점은 하나예요.'],['구의 평평한 면은 몇 개일까요?',0,'구에는 평평한 면이 없어요.'],['원기둥의 모서리는 몇 개일까요?',2,'밑면과 옆면이 만나는 원형 모서리 두 개가 있어요.'],['원뿔의 밑면은 몇 개일까요?',1,'원 모양 밑면이 하나 있어요.']][rnd(0,4)];question=q[0];value=q[1];hint=q[2];expl=q[2];break}
+ }
+ const options=new Set([value]);let tries=0;while(options.size<4&&tries<100){tries++;let d=[-5,-3,-2,-1,1,2,3,5][rnd(0,7)];let v=+(value+d*(unitNum===5?3.14:1)).toFixed(2);if(v>=0)options.add(v)}
+ return {question,answer:value,options:shuffle([...options]),unit:unitNum,hint,explanation:expl};
+}
+function askMath(food,kind){
+ const pz=mkProblem(unit==='all'?rnd(1,6):unit),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
+ activeQuestion={food,kind,pz,wrong:false};
+ setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!');setText('questionUnit',pz.unit+'. '+['분수의 나눗셈','소수의 나눗셈','공간과 입체','비례식과 비례배분','원의 둘레와 넓이','원기둥, 원뿔, 구'][pz.unit-1]);setMath('questionText',pz.question);setText('questionFeedback','정답을 골라 재료를 준비해요.');
+ let ans=$('answerGrid');ans.replaceChildren(...pz.options.map((opt,i)=>{let b=document.createElement('button');b.className='answer-btn';b.textContent=`${'①②③④'[i]}  ${opt}`;b.addEventListener('click',()=>answerMath(opt,b));return b}));show('questionOverlay');sound('pickup');
+}
+async function answerMath(choice,button){if(!activeQuestion||activeQuestion.solving)return;let q=activeQuestion,correct=Math.abs(Number(choice)-q.pz.answer)<.00001;
+ if(!correct){button.classList.add('wrong');button.disabled=true;q.wrong=true;setText('questionFeedback','아쉬워요! 다시 골라 보세요. '+q.pz.hint);sound('error');await mathStat(false,q.pz.unit);return}
+ q.solving=true;button.classList.add('correct');setMath('questionFeedback','정답! '+q.pz.explanation+' ✨');sound('success');await mathStat(true,q.pz.unit);
+ setTimeout(async()=>{if(activeQuestion!==q)return;p.held='ready:'+q.food;activeQuestion=null;hide('questionOverlay');await updatePlayer(true);celebrate(p.x,p.y,10);toast(FOOD[q.food].emoji+' 손질 완료! 🍽️ 접시로 가져가요.');updateUI();},700);
+}
+function celebrate(x,y,n=10){for(let i=0;i<n;i++)particles.push({x:OX+x*T,y:OY+y*T,vx:(Math.random()-.5)*4,vy:-1-Math.random()*3,life:1,color:['#ffd879','#61e4cc','#ff8cae','#fff'][rnd(0,3)]})}
+function canvasPos(x,y){return [OX+x*T,OY+y*T]}
+const rr=(x,y,w,h,r)=>{g.beginPath();g.roundRect(x,y,w,h,r);};
+function fillRounded(x,y,w,h,r,color){g.fillStyle=color;rr(x,y,w,h,r);g.fill()}
+function glow(x,y,r,color){let grad=g.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,color);grad.addColorStop(1,'transparent');g.fillStyle=grad;g.fillRect(x-r,y-r,r*2,r*2)}
+function drawFloor(){
+ g.clearRect(0,0,1000,640);let grad=g.createLinearGradient(0,0,900,640);grad.addColorStop(0,'#28334b');grad.addColorStop(.5,'#173f56');grad.addColorStop(1,'#182940');g.fillStyle=grad;g.fillRect(0,0,1000,640);
+ glow(95,300,300,'#24dec725');glow(900,160,260,'#ff9b5925');
+ g.fillStyle='#111c2c';g.fillRect(OX-20,OY-6,18*T+40,12*T+25);g.fillStyle='#3b5064';g.fillRect(OX-9,OY-2,18*T+18,12*T+8);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  let px=OX+x*T,py=OY+y*T;
+  let base=(x+y)%2===0?'#657d92':'#61788c';
+  g.fillStyle=base;g.fillRect(px+.5,py+.5,T-1,T-1);
+  g.strokeStyle='#465f74';g.lineWidth=1.3;g.strokeRect(px+.8,py+.8,T-1.6,T-1.6);
+  g.fillStyle='rgba(255,255,255,.045)';g.fillRect(px+3,py+2,T-6,2);
+  if((x*7+y*11)%17===0){g.fillStyle='#374b62';g.fillRect(px+10,py+32,4,2)}
+ }
+ for(let x=0;x<W;x++){
+  let px=OX+x*T;fillRounded(px,OY-3,T-1,21,2,'#30455b');g.fillStyle='#47627a';g.fillRect(px+2,OY-1,T-4,4);g.fillStyle='#23354a';g.fillRect(px+23,OY+8,2,8);
+ }
+ for(let y=0;y<H;y++){
+  const py=OY+y*T;fillRounded(OX-12,py,17,T-1,2,'#30435b');fillRounded(OX+W*T-5,py,17,T-1,2,'#26384b');
+ }
+ glow(OX+20,OY+470,110,'#2cefc524');glow(OX+820,OY+80,150,'#f9915f29');
+ // decorative plants, hanging lights, and kitchen accents
+ drawEmoji('🪴',OX+42,OY+50,27);drawEmoji('🪴',OX+W*T-34,OY+50,27);
+ for(let x of [4,8,13]){fillRounded(OX+x*T-6,OY+12,6,18,3,'#324e63');glow(OX+x*T,OY+31,38,'#ffe19b29');drawEmoji('✨',OX+x*T+2,OY+42,10)}
+}
+function drawEmoji(symbol,x,y,size=23){g.font=`${size}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(symbol,x,y)}
+function drawStation(st,t){
+ let [x,y]=canvasPos(st.x,st.y);let cx=x+24,cy=y+24;
+ // tiled counters with an exaggerated top and front face to create the 2.5D feeling
+ fillRounded(x+4,y+13,43,36,5,'#1c2936');fillRounded(x+2,y+6,44,34,5,'#5c3f3c');fillRounded(x+1,y+1,45,30,5,'#bb8d69');fillRounded(x+4,y+3,39,22,4,st.type==='bin'?'#beaa83':'#af8569');
+ g.fillStyle='#e6ba8a';g.fillRect(x+6,y+4,34,2);
+ if(st.type==='bin'){fillRounded(x+6,y+7,35,18,4,'#625045');drawEmoji(FOOD[st.food].emoji,cx,y+14,23)}
+ else if(st.type==='cut'){fillRounded(x+7,y+7,34,16,3,'#d3b480');drawEmoji('🔪',cx+3,y+15,22)}
+ else if(st.type==='cook'){fillRounded(x+6,y+4,35,25,6,'#283443');fillRounded(x+13,y+9,22,15,7,'#ea6a48');drawEmoji('🔥',cx,y+14,22);if(Math.sin(t/300+st.x)>0){glow(cx,y+17,38,'#ff7d4a44')}}
+ else if(st.type==='mix'){fillRounded(x+7,y+6,33,19,4,'#457185');drawEmoji('🥣',cx,y+16,26)}
+ else if(st.type==='plate'){fillRounded(x+6,y+6,35,18,4,'#ddd8c5');drawEmoji('🍽️',cx,y+15,24)}
+ else if(st.type==='serve'){fillRounded(x+6,y+6,35,19,4,'#ece2bc');drawEmoji('🔔',cx,y+14,23)}
+ else {drawEmoji('🥘',cx,y+14,22)}
+ g.font='700 10px Nunito, sans-serif';g.textAlign='center';g.fillStyle='#ffe3b6';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(st.type==='bin'?FOOD[st.food].name:st.label,cx,y+45);g.shadowBlur=0;
+}
+function drawChef(ch,isMine,t){
+ let [x,y]=canvasPos(ch.x,ch.y);let col=playerColor(ch.seat||0);let bounce=Math.sin(t/125+(ch.seat||0))*.9;
+ g.fillStyle='#111d2d80';g.beginPath();g.ellipse(x,y+13,18,8,0,0,Math.PI*2);g.fill();
+ g.fillStyle=col;g.beginPath();g.ellipse(x,y-1+bounce,17,18,0,0,Math.PI*2);g.fill();
+ fillRounded(x-13,y-14+bounce,26,18,9,'#f4c9a6');
+ g.fillStyle='#493b46';g.beginPath();g.arc(x-5,y-5+bounce,1.9,0,Math.PI*2);g.arc(x+5,y-5+bounce,1.9,0,Math.PI*2);g.fill();
+ g.strokeStyle='#b77a77';g.lineWidth=1.6;g.beginPath();g.arc(x,y-5+bounce,4,.35,Math.PI-.35);g.stroke();
+ fillRounded(x-13,y-31+bounce,26,16,8,'#f4f8ff');
+ for(let i=-1;i<=1;i++){g.fillStyle='#fff';g.beginPath();g.arc(x+i*8,y-27+bounce,8,0,Math.PI*2);g.fill()}
+ fillRounded(x-13,y-19+bounce,26,6,2,'#d7eaf2');
+ if(ch.held){let it=ch.held.replace('ready:','');if(FOOD[it]){fillRounded(x+4,y-40,30,28,9,ch.held.startsWith('ready:')?'#2d8d70':'#fff8e4');drawEmoji(FOOD[it].emoji,x+19,y-26,19)}}
+ if(isMine){g.strokeStyle='#ffd775';g.lineWidth=3;g.beginPath();g.ellipse(x,y+12,20,10,0,0,Math.PI*2);g.stroke()}
+ let nm=String(ch.name||'셰프').slice(0,8);g.font='800 11px Nunito,"Noto Sans KR",sans-serif';let width=Math.max(52,g.measureText(nm).width+14);fillRounded(x-width/2,y-53+bounce,width,18,8,isMine?'#4c785d':'#293d53');g.fillStyle='#fff';g.textAlign='center';g.fillText(nm,x,y-40+bounce);
+}
+function drawGame(t){
+ drawFloor();let focus=nearestStation();
+ for(let st of STATIONS){drawStation(st,t);if(focus===st&&roundStarted&&!activeQuestion){let [x,y]=canvasPos(st.x+.5,st.y+.1);g.strokeStyle='#ffdf94';g.lineWidth=3;g.strokeRect(x-24,y-6,47,43);drawEmoji('E',x+21,y-8,12)}}
+ if(mode==='demo'){for(let b of bots)drawChef(b,false,t)}else{let list=Object.entries(players).sort((a,b)=>a[1].y-b[1].y);for(let [id,ch] of list){if(id===myUid)continue;drawChef(ch,false,t)}}
+ if(roundStarted)drawChef(p,true,t);
+ for(let pt of particles){g.globalAlpha=pt.life;g.fillStyle=pt.color;g.beginPath();g.arc(pt.x,pt.y,4*pt.life+1,0,Math.PI*2);g.fill();g.globalAlpha=1}
+ if(!roundStarted){g.fillStyle='#101d3699';g.fillRect(OX,OY,W*T,H*T);g.fillStyle='#fce8c6';g.textAlign='center';g.font='900 26px Nunito,"Noto Sans KR"';g.fillText('주방에 오신 것을 환영합니다!',500,315);g.font='700 14px Nunito,"Noto Sans KR"';g.fillText('시작 화면에서 체험하거나 학급방에 입장하세요.',500,350)}
+}
+function animate(t){let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+ if(roundStarted&&!ended){
+  if(!activeQuestion){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
+   if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2;let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}
+  }
+  if(mode==='demo')for(let b of bots){let dist=Math.hypot(b.tx-b.x,b.ty-b.y);if(dist<.2||Math.random()<dt*.2){b.tx=rnd(4,13)+.5;b.ty=rnd(3,9)+.5}let vx=(b.tx-b.x)/(dist||1),vy=(b.ty-b.y)/(dist||1);let nx=b.x+vx*dt*.9,ny=b.y+vy*dt*.9;if(walkable(nx,b.y))b.x=nx;if(walkable(b.x,ny))b.y=ny;}
+  let started=mode==='demo'?meta.startedAt:meta?.startedAt||Date.now();nowTime=Math.max(0,(meta?.duration||180)-(Date.now()+(cloud?.serverOffset||0)-started)/1000);
+  setText('timerLabel',`${String(Math.floor(nowTime/60)).padStart(2,'0')}:${String(Math.floor(nowTime%60)).padStart(2,'0')}`);
+  elapsed=(meta?.duration||180)-nowTime;
+  if(mode==='demo'&&currentMode==='duel'&&Math.floor(elapsed/35)>rivalServed){rivalServed++;let gr=getGroup('B');gr.score+=100;gr.served++;gr.orderIndex++;toast('⚔️ 라이벌 B팀이 요리를 완성했어요!')}
+  if(nowTime<=0)finishRound();
+  if(clock-ambience>1){ambience=clock;updateUI()}
+ }
+ for(let pt of particles){pt.x+=pt.vx*dt*60;pt.y+=pt.vy*dt*60;pt.vy+=.09*dt*60;pt.life-=dt*.9}particles=particles.filter(p=>p.life>0);
+ if(cloud?.role==='teacher' && cloud.meta?.phase==='playing' && Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))updateTeacherMonitor();
+ drawGame(t);requestAnimationFrame(animate);
+}
+function finishRound(){if(ended)return;ended=true;sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);
+ let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg);show('endOverlay');sound('success');}
+function beginOnline(){
+ if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
+ let startPoints=[[7.5,7.5],[10.5,7.5],[6.5,6.5],[11.5,6.5],[9.5,7.5]];
+ let same=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);let i=same.findIndex(([id])=>id===myUid),v=startPoints[Math.max(0,i)%startPoints.length];
+ p={x:v[0],y:v[1],dir:'down',held:'',seat,name:getName(),updatedAt:Date.now()};
+ cloud.spawn(p).catch(e=>toast('입장 오류: '+e.message));
+ hide('menuOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('endOverlay');hide('questionOverlay');roundStarted=true;ended=false;pending=false;activeQuestion=null;elapsed=0;sentPhase='playing';setRoomStatus();setModeUI();updateUI();toast('🎉 게임 시작! 친구들과 요리를 완성하세요.');
+}
+function updateTeacherMonitor(){
+ if(!cloud||cloud.role!=='teacher')return;
+ let running=cloud.meta?.phase==='playing';$('teacherMonitor').classList.toggle('hidden',!running&&cloud.meta?.phase!=='ended');
+ if(!cloud.meta)return;
+ let remaining=Math.max(0,cloud.meta.duration-Math.floor((Date.now()+(cloud.serverOffset||0)-cloud.meta.startedAt)/1000));
+ setText('teacherTime','남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'));
+ let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
+ $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
+ $('endRoundBtn').disabled=!running;
+}
+function refreshLobby(){
+ if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);setText('lobbyCount',`${Object.keys(all).length}/${m.count}명 입장`);setText('lobbyMode',({coop:'🤝 협동',duel:'⚔️ 2대2 대결',class:'🏆 학급 대항전'})[m.mode]);
+ let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}팀 · ${num}명`;div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);for(let [,u] of mates){let li=document.createElement('div');li.className='lobby-member';li.textContent='👨‍🍳 '+u.name;div.appendChild(li)}if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
+ let count=Object.keys(all).length;setText('lobbyNotice',count===m.count?'🎉 모든 학생이 입장했습니다!':'학생들이 입장할 때마다 팀에 자동 배정됩니다.');
+ $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
+}
+async function setupCloud(isTeacher){teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'학급 인원과 모드를 선택하면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
+function wireCloud(obj){
+ obj.on('meta',v=>{
+  if(!v)return;meta=v;currentMode=v.mode;
+  if(obj.role==='teacher'){if(v.phase==='playing'||v.phase==='ended'){refreshLobby();$('startBtn').textContent='다음 판 시작하기 🍳';if(v.phase==='ended')toast('게임이 끝났어요. 새 라운드를 시작할 수 있습니다.')}else refreshLobby();}
+  else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&sentPhase==='playing'){sentPhase='lobby';roundStarted=false;show('lobbyOverlay');}
+ });
+ obj.on('members',v=>{members=v||{};refreshLobby();if(roundStarted)updateUI()});
+ obj.on('results',()=>updateTeacherMonitor());
+ obj.on('players',v=>{players=v||{}});
+ obj.on('teamData',v=>{teamData=v||{groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()}};if(roundStarted)updateUI()});
+ obj.on('teams',v=>{allTeams=v||{};if(roundStarted)updateUI();if(cloud?.role==='teacher')updateTeacherMonitor()});
+ obj.on('error',err=>toast('Firebase: '+err));
+}
+function boot(){
+ $('demoBtn').onclick=()=>startDemo('coop');
+ $('demoBattleBtn').onclick=()=>startDemo('duel');
+ $('teacherBtn').onclick=()=>setupCloud(true);
+ $('joinBtn').onclick=()=>setupCloud(false);
+ $('createRoomBtn').onclick=async()=>{
+  let btn=$('createRoomBtn');btn.disabled=true;setText('setupError','');try{
+   let n=Number($('classCount').value),m=$('createMode').value;if(m==='duel'&&n!==4)m='class';
+   cloud=new CloudRoom();wireCloud(cloud);await cloud.create({name:getName(),count:n,mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value)});
+   mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
+  }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
+ };
+ $('joinRoomBtn').onclick=async()=>{
+  let btn=$('joinRoomBtn');btn.disabled=true;setText('setupError','');try{
+   cloud=new CloudRoom();wireCloud(cloud);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()});
+   mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
+  }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
+ };
+ $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{await cloud.begin();refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
+ $('lobbyBackBtn').onclick=goHome;
+ $('csvBtn').onclick=()=>{
+   if(!cloud || cloud.role!=='teacher')return;
+   let header=['번호','이름(별명)','팀','정답','오답',...Array.from({length:6},(_,i)=>(i+1)+'단원 정답')];
+   let lines=[header,...Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat).map((v,i)=>[i+1,v.name||'',Number(v.team)+1,v.correct||0,v.wrong||0,...Array.from({length:6},(_,j)=>v.units?.[j+1]?.correct||0)])];
+   let csv='\ufeff'+lines.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"').join(',')).join('\r\n');
+   let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='수학레스토랑_학생별결과_'+cloud.code+'.csv';a.click();URL.revokeObjectURL(url);
+ };
+ $('endRoundBtn').onclick=async()=>{if(!cloud||cloud.role!=='teacher')return;try{await cloud.finish();refreshLobby()}catch(e){toast(e.message)}};
+ $('copyCodeBtn').onclick=async()=>{try{await navigator.clipboard.writeText(cloud.code);toast('학급방 코드가 복사됐어요!')}catch{toast('방 코드: '+cloud.code)}};
+ $('helpBtn').onclick=()=>show('helpOverlay');
+ document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>hide(x.dataset.close)));
+ $('soundBtn').onclick=()=>{muted=!muted;setText('soundBtn',muted?'🔇':'🔊')};
+ $('interactBtn').onclick=interact;
+ $('hintBtn').onclick=()=>{if(activeQuestion)setText('questionFeedback','💡 '+activeQuestion.pz.hint)};
+ $('cancelQuestionBtn').onclick=()=>{activeQuestion=null;hide('questionOverlay');toast('준비되면 다시 도전해 보세요!')};
+ $('leaveBtn').onclick=goHome;$('endHomeBtn').onclick=goHome;
+ $('roomInfoBtn').onclick=()=>{if(mode==='demo')show('helpOverlay');else{show('lobbyOverlay');refreshLobby()}};
+ $('restartBtn').onclick=()=>{if(mode==='demo')startDemo(currentMode);else if(cloud?.role==='teacher')cloud.begin().catch(e=>toast(e.message));else{hide('endOverlay');show('lobbyOverlay');toast('선생님이 다음 라운드를 시작하면 입장해요!')}};
+ document.addEventListener('keydown',e=>{
+  const key=e.key.length===1?e.key.toLowerCase():e.key;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Space','Spacebar'].includes(key)&&e.target.tagName!=='INPUT')e.preventDefault();
+  if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+  keys.add(key);
+  if((key==='e'||key===' '||key==='Space'||key==='Spacebar')&&!e.repeat)interact();
+  if(key==='q'&&!e.repeat&&roundStarted&&!activeQuestion&&p.held){p.held='';updatePlayer(true).catch(()=>{});toast('재료를 내려놓았어요!');}
+  if(key==='Escape'&&activeQuestion){activeQuestion=null;hide('questionOverlay')}
+ });
+ document.addEventListener('keyup',e=>{keys.delete(e.key.length===1?e.key.toLowerCase():e.key)});
+ window.addEventListener('blur',()=>keys.clear());
+ if(cloudConfigured()){setText('firebaseNote','✅ Firebase 연결 준비 완료 · 선생님이 학급방을 만들어 실시간 협동할 수 있어요.');}
+ p.name='꼬마셰프';requestAnimationFrame(animate);
+}
+async function goHome(){
+ if(cloud)await cloud.disconnect();cloud=null;mode='demo';teacher=false;roundStarted=false;ended=false;activeQuestion=null;sentPhase='';keys.clear();hide('endOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('questionOverlay');show('menuOverlay');setRoomStatus();
+}
+boot();
+</script>
+</body>
+</html>
