@@ -19,7 +19,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
 
   const wx = gx => gx - W / 2, wz = gy => gy - H / 2;   // 타일 좌표 → 3D 좌표
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x2b2622);
+  scene.background = new THREE.Color(0x7a5231);   // 홀 바닥과 비슷한 색 (바닥이 닿지 않는 먼 곳)
   const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 80);
   const CAM_ANGLE = THREE.MathUtils.degToRad(56);
 
@@ -45,7 +45,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   sun.position.set(-7, 14, 7);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 9, bottom: -9, near: 2, far: 34 });
+  Object.assign(sun.shadow.camera, { left: -19, right: 19, top: 13, bottom: -13, near: 2, far: 44 });
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
   scene.add(sun);
 
@@ -313,6 +313,75 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
   }
   stations.forEach(buildStation);
+  // ───────── 주방 바깥: 식당 홀 (오픈 키친을 둘러싼 손님 자리) ─────────
+  // 화면 가장자리까지 나무 바닥을 깔고, 식탁·의자·화분·러그를 놓아 빈 곳이 없게 함. 모델을 못 읽어도 바닥은 나옴
+  {
+    const plankTex = canvasTex(512, 512, (g, s) => {
+      const cols = ['#99683f', '#8f5f38', '#a17046', '#8a5a34'];
+      for (let row = 0; row < 8; row++) {
+        const y = row * 64, off = (row % 2) * 128 + (row * 37) % 60;
+        for (let k = -1; k < 3; k++) {
+          const x = k * 256 + off;
+          g.fillStyle = cols[(row * 3 + k + 4) % 4]; g.fillRect(x, y, 256, 64);
+          g.strokeStyle = '#6b4425'; g.lineWidth = 3; g.strokeRect(x, y, 256, 64);
+          g.fillStyle = '#00000012'; for (let i = 0; i < 5; i++) g.fillRect(x + 12 + i * 47, y + 10 + (i * 23) % 40, 60, 2);   // 나뭇결
+        }
+      }
+    });
+    plankTex.wrapS = plankTex.wrapT = THREE.RepeatWrapping; plankTex.repeat.set(18, 14);
+    add(world, new THREE.PlaneGeometry(90, 70), mat(0xffffff, 0.9, { map: plankTex }), 0, -0.03, 0, false).rotation.x = -Math.PI / 2;
+
+    const D = n => models.get('decor:' + n);
+    // 모델을 높이 h(또는 flat이면 가로 h)에 맞춰 같은 비율로 놓음
+    function put(name, x, z, h, rot = 0, flat = false) {
+      const src = D(name); if (!src) return null;
+      const m = src.clone(), wrap = new THREE.Group(); wrap.add(m);
+      const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+      m.position.set(-c.x, -b.min.y, -c.z);
+      wrap.scale.setScalar(h / (flat ? Math.max(sz.x, sz.z) : sz.y));
+      wrap.position.set(x, flat ? -0.02 : -0.03, z); wrap.rotation.y = rot;
+      world.add(wrap); return wrap;
+    }
+    const DISHES = ['dish:🍔', 'dish:🥗', 'dish:🍰', 'dish:🍕', 'dish:🥙', 'dish:🥤'];
+    let dishNo = 0;
+    function dish(x, y, z) { const src = models.get(DISHES[dishNo++ % DISHES.length]); if (!src) return; const m = src.clone(); m.scale.setScalar(0.42); m.position.set(x, y, z); world.add(m); }
+    // 식탁 한 벌: 식탁 + 의자(둘레) + 음식
+    function tableSet(x, z, kind, rot = 0, seats = 4) {
+      const round = kind === 'tableRound';
+      put(kind, x, z, 0.78, rot);
+      const R = round ? 1.05 : 1.15, chair = round ? 'chairRounded' : 'chairCushion';
+      for (let i = 0; i < seats; i++) { const a = rot + (i / seats) * Math.PI * 2 + (seats === 2 ? Math.PI / 2 : Math.PI / 4); put(chair, x + Math.sin(a) * R, z + Math.cos(a) * R, 0.95, a + Math.PI); }
+      dish(x - 0.25, 0.76, z + 0.1); if (seats > 2) dish(x + 0.28, 0.76, z - 0.12);
+    }
+    const KX = W / 2, KZ = H / 2;       // 주방 가장자리
+    // 왼쪽·오른쪽 홀
+    for (const s of [-1, 1]) {
+      put('rugRound', s * (KX + 3.6), -2.6, 4.6, 0, true);
+      tableSet(s * (KX + 3.6), -2.6, 'tableRound', 0.3 * s, 4);
+      tableSet(s * (KX + 3.2), 2.6, 'tableCloth', 0.15 * s, 4);
+      tableSet(s * (KX + 7.2), 0.2, 'tableCrossCloth', -0.2 * s, 4);
+      tableSet(s * (KX + 7.4), -5.6, 'tableCloth', 0.1 * s, 4);
+      tableSet(s * (KX + 7.0), 5.6, 'tableRound', 0, 4);
+      put('pottedPlant', s * (KX + 1.1), -KZ + 0.4, 1.5);
+      put('pottedPlant', s * (KX + 1.1), KZ + 0.9, 1.5);
+      put('lampRoundFloor', s * (KX + 1.2), 0.2, 1.9);
+      put('plantSmall1', s * (KX + 5.6), 4.2, 0.7);
+      put('coatRackStanding', s * (KX + 10.2), -2.6, 1.8);
+      // 앞쪽(서빙 벨 앞): 손님이 기다리는 자리
+      put('rugRectangle', s * 5.2, KZ + 2.6, 5.2, 0, true);
+      put('benchCushion', s * 5.2, KZ + 2.4, 0.55, Math.PI);
+      put('plantSmall3', s * 8.2, KZ + 2.2, 0.7);
+      // 뒷벽 너머
+      put('bookcaseOpen', s * 6.5, -KZ - 1.4, 1.9);
+      put('loungeSofa', s * 3.2, -KZ - 2.2, 0.85);
+      tableSet(s * (KX + 3.4), -KZ - 3.4, 'tableCloth', 0, 4);
+      put('lampRoundFloor', s * 1.2, -KZ - 1.6, 1.9);
+      put('pottedPlant', s * 9.2, -KZ - 1.5, 1.5);
+    }
+    // 서빙 창구 앞 높은 의자
+    for (let i = 0; i < 6; i++) put('stoolBar', -2.5 + i * 1, KZ + 0.75, 0.8);
+    tableSet(0, -KZ - 4.2, 'tableRound', 0, 4);
+  }
   mergeStatic(world);
 
   // 움직이지 않는 메시를 재질별로 하나로 합쳐 그리기 횟수를 줄입니다 (저사양 PC 대책)

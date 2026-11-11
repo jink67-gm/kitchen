@@ -28,6 +28,9 @@ function normalize(obj) {
 
 // 주방 설비 (Kenney Furniture Kit) — 크기는 쓰는 쪽에서 설비 칸에 맞춤
 export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'sushi-oven', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan', 'station:wall': 'wall', 'station:wallWindow': 'wallWindow' };
+// 주방 바깥 식당 홀 꾸미기 (Kenney Furniture Kit). 같은 이름의 재질은 하나로 합쳐 색을 식당 분위기에 맞춤
+export const DECOR_FILES = ['tableCloth', 'tableCrossCloth', 'tableRound', 'chairCushion', 'chairRounded', 'pottedPlant', 'plantSmall1', 'plantSmall3', 'rugRound', 'rugRectangle', 'lampRoundFloor', 'benchCushion', 'bookcaseOpen', 'stoolBar', 'loungeSofa', 'coatRackStanding'];
+const DECOR_COLORS = { wood: 0xb9824f, woodDark: 0x7a5233, carpet: 0xc9432f, carpetDarker: 0x8f2c1e, plant: 0x4f9a55, metal: 0x4a4038, lamp: 0xffe2a0 };
 // 셰프 (Quaternius Sushi Restaurant Kit의 토끼·판다 요리사) — 자리 번호 순서대로
 export const CHARACTER_FILES = ['Rabbit_Pink', 'Rabbit_Cyan', 'Panda', 'Rabbit_Purple', 'Rabbit_Green'];
 // 게임 상황 → 모델에 들어 있는 동작 이름
@@ -35,7 +38,10 @@ export const CHARACTER_ANIMS = { idle: 'Idle', hold: 'Idle_Holding', walk: 'Walk
 
 export async function loadModels(timeoutMs = 5000) {
   const models = new Map(), loader = new GLTFLoader();
+  const decorMats = {};
+  const decorMat = name => decorMats[name] || (decorMats[name] = new THREE.MeshStandardMaterial({ color: DECOR_COLORS[name] ?? 0xb9824f, roughness: 0.85, ...(name === 'lamp' ? { emissive: 0xffc860, emissiveIntensity: 0.9 } : {}) }));
   const extra = [
+    ...DECOR_FILES.map(file => new Promise(res => loader.load(DIR + 'decor/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.material = decorMat(o.material.name); o.castShadow = true; o.receiveShadow = true; } }); models.set('decor:' + file, g.scene); res(); }, undefined, () => res()))),
     ...Object.entries(FURNITURE_FILES).map(([key, file]) => new Promise(res => loader.load(DIR + 'furniture/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); models.set(key, g.scene); res(); }, undefined, () => res()))),
     ...CHARACTER_FILES.map((file, i) => new Promise(res => loader.load(DIR + 'chefs/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); models.set('char:' + i, { scene: g.scene, animations: g.animations, names: CHARACTER_ANIMS }); res(); }, undefined, () => res()))),
   ];
