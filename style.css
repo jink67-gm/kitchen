@@ -43,3 +43,12 @@
 /* 대기 시간이 지난 주문: 사라지지 않고 '팁 없음'만 표시 */
 .ocard.late .oc-bar{background:#f3d3cd}
 .ocard.late .oc-bar::after{content:'팁 없음';display:block;font-size:8px;line-height:9px;font-weight:900;color:#c4594f}
+
+/* ── 에셋 적용: 갈무리11 글꼴(OFL), Fluent Emoji Flat 그림(MIT) ── */
+@font-face{font-family:"Galmuri11";src:url("assets/fonts/Galmuri11.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Galmuri11";src:url("assets/fonts/Galmuri11-Bold.woff2") format("woff2");font-weight:700 900;font-display:swap}
+.ocard h3,.stage-pill,.timer-box,.game-toast,#orderTitle,#orderCount{font-family:"Galmuri11","Noto Sans KR",sans-serif}
+img.emo{width:1em;height:1em;vertical-align:-.12em;display:inline-block}
+.ocard .oc-dish img.emo{width:38px;height:38px}
+.oc-need em img.emo{width:24px;height:24px;vertical-align:middle}
+.oc-need i img.emo{width:13px;height:13px;vertical-align:middle}

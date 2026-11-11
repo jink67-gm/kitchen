@@ -1,5 +1,5 @@
 // 효과음 모듈 — 7단계
-// 모든 소리를 브라우저에서 직접 합성합니다 (녹음 파일 없음 → 저작권·라이선스 문제 없음, 인터넷 없이도 동작).
+// 녹음된 효과음(Kenney, CC0 — CREDITS.md 참고)을 먼저 쓰고, 파일을 못 읽거나 맞는 녹음이 없는 소리는 브라우저에서 직접 합성합니다.
 // 사용: sfx.play('chop'), sfx.setVolume(0~1), sfx.setSizzle(true/false)
 
 let ctx = null, master = null, noiseBuf = null, sizzle = null;
@@ -55,9 +55,38 @@ const SOUNDS = {
 };
 export const SOUND_NAMES = Object.keys(SOUNDS);
 
+// 녹음 효과음: 이름 → [파일들(여러 개면 매번 다른 것), 크기]. 바꾸고 싶으면 이 표의 파일 이름만 고치면 됩니다.
+const DIR = 'assets/sounds/';
+const SAMPLES = {
+  pickup: [['drop_001.ogg'], 0.7], return: [['drop_003.ogg'], 0.7], store: [['drop_002.ogg'], 0.7],
+  success: [['confirmation_001.ogg'], 0.7], error: [['error_004.ogg'], 0.6],
+  chop: [['impactWood_light_000.ogg', 'impactWood_light_001.ogg', 'impactWood_light_002.ogg'], 0.9],
+  plate: [['impactPlate_light_000.ogg', 'impactPlate_medium_000.ogg'], 0.8],
+  trash: [['impactSoft_heavy_000.ogg'], 0.9],
+  serve: [['impactBell_heavy_000.ogg'], 0.8],
+  combo: [['jingles_PIZZI07.ogg'], 0.6], rush: [['jingles_NES05.ogg'], 0.5], roundEnd: [['jingles_STEEL02.ogg'], 0.6],
+};
+const buffers = {};       // 파일 이름 → 소리 데이터
+let loading = false;
+function loadSamples() {
+  if (loading) return; loading = true;
+  for (const [files] of Object.values(SAMPLES)) for (const f of files) {
+    fetch(DIR + f).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(a => ctx.decodeAudioData(a)).then(b => { buffers[f] = b; }).catch(() => {});   // 실패하면 합성음으로 대신함
+  }
+}
+function playSample(name) {
+  const def = SAMPLES[name]; if (!def) return false;
+  const ok = def[0].filter(f => buffers[f]); if (!ok.length) return false;
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = buffers[ok[Math.floor(Math.random() * ok.length)]]; g.gain.value = def[1];
+  s.connect(g).connect(master); s.start();
+  return true;
+}
+export const sampleCount = () => Object.keys(buffers).length;
+
 export function play(name) {
   if (!ready()) return false;
-  try { (SOUNDS[name] || SOUNDS.pickup)(); return true; } catch { return false; }
+  try { loadSamples(); if (!playSample(name)) (SOUNDS[name] || SOUNDS.success)(); return true; } catch { return false; }
 }
 // 화덕에 굽는 것이 있는 동안 계속 나는 지글지글 소리
 export function setSizzle(on) {

@@ -6,9 +6,9 @@ import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
-const FONT = '"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+const FONT = 'Galmuri11,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';   // 갈무리11 (OFL) → 없으면 기기 글꼴
 
-export function createRenderer3D(canvas, { W, H, stations, foods }) {
+export function createRenderer3D(canvas, { W, H, stations, foods, icons = {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });   // WebGL 불가면 여기서 예외 → game.js가 2D로 전환
   let pixelCap = 1.5, quality = 'normal', cw = 0, ch = 0;
   renderer.shadowMap.enabled = true;
@@ -348,6 +348,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods }) {
   const STACK = new Set(['bread', 'meat', 'cheese', 'dough']);
   const dishCache = new Map();
   function dishSprite(emoji) {
+    if (!dishCache.has(emoji) && icons[emoji]) { const tx = new THREE.TextureLoader().load(icons[emoji]); tx.colorSpace = THREE.SRGBColorSpace; dishCache.set(emoji, tx); }   // 완성 요리 그림 (Fluent Emoji Flat)
     if (!dishCache.has(emoji)) dishCache.set(emoji, canvasTex(128, 128, (g, w) => { g.font = '96px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(emoji, w / 2, w / 2 + 6); }));
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dishCache.get(emoji), depthTest: false, transparent: true }));
     sp.scale.set(0.62, 0.62, 1); sp.renderOrder = 17;

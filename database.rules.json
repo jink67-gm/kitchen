@@ -6,7 +6,7 @@
       "$room": {
         "meta": {
           ".read": "auth != null",
-          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
+          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid && newData.parent().child('pin').val() === '__TEACHER_PIN__') || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
           ".validate": "newData.hasChildren(['hostUid','phase','count','sizes','mode','unit','duration']) && newData.child('count').isNumber() && newData.child('count').val() >= 1 && newData.child('count').val() <= 25 && newData.child('duration').isNumber() && newData.child('duration').val() >= 30 && newData.child('duration').val() <= 900"
         },
         "nextSeat": {
@@ -56,6 +56,11 @@
               }
             }
           }
+        },
+        "pin": {
+          ".read": false,
+          ".write": "auth != null && !data.exists()",
+          ".validate": "newData.val() === '__TEACHER_PIN__'"
         }
       }
     }

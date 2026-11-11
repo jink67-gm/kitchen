@@ -29,13 +29,15 @@ export class CloudRoom{
     }
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
-  async create({name,count,mode,unit,duration,orderTime}){
+  async create({name,count,mode,unit,duration,orderTime,pin}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
       this.code=digits();let snap=await this.ops.get(this.path('meta'));
       if(snap.exists())continue;
       let sizes=planTeams(count);
-      await this.ops.set(this.path('meta'),{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,createdAt:now(),startedAt:0});
+      // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
+      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,createdAt:now(),startedAt:0},pin:String(pin||'')})}
+      catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
       this.connected=true;this.subscribeBase();return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');

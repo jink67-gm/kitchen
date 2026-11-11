@@ -1,10 +1,31 @@
 # 사용한 재료와 라이선스
 
-| 재료 | 저작자 | 라이선스 | 위치 |
-|---|---|---|---|
-| three.js r187 (3D 라이브러리) | three.js authors | MIT | `vendor/three/` (라이선스 전문: `vendor/three/LICENSE`) |
-| 3D 모형 전부 (주방, 설비, 재료, 접시, 셰프) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | `render3d.js` |
-| 효과음 전부 | 이 프로젝트에서 브라우저 합성으로 직접 만듦 | 프로젝트 자체 | `sfx.js` |
-| 요리·재료 그림 | 이모지 (보는 기기의 글꼴이 그림) | 기기 글꼴에 따름 | — |
+## 게임에 들어간 것
 
-외부에서 받은 3D 모델·그림·소리 파일은 없습니다. 나중에 무료 에셋 팩을 넣으면 이 표에 이름·저작자·라이선스·링크를 추가합니다.
+| 재료 | 저작자 | 라이선스 | 어디에 썼나 | 파일 위치 |
+|---|---|---|---|---|
+| [three.js](https://github.com/mrdoob/three.js) r187 | three.js authors | MIT | 3D 화면 | `vendor/three/` |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | 칼질, 접시 놓기, 버리기, 서빙 벨 | `assets/sounds/impact*.ogg` |
+| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | 집기, 반환, 보관, 정답, 오류 | `assets/sounds/drop_*, error_*, confirmation_*` 등 |
+| [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | 콤보, 러시 시작, 판 종료 | `assets/sounds/jingles_*.ogg` |
+| [Fluent Emoji Flat](https://github.com/microsoft/fluentui-emoji) | Microsoft | MIT | 주문 카드·주문 현황의 음식 그림, 3D 완성 요리 그림 | `assets/icons/` |
+| [갈무리 Galmuri11](https://galmuri.quiple.dev) | Lee Minseo (quiple) | SIL OFL 1.1 | 주문 카드·타이머·알림·3D 글자 | `assets/fonts/` (라이선스 전문 `Galmuri-OFL.md`) |
+| 3D 모형 전부 (주방, 설비, 재료, 접시, 셰프) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | 3D 화면 | `render3d.js` |
+| 합성 효과음 (젓기, 설거지, 지글지글, 익음·경고·탐) | 이 프로젝트에서 직접 만듦 | 프로젝트 자체 | 녹음 파일이 없는 소리 | `sfx.js` |
+
+CC0는 출처 표시 없이도 쓸 수 있는 라이선스이지만 여기 기록해 둡니다. MIT와 OFL은 라이선스 문구를 함께 배포해야 하며, 각 폴더에 들어 있습니다.
+
+## 받았지만 아직 쓰지 않은 것 (모두 Kenney, CC0)
+UI Pack, Board Game Icons, Animal Pack Remastered — 지금 화면 구성에 맞는 자리가 없어 보류
+
+## 쓰지 않은 것과 이유
+- Quaternius 3D 모델 (CC0): 내려받기가 구글 드라이브로만 제공되어 개발 환경에서 받을 수 없었음. ZIP을 직접 올려주면 적용 가능
+- Poly Haven HDRI, ambientCG Ground 037 (CC0): 실내 주방 장면에 야외 하늘·흙바닥이 어울리지 않고, 파일이 커서 저사양 PC에 부담
+- Kenney Platformer Kit, Pixel Platformer: 발판 게임용 그림이라 요리 게임에 맞지 않음
+- Neo둥근모: 픽셀 글꼴은 갈무리 하나로 충분
+- react-three-fiber, drei, gltfjsx, template-vite-ts, Supabase·Liveblocks 스타터: React·빌드 도구가 필요한데 이 게임은 빌드 없이 파일만 올리는 구조
+- Phaser, KAPLAY, Tiled: 2D 게임 엔진·지도 편집기. 이미 Three.js로 만들어져 있음
+- Rapier: 물리 엔진. 격자 충돌만으로 충분
+- Socket.io: 별도 서버가 필요. 이미 Firebase를 사용
+- Tripo API, Google AI, 표준국어대사전 API: API 키가 필요하고 지금 게임에 쓸 곳이 없음
+- Blender: 직접 모델을 만들 일이 생기면 사용
