@@ -12,7 +12,7 @@ export const MODEL_FILES = {
   cheese: 'cheese', 'cheese:ready': 'cheese-cut',
   bread: 'loaf', 'bread:ready': 'bread',
   milk: 'carton', 'dough:ready': 'loaf-round',
-  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich',
+  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich', 'dish:🌮': 'taco', 'dish:🥞': 'pancakes',
 };
 
 // 크기가 제각각인 모델을 "가장 긴 변 = 1, 바닥이 y=0, 가운데 정렬"로 맞춤 → 쓰는 쪽에서 원하는 크기를 곱하기만 하면 됨

@@ -11,6 +11,8 @@ export const RUSH_SECONDS = 40;            // 러시타임: 마지막 40초
 export const RUSH_FRACTION = 0.2;          // 단, 짧은 판은 마지막 20%
 export const RUSH_SPEED = 1.35;            // 러시 중 이동 속도 배율
 export const RUSH_INTERVAL_MS = 10000;     // 러시 중 새 주문 간격
+export const SIZE_BONUS = 30;              // 재료가 2개보다 많은 요리: 재료 1개마다 추가 점수
+export const SIZE_TIME = 0.35;             // 재료가 2개보다 많은 요리: 재료 1개마다 대기 시간 35% 추가
 export const SERVE_SCORE = 100;            // 서빙 기본 점수
 export const COMBO_WINDOW_MS = 14000;      // 이 시간 안에 연속 서빙하면 콤보
 export const COMBO_STEP = 20;              // 콤보 1단계마다 추가 점수
@@ -37,7 +39,7 @@ export function ordersTick(g, now, cfg) {
   const orders = { ...(g.orders || {}) };
   let changed = false, seq = g.orderSeq || 0, expired = g.expired || 0, combo = g.combo || 0, rushAdds = g.rushAdds || 0;
   let n = Object.keys(orders).length;
-  const add = () => { const id = 'o' + seq; orders[id] = { id, n: seq, recipeId: seq % cfg.recipeCount, createdAt: now, expiresAt: now + cfg.orderTimeMs }; seq++; n++; changed = true; };
+  const add = () => { const id = 'o' + seq, rid = seq % cfg.recipeCount, more = Math.max(0, ((cfg.recipeSizes || [])[rid] || 2) - 2); orders[id] = { id, n: seq, recipeId: rid, createdAt: now, expiresAt: now + Math.round(cfg.orderTimeMs * (1 + more * SIZE_TIME)) }; seq++; n++; changed = true; };
   if (n === 0) add();
   if (isRush(elapsed, cfg.durationMs)) {
     const expected = Math.floor((elapsed - rushStartMs(cfg.durationMs)) / (cfg.rushIntervalMs || RUSH_INTERVAL_MS)) + 1;   // 러시 시작 순간 1번 + 이후 10초마다
@@ -58,9 +60,10 @@ export function serveOrder(g, contents, recipes, now) {
   const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5;
   const combo = g.lastServeAt && now - g.lastServeAt <= COMBO_WINDOW_MS ? (g.combo || 0) + 1 : 0;
   const bonus = Math.min(combo, COMBO_CAP) * COMBO_STEP;
-  const gained = SERVE_SCORE + tip + bonus;
+  const size = Math.max(0, ((recipes[o.recipeId] || {}).items || []).length - 2) * SIZE_BONUS;
+  const gained = SERVE_SCORE + size + tip + bonus;
   const orders = { ...g.orders }; delete orders[o.id];
-  return { next: { ...g, orders, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, combo, order: o };
+  return { next: { ...g, orders, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, combo, order: o };
 }
 // 참여 보너스: 팀원 모두가 수학 문제를 한 번 이상 맞히면 판마다 한 번 +50 (운반만 하는 학생 없이 모두 풀도록 유도)
 export const PART_BONUS = 50;

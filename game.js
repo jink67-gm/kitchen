@@ -16,11 +16,13 @@ const COLOR=['#e77e95','#56c5dd','#fac268','#9d88e9','#63c49b'];
 const FOOD={lettuce:{emoji:'🥬',name:'양상추',prep:'cut'},tomato:{emoji:'🍅',name:'토마토',prep:'cut'},meat:{emoji:'🥩',name:'고기',prep:'cook'},flour:{emoji:'🥣',name:'밀가루',prep:'mix'},berry:{emoji:'🍓',name:'딸기',prep:'cut'},cheese:{emoji:'🧀',name:'치즈',prep:'cut'},bread:{emoji:'🍞',name:'빵',prep:'cook'},milk:{emoji:'🥛',name:'우유',prep:'mix'},dough:{emoji:'🫓',name:'반죽',prep:'cook'}};
 const RECIPES=[
  {emoji:'🥗',title:'무지개 샐러드',desc:'양상추와 토마토를 손질해요',items:['lettuce','tomato']},
- {emoji:'🍔',title:'왕왕 햄버거',desc:'고기와 빵을 맛있게 준비해요',items:['meat','bread']},
- {emoji:'🍰',title:'딸기 생크림 케이크',desc:'밀가루와 딸기를 준비해요',items:['flour','berry']},
- {emoji:'🍕',title:'치즈 폭탄 피자',desc:'반죽을 굽고 치즈를 손질해요',items:['dough','cheese']},
+ {emoji:'🍔',title:'왕왕 햄버거',desc:'빵과 고기를 굽고 양상추를 손질해요',items:['bread','meat','lettuce']},
  {emoji:'🥤',title:'분홍빛 딸기라테',desc:'딸기를 손질하고 우유를 섞어요',items:['berry','milk']},
- {emoji:'🥙',title:'싱싱 치즈 샌드',desc:'양상추와 치즈를 손질해요',items:['lettuce','cheese']}
+ {emoji:'🍕',title:'치즈 폭탄 피자',desc:'반죽을 굽고 치즈와 토마토를 손질해요',items:['dough','cheese','tomato']},
+ {emoji:'🥞',title:'폭신 팬케이크',desc:'밀가루와 우유를 섞고 딸기를 손질해요',items:['flour','milk','berry']},
+ {emoji:'🥙',title:'싱싱 치즈 샌드',desc:'빵을 굽고 치즈·양상추·토마토를 손질해요',items:['bread','cheese','lettuce','tomato']},
+ {emoji:'🍰',title:'딸기 생크림 케이크',desc:'밀가루와 딸기를 준비해요',items:['flour','berry']},
+ {emoji:'🌮',title:'든든 타코',desc:'반죽과 고기를 굽고 양상추와 치즈를 손질해요',items:['dough','meat','lettuce','cheese']}
 ];
 // 주방 배치 (2.0 새 구조): 벽을 따라 이어진 조리대 + 가운데 Z자 섬. 이 글자 지도만 고치면 2D·3D 양쪽 배치가 함께 바뀝니다.
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
@@ -198,7 +200,7 @@ function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 function putIcon(el,emoji){const src=ICONS[emoji];if(!src){el.textContent=emoji;return}if(el.dataset.emoji===emoji)return;el.dataset.emoji=emoji;const img=document.createElement('img');img.src=src;img.alt=emoji;img.className='emo';img.draggable=false;el.replaceChildren(img)}
 const NO_ORDER={emoji:'⏳',title:'주문을 기다리는 중',desc:'곧 새 주문이 들어와요',items:[]};
 const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣'};
-const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:S().orderTimeMs,rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length});
+const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:S().orderTimeMs,rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length)});
 const liveOrders=(side=getSide())=>activeOrders(getGroup(side),srvNow());
 const liveRecipes=()=>liveOrders().map(o=>RECIPES[o.recipeId]);
 function order(side=getSide()){const o=liveOrders(side)[0];return o?RECIPES[o.recipeId]:NO_ORDER}   // 가장 먼저 온 주문
@@ -345,7 +347,7 @@ async function useServe(st){
   if(mode!=='demo')out=await cloud.servePlate(side,c,RECIPES,srvNow);
   else{out=serveOrder(getGroup(side),c,RECIPES,srvNow());if(out)teamData.groups[side]=out.next}
   if(out){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);await platesOp(plateDirtied);myServed++;
-   const title=RECIPES[out.order.recipeId].title,extra=[out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
+   const title=RECIPES[out.order.recipeId].title,extra=[out.size?`재료 많은 요리 +${out.size}`:'',out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
    if(mode!=='demo'&&cloud){const ids=Object.entries(members).filter(([,m])=>Number(m.team)===team).map(([id])=>id);cloud.groupOp(side,g=>participationBonus(g,ids,teamData?.solvers)).then(g=>{if(g&&g.partBonus){cloud.publishScore(side,g);toast(`🙌 팀원 모두가 문제를 풀었어요! 참여 보너스 +${PART_BONUS}`)}}).catch(()=>{})}
    celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+out.gained,x:st.x+.5,y:st.y+.5,t:performance.now()});p.cheer=performance.now();bellSound();if(out.combo>0){popups.push({text:`🔥 콤보 ×${out.combo+1}`,x:st.x+.5,y:st.y-.6,t:performance.now()+250,hot:true});sound('combo')}toast(`🎉 ${title} 서빙 완료! +${out.gained}점`+(extra?` (${extra})`:''));}
   else{toast('주문이 바뀌었어요. 주문 카드를 다시 확인해요!');sound('error')}
