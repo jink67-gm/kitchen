@@ -40,7 +40,7 @@ export function ordersTick(g, now, cfg) {
   const add = () => { const id = 'o' + seq; orders[id] = { id, n: seq, recipeId: seq % cfg.recipeCount, createdAt: now, expiresAt: now + cfg.orderTimeMs }; seq++; n++; changed = true; };
   if (n === 0) add();
   if (isRush(elapsed, cfg.durationMs)) {
-    const expected = Math.floor((elapsed - rushStartMs(cfg.durationMs)) / RUSH_INTERVAL_MS) + 1;   // 러시 시작 순간 1번 + 이후 10초마다
+    const expected = Math.floor((elapsed - rushStartMs(cfg.durationMs)) / (cfg.rushIntervalMs || RUSH_INTERVAL_MS)) + 1;   // 러시 시작 순간 1번 + 이후 10초마다
     while (rushAdds < expected) { if (n < MAX_ORDERS) add(); rushAdds++; changed = true; }
   }
   return changed ? { ...g, orders, orderSeq: seq, expired, combo, rushAdds } : null;
@@ -61,6 +61,13 @@ export function serveOrder(g, contents, recipes, now) {
   const gained = SERVE_SCORE + tip + bonus;
   const orders = { ...g.orders }; delete orders[o.id];
   return { next: { ...g, orders, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, combo, order: o };
+}
+// 참여 보너스: 팀원 모두가 수학 문제를 한 번 이상 맞히면 판마다 한 번 +50 (운반만 하는 학생 없이 모두 풀도록 유도)
+export const PART_BONUS = 50;
+export function participationBonus(g, memberIds, solvers) {
+  if (!g || g.partBonus || !memberIds || memberIds.length < 2) return null;
+  if (!memberIds.every(id => (solvers && solvers[id]) > 0)) return null;
+  return { ...g, score: (g.score || 0) + PART_BONUS, partBonus: true };
 }
 // 팀 인원이 달라도 공정하게 비교하는 점수 (4명 기준으로 환산)
 export const fairScore = (score, teamSize) => Math.round((score || 0) / (teamSize || 4) * 4);

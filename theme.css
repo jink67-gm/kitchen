@@ -184,3 +184,18 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .end-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
 .end-actions .primary-btn,.end-actions .secondary-btn{width:100%;margin:0;padding:13px 10px;font-size:16px;white-space:nowrap;writing-mode:horizontal-tb}
 .lobby-actions{gap:12px}
+
+/* ── 9단계: 세부 설정, 쌓기나무 표, 학생별 결과 표 ── */
+.detail-box{margin-top:12px;border:2px dashed var(--ink);border-radius:10px;padding:8px 12px 12px;background:var(--paper-2)}
+.detail-box summary{font-family:var(--display);font-weight:700;font-size:13px;cursor:pointer;padding:4px 0}
+.detail-box .field-label{margin-top:10px}
+.block-grid{margin:0 auto 4px;border-collapse:collapse}
+.block-grid td{width:54px;height:54px;border:2.5px solid var(--ink);background:#fff;font-family:var(--display);font-size:26px;font-weight:700;text-align:center;color:var(--ink)}
+.block-grid-cap{font-size:11px;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:12px}
+.answer-btn .opt-no{display:inline-grid;place-items:center;width:24px;height:24px;margin-right:10px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:13px;vertical-align:middle}
+.answer-btn.correct .opt-no{background:#fff;color:var(--green)}
+.end-study{font-size:13px;font-weight:700;color:var(--ink);background:var(--paper-2);border:2px dashed var(--ink);border-radius:9px;padding:8px 10px;margin-top:10px}
+.teacher-students{max-height:230px;overflow:auto;margin:8px 0 10px;border:2px solid var(--ink);border-radius:9px;background:#fff}
+.student-table{width:100%;border-collapse:collapse;font-size:12px}
+.student-table th{position:sticky;top:0;background:var(--ink);color:var(--paper);font-family:var(--display);font-weight:700;padding:6px 6px;text-align:left;white-space:nowrap}
+.student-table td{padding:5px 6px;border-top:1.5px solid var(--paper-3);color:var(--ink);font-weight:600;white-space:nowrap}

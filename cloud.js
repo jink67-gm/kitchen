@@ -29,14 +29,14 @@ export class CloudRoom{
     }
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
-  async create({name,count,mode,unit,duration,orderTime,pin}){
+  async create({name,count,mode,unit,duration,orderTime,pin,settings}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
       this.code=digits();let snap=await this.ops.get(this.path('meta'));
       if(snap.exists())continue;
       let sizes=planTeams(count);
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
-      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,createdAt:now(),startedAt:0},pin:String(pin||'')})}
+      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
       catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
       this.connected=true;this.subscribeBase();return this.code;
     }
@@ -111,10 +111,15 @@ export class CloudRoom{
     const path=this.path('teams',String(this.team),'data','groups',side,correct?'correct':'wrong');
     await this.ops.runTransaction(path,old=>(old||0)+1);
     const stat=correct?'correct':'wrong';
+    if(correct)this.ops.runTransaction(this.path('teams',String(this.team),'data','solvers',this.uid),v=>(v||0)+1).catch(()=>{});   // 팀원별 정답 수 (참여 보너스·명단 표시용)
     await Promise.all([
       this.ops.runTransaction(this.path('results',this.uid,stat),v=>(v||0)+1),
       this.ops.runTransaction(this.path('results',this.uid,'units',String(unit),stat),v=>(v||0)+1)
     ]);
+  }
+  // 힌트 사용 기록 (학생별·단원별)
+  async writeHint(unit){
+    await Promise.all([this.ops.runTransaction(this.path('results',this.uid,'hints'),v=>(v||0)+1),this.ops.runTransaction(this.path('results',this.uid,'units',String(unit),'hints'),v=>(v||0)+1)]);
   }
   async deposit(side,item,recipe){
     let accepted=false;
@@ -173,7 +178,7 @@ export class CloudRoom{
   // 6단계: 주문 대기열 갱신(만료·추가)과 서빙. 규칙은 orders.js, 여기서는 트랜잭션으로 저장만 함
   async groupOp(side,fn){
     const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>fn(old||{})||undefined);
-    return Boolean(res.committed);
+    return res.committed?(res.snapshot.val()||{}):null;
   }
   async servePlate(side,contents,allRecipes,nowFn){
     let out=null;
