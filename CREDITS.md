@@ -10,7 +10,9 @@
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | 콤보, 러시 시작, 판 종료 | `assets/sounds/jingles_*.ogg` |
 | [Fluent Emoji Flat](https://github.com/microsoft/fluentui-emoji) | Microsoft | MIT | 주문 카드·주문 현황의 음식 그림, 3D 완성 요리 그림 | `assets/icons/` |
 | [갈무리 Galmuri11](https://galmuri.quiple.dev) | Lee Minseo (quiple) | SIL OFL 1.1 | 주문 카드·타이머·알림·3D 글자 | `assets/fonts/` (라이선스 전문 `Galmuri-OFL.md`) |
-| 3D 모형 전부 (주방, 설비, 재료, 접시, 셰프) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | 3D 화면 | `render3d.js` |
+| [Food Kit](https://kenney.nl/assets/food-kit) | Kenney | CC0 | 3D 재료 9종 중 8종과 완성 요리 6종 모델 | `assets/models/` (라이선스 `Kenney-FoodKit-License.txt`) |
+| three.js GLTFLoader 등 부속 | three.js authors | MIT | 모델 파일 읽기 | `vendor/three/jsm/` |
+| 그 밖의 3D 모형 (주방, 설비, 접시, 셰프, 반죽, 그릇) | 이 프로젝트에서 코드로 직접 만듦 | 프로젝트 자체 | 3D 화면 | `render3d.js` |
 | 합성 효과음 (젓기, 설거지, 지글지글, 익음·경고·탐) | 이 프로젝트에서 직접 만듦 | 프로젝트 자체 | 녹음 파일이 없는 소리 | `sfx.js` |
 
 CC0는 출처 표시 없이도 쓸 수 있는 라이선스이지만 여기 기록해 둡니다. MIT와 OFL은 라이선스 문구를 함께 배포해야 하며, 각 폴더에 들어 있습니다.
@@ -19,7 +21,7 @@ CC0는 출처 표시 없이도 쓸 수 있는 라이선스이지만 여기 기�
 UI Pack, Board Game Icons, Animal Pack Remastered — 지금 화면 구성에 맞는 자리가 없어 보류
 
 ## 쓰지 않은 것과 이유
-- Quaternius 3D 모델 (CC0): 내려받기가 구글 드라이브로만 제공되어 개발 환경에서 받을 수 없었음. ZIP을 직접 올려주면 적용 가능
+- Quaternius Ultimate Food Pack (CC0): 받아서 Kenney Food Kit과 같은 조명에서 비교함(`screenshots/8/compare_quaternius_vs_kenney.png`). 색이 어두워 파스텔 주방과 덜 어울리고 딸기·밀가루·우유·샐러드 모델이 없어 Kenney를 선택
 - Poly Haven HDRI, ambientCG Ground 037 (CC0): 실내 주방 장면에 야외 하늘·흙바닥이 어울리지 않고, 파일이 커서 저사양 PC에 부담
 - Kenney Platformer Kit, Pixel Platformer: 발판 게임용 그림이라 요리 게임에 맞지 않음
 - Neo둥근모: 픽셀 글꼴은 갈무리 하나로 충분

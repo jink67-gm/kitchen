@@ -8,7 +8,7 @@ const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
 const FONT = 'Galmuri11,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';   // 갈무리11 (OFL) → 없으면 기기 글꼴
 
-export function createRenderer3D(canvas, { W, H, stations, foods, icons = {} }) {
+export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, models = new Map() }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });   // WebGL 불가면 여기서 예외 → game.js가 2D로 전환
   let pixelCap = 1.5, quality = 'normal', cw = 0, ch = 0;
   renderer.shadowMap.enabled = true;
@@ -168,7 +168,27 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {} }) 
     return g;
   }
   const MIX_COLOR = { flour: 0xfff3dc, milk: 0xffffff };
+  // Kenney Food Kit 모델이 있으면 그것을 쓰고, 없는 재료·상태는 아래의 코드로 만든 모형을 씀
+  const MODEL_SIZE = { lettuce: 0.32, tomato: 0.28, meat: 0.34, flour: 0.34, berry: 0.26, cheese: 0.3, bread: 0.34, milk: 0.32, dough: 0.32 };   // 가장 긴 변의 길이 (타일 1칸 = 1)
+  const burntM = mat(0x2b2422, 0.95);
+  function modelFood(kind, state) {
+    const size = MODEL_SIZE[kind] || 0.36, raw = models.get(kind), done = models.get(kind + ':ready');
+    const one = (src, k = 1) => { const m = src.clone(); m.scale.setScalar(size * k); return m; };
+    if (state === 'burnt') { const src = done || raw; if (!src) return null; const m = one(src); m.traverse(o => { if (o.isMesh) o.material = burntM; }); return m; }
+    if (state === 'ready') {
+      if (done) return one(done);
+      if (raw && foods[kind]?.prep === 'cut') {          // 손질한 모습이 따로 없으면 작은 조각 두 개로
+        const g = new THREE.Group();
+        for (const s of [-1, 1]) { const h = one(raw, 0.62); h.position.set(s * 0.1, 0, s * 0.03); h.rotation.set(0, s * 0.6, s * 0.35); g.add(h); }
+        return g;
+      }
+      return null;
+    }
+    return raw ? one(raw) : null;
+  }
   function food(kind, state) {
+    const mf = modelFood(kind, state);
+    if (mf) return mf;
     if (state === 'burnt') { const bg = rawFood(kind, true); bg.traverse(o => { if (o.isMesh) o.material = mat(0x2b2422, 0.95); }); return bg; }   // 탄 재료: 새까맣게
     if (state !== 'ready') return rawFood(kind);
     const prep = foods[kind]?.prep, g = new THREE.Group();
@@ -358,6 +378,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {} }) 
     const g = new THREE.Group();
     const pm = new THREE.Mesh(cyl(0.36, 0.24, 0.04, 24), dirty ? mat(0xb9a78a, 0.8) : M.white); pm.position.y = 0.02; pm.castShadow = true; g.add(pm);
     const rim = new THREE.Mesh(geo('rim', () => new THREE.TorusGeometry(0.35, 0.02, 6, 24)), complete ? M.gold : mat(0x9fd8ff, 0.4)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.04; g.add(rim);
+    const dish = complete && models.get('dish:' + emoji);      // 완성되면 재료 대신 완성 요리 모델로 바뀜
+    if (dish) { const d = dish.clone(); d.scale.setScalar(0.56); d.position.y = 0.045; g.add(d); return g; }
     const flat = (contents || []).filter(k => foods[k] && !STACK.has(k)), stack = (contents || []).filter(k => foods[k] && STACK.has(k));
     let h = 0.045;
     stack.sort((a, b) => (a === 'bread' || a === 'dough' ? -1 : 0) - (b === 'bread' || b === 'dough' ? -1 : 0)).forEach(k => {
@@ -594,5 +616,5 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {} }) 
     }
   }
 
-  return { render, perf, renderer, get quality() { return quality; }, get plateKeys() { return [...boards.values()].filter(v => v.type === 'plate' && v.key).map(v => v.key); }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
+  return { render, perf, renderer, get quality() { return quality; }, get modelCount() { return models.size; }, get plateKeys() { return [...boards.values()].filter(v => v.type === 'plate' && v.key).map(v => v.key); }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
 }
