@@ -222,3 +222,7 @@ html,body{height:100%;overflow:hidden}
 /* 마지막 30초: 시계가 붉게 깜빡임 */
 .timer-box.final{background:var(--red);animation:rushPulse .6s ease-in-out infinite}
 .timer-box.final b{color:#fff}
+/* 재료가 3~4개인 주문 카드: 카드가 재료 수만큼 넓어짐 */
+.ocard{width:auto;min-width:132px;padding-left:10px;padding-right:14px}
+.oc-needs{gap:11px}
+@media (max-width:900px){.ocard{min-width:104px}.oc-needs{gap:9px}}

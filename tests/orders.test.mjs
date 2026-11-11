@@ -132,3 +132,23 @@ test('온라인(가짜 DB): 5명이 동시에 주문 갱신을 요청해도 주�
   await new Promise(r => setTimeout(r, 10));
   assert.equal(['a', 'b', 'c', 'd', 'e'].reduce((n, u) => n + (db[`results/${u}/served`] || 0), 0), 1, '개인 서빙 기록도 한 명에게만');
 });
+
+test('재료가 3~4개인 요리: 대기 시간이 길고 서빙 점수에 재료 보너스가 붙음', () => {
+  const BIG = [{ title: '샐러드', items: ['lettuce', 'tomato'] }, { title: '햄버거', items: ['bread', 'meat', 'lettuce'] }, { title: '샌드', items: ['bread', 'cheese', 'lettuce', 'tomato'] }];
+  const c = { startedAt: T0, durationMs: 180000, orderTimeMs: 60000, recipeCount: 3, recipeSizes: BIG.map(r => r.items.length) };
+  let g = ordersTick({}, T0 + 1000, c);
+  const o0 = Object.values(g.orders)[0];
+  assert.equal(o0.expiresAt - o0.createdAt, 60000);                      // 재료 2개: 그대로
+  let r = serveOrder(g, ['lettuce', 'tomato'], BIG, T0 + 1000);
+  assert.equal(r.size, 0);
+  g = ordersTick(r.next, T0 + 2000, c);
+  const o1 = Object.values(g.orders)[0];
+  assert.equal(o1.expiresAt - o1.createdAt, 81000);                      // 재료 3개: 35% 더
+  r = serveOrder(g, ['meat', 'lettuce', 'bread'], BIG, T0 + 2000);
+  assert.equal(r.size, 30); assert.ok(r.gained >= 130);
+  g = ordersTick(r.next, T0 + 3000, c);
+  const o2 = Object.values(g.orders)[0];
+  assert.equal(o2.expiresAt - o2.createdAt, 102000);                     // 재료 4개: 70% 더
+  assert.equal(serveOrder(g, ['bread', 'cheese', 'lettuce'], BIG, T0 + 3000), null);   // 재료가 하나 모자라면 서빙 불가
+  assert.equal(serveOrder(g, ['bread', 'cheese', 'lettuce', 'tomato'], BIG, T0 + 3000).size, 60);
+});

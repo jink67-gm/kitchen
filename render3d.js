@@ -455,7 +455,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   }
   const storageGroup = new THREE.Group(); scene.add(storageGroup);
   const CHIP_COLOR = { lettuce: 0x8fd16a, tomato: 0xf0483e, berry: 0xf23f5f, cheese: 0xffc93c, flour: 0xfff3dc, milk: 0xffffff };
-  const chips = Array.from({ length: 36 }, () => { const m = new THREE.Mesh(geo('chip', () => new THREE.BoxGeometry(0.07, 0.03, 0.07)), new THREE.MeshBasicMaterial()); m.visible = false; scene.add(m); return { m, life: 0, vx: 0, vy: 0, vz: 0 }; });
+  const chips = Array.from({ length: 96 }, () => { const m = new THREE.Mesh(geo('chip', () => new THREE.BoxGeometry(0.1, 0.045, 0.1)), new THREE.MeshBasicMaterial()); m.visible = false; scene.add(m); return { m, life: 0, vx: 0, vy: 0, vz: 0 }; });
   let chipI = 0;
   function burst(x, y, z, color, n, spread = 1) {
     for (let i = 0; i < n; i++) {
@@ -464,6 +464,18 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       c.vx = Math.cos(a) * sp; c.vz = Math.sin(a) * sp; c.vy = 1.6 + Math.random() * 1.4; c.life = 0.55;
     }
   }
+  // 요리 연출: 바닥에서 퍼지는 고리, 짧게 튀어나오는 글자(탁! 치익~ 완성!)
+  const rings = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(geo('fxring', () => new THREE.RingGeometry(0.34, 0.43, 28)), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.visible = false; m.renderOrder = 15; scene.add(m); return { m, t0: -1e9, big: 1 }; });
+  let ringI = 0;
+  function ring(x, y, z, color, big = 1, delay = 0) { const r = rings[ringI++ % rings.length]; r.m.position.set(x, y, z); r.m.material.color.setHex(color); r.t0 = lastT + delay; r.big = big; }
+  const shoutCache = new Map(), shouts = [];
+  function shout(word, x, y, z, bg = '#fffdf5', fg = '#2e2520', size = 0.46) {
+    let list = shoutCache.get(word); if (!list) { list = []; shoutCache.set(word, list); }
+    let s = list.find(q => lastT - q.t0 > 650);
+    if (!s) { if (list.length >= 3) s = list[0]; else { const sp = textSprite(word, bg, fg, size, 256); sp.visible = false; scene.add(sp); s = { sp, t0: -1e9, bs: sp.scale.clone() }; list.push(s); shouts.push(s); } }
+    s.t0 = lastT; s.x = x + 0.75 + (Math.random() - 0.5) * 0.3; s.y = y - 0.25; s.z = z;   // 게이지·이름표와 겹치지 않게 오른쪽 옆에
+  }
+  const FX_COLORS = [0xffd66b, 0xd6452f, 0x5fcf8f, 0x7fd0ff, 0xffffff];
   const popMap = new Map();
   const fxMap = new Map();          // 날아가는 재료 (반환·보관·버리기·접시 담기)
   const CONFETTI = 80, confGeo = sph(0.07, 6, 4);
@@ -777,11 +789,30 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       if (b && count > v.count) {            // 진행이 늘면 동작 한 번 (다른 사람 것도 보임): 칼질 조각 / 젓기 / 물방울
         v.swing = t;
         const c = chefs.get(b.owner); if (c) { c.actT = t; c.act = v.type; c.faceTo = Math.atan2(v.g.position.x - c.root.position.x, v.g.position.z - c.root.position.z); }
-        if (v.type === 'cut') burst(v.g.position.x - 0.08, TOP + 0.12, v.g.position.z, CHIP_COLOR[b.kind] || 0xffffff, 4);
-        else if (v.type === 'sink') burst(v.g.position.x, TOP + 0.1, v.g.position.z + 0.05, 0x9fdcff, 5, 0.7);
-        else if (v.type === 'mix') burst(v.g.position.x, TOP + 0.5, v.g.position.z, CHIP_COLOR[b.kind] || 0xfff3dc, 2, 0.5);
+        const px = v.g.position.x, pz = v.g.position.z;
+        if (v.type === 'cut') { burst(px - 0.08, TOP + 0.12, pz, CHIP_COLOR[b.kind] || 0xffffff, 7); burst(px, TOP + 0.15, pz, 0xffffff, 2, 1.4); shout(count % 2 ? '탁!' : '쓱!', px, TOP + 1.0, pz); }
+        else if (v.type === 'sink') { burst(px, TOP + 0.1, pz + 0.05, 0x9fdcff, 7, 0.8); burst(px, TOP + 0.2, pz, 0xffffff, 3, 0.5); shout('뽀득!', px, TOP + 1.0, pz, '#dff3ff'); }
+        else if (v.type === 'mix') { burst(px, TOP + 0.5, pz, CHIP_COLOR[b.kind] || 0xfff3dc, 6, 0.7); shout('휘릭!', px, TOP + 1.3, pz); }
       }
       v.count = count;
+      // 상태가 바뀌는 순간의 연출: 손질 끝, 굽기 시작·완료·경고·탐, 접시에 담기, 요리 완성
+      const fxs = !b ? '' : b.type === 'plate' ? (b.complete ? 'done' : 'p' + b.contents.length) : b.type === 'cook' ? b.state : (b.type === 'cut' || b.type === 'mix') ? (b.look === 'ready' ? 'ready' : 'work') : '';
+      if (fxs !== v.fxs) {
+        const was = v.fxs, px = v.g.position.x, pz = v.g.position.z; v.fxs = fxs;
+        if (was !== undefined && b) {
+          if (b.type === 'plate') {
+            if (fxs === 'done') { ring(px, TOP + 0.06, pz, 0xffd66b, 1.5); ring(px, TOP + 0.06, pz, 0xffffff, 2.1, 140); for (const col of FX_COLORS) burst(px, TOP + 0.3, pz, col, 5, 1.5); shout('요리 완성!', px, TOP + 1.5, pz, '#f0b429', '#2e2520', 0.6); }
+            else if (b.contents.length && was.startsWith('p') && Number(was.slice(1)) < b.contents.length) { ring(px, TOP + 0.06, pz, 0xffffff, 1); burst(px, TOP + 0.2, pz, 0xffd66b, 6, 0.9); shout('착!', px, TOP + 1.0, pz); }
+          } else if (b.type === 'cook') {
+            if (fxs === 'cooking') { burst(px, TOP + 0.25, pz, 0xffa53c, 8, 0.8); shout('치익~', px, TOP + 1.2, pz, '#ffe9c9'); }
+            else if (fxs === 'ready') { ring(px, TOP + 0.3, pz, 0x5fcf8f, 1.4); burst(px, TOP + 0.3, pz, 0xffd66b, 10, 1.1); shout('다 익었다!', px, TOP + 1.3, pz, '#3f8f5f', '#ffffff', 0.54); }
+            else if (fxs === 'warning') { ring(px, TOP + 0.3, pz, 0xff5a4d, 1.6); shout('탄다!', px, TOP + 1.3, pz, '#d6452f', '#ffffff', 0.6); }
+            else if (fxs === 'burnt') { ring(px, TOP + 0.3, pz, 0x3a3440, 1.6); burst(px, TOP + 0.3, pz, 0x3a3440, 14, 1.2); shout('앗, 탔다!', px, TOP + 1.3, pz, '#3a3440', '#ffffff', 0.54); }
+          } else if (fxs === 'ready') { ring(px, TOP + 0.06, pz, 0xffd66b, 1.3); burst(px, TOP + 0.25, pz, 0xffd66b, 8, 1.2); burst(px, TOP + 0.25, pz, CHIP_COLOR[b.kind] || 0xffffff, 6, 1.2); shout(b.type === 'mix' ? '다 섞었다!' : '손질 끝!', px, TOP + 1.3, pz, '#f0b429', '#2e2520', 0.54); }
+        }
+      }
+      if (b && b.type === 'cook' && (b.state === 'cooking' || b.state === 'ready' || b.state === 'warning') && Math.random() < dt * (b.state === 'warning' ? 14 : 6)) burst(v.g.position.x, TOP + 0.22, v.g.position.z, b.state === 'warning' ? 0xff5a4d : Math.random() < 0.5 ? 0xffa53c : 0xffe08a, 1, 0.45);   // 튀는 기름·불똥
+      if (b && b.type === 'mix' && b.state === 'working' && Math.random() < dt * 5) burst(v.g.position.x, TOP + 0.5, v.g.position.z, CHIP_COLOR[b.kind] || 0xfff3dc, 1, 0.35);
       const sw = Math.max(0, 1 - (t - v.swing) / 160), up = Math.sin(sw * Math.PI);
       if (v.knife) { v.knife.position.y = v.knifeY + up * 0.22; v.knife.rotation.z = up * 0.5; v.knife.position.x = 0.24 - up * 0.2; }
       v.spot.position.y = v.spotY - up * 0.02; v.spot.rotation.z = (sw > 0 ? Math.sin(t / 18) : 0) * 0.08;
@@ -821,6 +852,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       if (c.life <= 0 || c.m.position.y < 0.02) { c.life = 0; c.m.visible = false; }
     }
     for (const pm of glowPads) pm.emissiveIntensity = 0.45 + Math.sin(t / 380) * 0.25;
+    for (const rg of rings) { const k = (t - rg.t0) / 450; if (k < 0 || k >= 1) { rg.m.visible = false; continue; } rg.m.visible = true; rg.m.scale.setScalar((0.5 + k * 2.1) * rg.big); rg.m.material.opacity = (1 - k) * 0.9; }
+    for (const s of shouts) { const k = (t - s.t0) / 620; if (k < 0 || k >= 1) { s.sp.visible = false; continue; } s.sp.visible = true; const pop = 1 + Math.sin(Math.min(1, k * 4) * Math.PI) * 0.45; s.sp.scale.set(s.bs.x * pop, s.bs.y * pop, 1); s.sp.position.set(s.x, s.y + k * 0.7, s.z); s.sp.material.opacity = 1 - k * k; }
     // 점수 팝업 (+100)
     for (const pu of state.popups || []) {
       let sp = popMap.get(pu);
