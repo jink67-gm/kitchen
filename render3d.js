@@ -76,24 +76,21 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
     return t;
   }
+  // 식당 주방 바닥: 크림색과 살구색 체크 타일
   const floorTex = canvasTex(512, 512, g => {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
       const x = i * 256, y = j * 256;
-      g.fillStyle = (i + j) % 2 ? '#fff8e8' : '#eaf6ee'; g.fillRect(x, y, 256, 256);
-      g.strokeStyle = (i + j) % 2 ? '#f0e2c4' : '#cfe6d8'; g.lineWidth = 2;
-      for (let k = 1; k < 4; k++) {
-        g.beginPath(); g.moveTo(x + k * 64, y); g.lineTo(x + k * 64, y + 256); g.stroke();
-        g.beginPath(); g.moveTo(x, y + k * 64); g.lineTo(x + 256, y + k * 64); g.stroke();
-      }
-      g.strokeStyle = '#b9d9c8'; g.lineWidth = 5; g.strokeRect(x, y, 256, 256);
+      g.fillStyle = (i + j) % 2 ? '#f6ecdd' : '#e9c9a8'; g.fillRect(x, y, 256, 256);
+      g.fillStyle = (i + j) % 2 ? '#fbf4e8' : '#efd3b6'; g.fillRect(x + 10, y + 10, 236, 236);     // 타일 가운데를 살짝 밝게
+      g.strokeStyle = '#cfb596'; g.lineWidth = 6; g.strokeRect(x, y, 256, 256);                    // 줄눈
     }
   });
   floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((W - 2) / 2, (H - 2) / 2);
+  // 조리대 윗면: 밝은 돌 상판
   const rulerTex = canvasTex(256, 256, (g, s) => {
-    g.fillStyle = '#fff6e0'; g.fillRect(0, 0, s, s);
-    g.strokeStyle = '#c9a877'; g.lineWidth = 4;
-    for (let i = 0; i <= 10; i++) { const x = i * s / 10; g.beginPath(); g.moveTo(x, s); g.lineTo(x, s - (i % 5 ? 22 : 42)); g.stroke(); }
-    g.strokeStyle = '#ecd9b8'; g.lineWidth = 8; g.strokeRect(4, 4, s - 8, s - 8);
+    g.fillStyle = '#f7f3ec'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 70; i++) { g.fillStyle = i % 2 ? '#ece5da' : '#ffffff'; g.fillRect((i * 97) % s, (i * 53) % s, 5, 3); }
+    g.strokeStyle = '#ddd3c4'; g.lineWidth = 8; g.strokeRect(4, 4, s - 8, s - 8);
   });
   const M = {
     top: mat(0xffffff, 0.55, { map: rulerTex }), wood: mat(0xd9a66b), woodDark: mat(0xb07d48), steel: mat(0xc3c9d6, 0.3, { metalness: 0.6 }),
@@ -105,8 +102,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
 
   // ───────── 바닥과 벽 ─────────
   add(world, new THREE.PlaneGeometry(W - 2, H - 2), mat(0xffffff, 0.85, { map: floorTex }), 0, 0, 0, false).rotation.x = -Math.PI / 2;
-  add(world, new THREE.BoxGeometry(W + 0.4, 0.5, H + 0.4), mat(0x4a3f78), 0, -0.26, 0);
-  const wallM = mat(0x9b8fdc, 0.9), trimM = mat(0xfff6e0, 0.7);
+  add(world, new THREE.BoxGeometry(W + 0.4, 0.5, H + 0.4), mat(0x5a4636), 0, -0.26, 0);
+  const wallM = mat(0xf1e6d6, 0.9), trimM = mat(0xc9a57a, 0.7);       // 크림색 벽과 나무 몰딩
   function wall(x0, y0, x1, y1, h) {
     const w = x1 - x0 + 1, d = y1 - y0 + 1, cx = wx((x0 + x1 + 1) / 2), cz = wz((y0 + y1 + 1) / 2);
     add(world, new THREE.BoxGeometry(w, h, d), wallM, cx, h / 2, cz);
@@ -114,20 +111,21 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   }
   wall(0, 0, W - 1, 0, 2.7); wall(0, 1, 0, H - 2, 0.7); wall(W - 1, 1, W - 1, H - 2, 0.7); wall(0, H - 1, W - 1, H - 1, 0.45);
   const boardTex = canvasTex(1024, 320, (g, w, h) => {
-    g.fillStyle = '#2f5d50'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#ffffffee'; g.textBaseline = 'middle';
-    g.font = `bold 64px ${FONT}`; g.fillText('오늘의 수학 메뉴', 40, 70);
-    // 분수는 분자 위·분모 아래 세로 모양으로 그림
-    const frac = (x, n, d) => { g.font = `bold 62px ${FONT}`; g.textAlign = 'center'; g.fillText(n, x, 165); g.fillText(d, x, 240); g.fillRect(x - 30, 198, 60, 7); g.textAlign = 'left'; };
-    g.fillStyle = '#ffe08a'; frac(80, '3', '4'); frac(250, '1', '2');
-    g.font = `bold 84px ${FONT}`; g.fillText('÷', 135, 203); g.fillText('= ?', 310, 203);
-    g.fillStyle = '#ffb3a6'; g.fillText('3 : 4 = 6 : □', 520, 203);
-    g.strokeStyle = '#bfe8d8'; g.lineWidth = 6; g.beginPath(); g.arc(900, 80, 50, 0, 7); g.moveTo(900, 80); g.lineTo(950, 80); g.stroke();
+    g.fillStyle = '#2f3b46'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff55'; g.lineWidth = 4; g.strokeRect(18, 18, w - 36, h - 36);
+    g.fillStyle = '#ffe08a'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `bold 92px ${FONT}`; g.fillText('오늘의 메뉴', w / 2, 110);
+    g.fillStyle = '#ffffffdd'; g.font = `bold 50px ${FONT}`; g.fillText('샐러드 · 햄버거 · 케이크 · 피자', w / 2, 225);
   });
-  const backZ = wz(1) + 0.001;
+  const wallSrc = models.get('station:wall'), winSrc = models.get('station:wallWindow');
+  if (wallSrc) for (let x = 0; x < W; x++) {              // Kenney Furniture Kit 벽 패널을 뒷벽 앞면에 이어 붙임
+    const isWin = winSrc && [2, 3, 4, 13, 14, 15].includes(x);
+    const pm = fitBox(isWin ? winSrc : wallSrc, 1, 2.62, 0.14); pm.position.set(wx(x + 0.5), 0, wz(1) - 0.05); world.add(pm);
+  }
+  const backZ = wz(1) + 0.03;
   add(world, new THREE.BoxGeometry(6.4, 1.5, 0.08), M.wood, 0, 1.75, backZ, false);
   add(world, new THREE.PlaneGeometry(6.1, 1.25), mat(0xffffff, 0.9, { map: boardTex }), 0, 1.75, backZ + 0.045, false);
-  for (const cx of [-6.2, 6.2]) {
+  if (!winSrc) for (const cx of [-6.2, 6.2]) {
     add(world, new THREE.BoxGeometry(2.2, 1.3, 0.08), trimM, cx, 1.75, backZ, false);
     add(world, new THREE.PlaneGeometry(1.95, 1.05), mat(0xbfe9ff, 0.2, { emissive: 0x8fd6ff, emissiveIntensity: 0.55 }), cx, 1.75, backZ + 0.045, false);
     add(world, new THREE.BoxGeometry(0.07, 1.05, 0.02), trimM, cx, 1.75, backZ + 0.05, false);

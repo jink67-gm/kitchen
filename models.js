@@ -27,7 +27,7 @@ function normalize(obj) {
 }
 
 // 주방 설비 (Kenney Furniture Kit) — 크기는 쓰는 쪽에서 설비 칸에 맞춤
-export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'sushi-oven', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan' };
+export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'sushi-oven', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan', 'station:wall': 'wall', 'station:wallWindow': 'wallWindow' };
 // 셰프 (Quaternius Sushi Restaurant Kit의 토끼·판다 요리사) — 자리 번호 순서대로
 export const CHARACTER_FILES = ['Rabbit_Pink', 'Rabbit_Cyan', 'Panda', 'Rabbit_Purple', 'Rabbit_Green'];
 // 게임 상황 → 모델에 들어 있는 동작 이름
