@@ -218,23 +218,23 @@ function resetLocal(kind="coop"){
  teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates()};cookSeen={};popups=[];fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=demoSec;nowTime=demoSec;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;myServed=0;cardKey='';setRush(false);
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
- setRoomStatus();setText('modeLabel',kind==='duel'?'⚔️ 봇 대결 체험':'🤝 연습용 협동');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
+ setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결':'혼자 체험');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
 }
 function startDemo(kind='coop'){unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',item:null,name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
-function setModeUI(){let nm={coop:'🤝 협동 주방',duel:'⚔️ 2대2 배틀',class:'🏆 학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);setText('roundLabel','🍰 '+(['디저트 주방','회전 주방','축제 주방'][Math.floor(elapsed/110)%3]));}
+function setModeUI(){let nm={coop:'협동 주방',duel:'2대2 대결',class:'학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);setText('roundLabel','🍰 '+(['디저트 주방','회전 주방','축제 주방'][Math.floor(elapsed/110)%3]));}
 function updateUI(){
  if(!roundStarted)return;
  let side=getSide(),grp=getGroup(side),rec=order(side);
  const plated=platedKinds();
- putIcon($('orderEmoji'),rec.emoji);setText('orderTitle',rec.title);setText('orderDesc',rec.desc);setText('orderCount','ORDER '+String((grp.served||0)+1).padStart(2,'0'));
+ putIcon($('orderEmoji'),rec.emoji);setText('orderTitle',rec.title);setText('orderDesc',rec.desc);setText('orderCount',((grp.served||0)+1)+'번째 주문');
  $('orderIngredients').replaceChildren(...rec.items.map(k=>{let e=document.createElement('div');e.className='ingredient-chip'+(plated.has(k)?' done':'');e.innerHTML='<span class="chip-ico"></span><div>'+FOOD[k].name+'<small style="display:block;color:#afc6d5">'+(plated.has(k)?'✅ 접시에 담김':'준비해서 접시에 담기')+'</small></div>';putIcon(e.querySelector('.chip-ico'),FOOD[k].emoji);return e}));
  let roster=mode==='demo'?[{id:'demo',...p},...bots.map((b,i)=>({id:'bot'+i,...b}))]:Object.entries(players||{}).map(([id,v])=>({id,...v})).sort((a,b)=>a.seat-b.seat);
- $('playerRoster').replaceChildren(...roster.map(v=>{const e=document.createElement('div');e.className='roster-item';let side=currentMode==='duel'?(v.seat%4<2?'A팀':'B팀'):(v.id===myUid?'나':'팀원');e.innerHTML='<span class="roster-avatar" style="background:'+playerColor(v.seat)+'">🍳</span><span class="roster-name"></span><span class="roster-team">'+side+'</span>';e.querySelector('.roster-name').textContent=v.name+(v.id===myUid?' ✨':'');return e}));
+ $('playerRoster').replaceChildren(...roster.map(v=>{const e=document.createElement('div');e.className='roster-item';let side=currentMode==='duel'?(v.seat%4<2?'A팀':'B팀'):(v.id===myUid?'나':'팀원');e.innerHTML='<span class="roster-avatar" style="background:'+playerColor(v.seat)+'">🍳</span><span class="roster-name"></span><span class="roster-team">'+side+'</span>';e.querySelector('.roster-name').textContent=v.name;return e}));
  setText('scoreLabel',grp.score||0);setText('scoreDetail',`완성 요리 ${grp.served||0}개 · 수학 정답 ${grp.correct||0}개`+((grp.combo||0)>0&&srvNow()-(grp.lastServeAt||0)<=14000?` · 🔥 콤보 ${grp.combo}`:''));
  if(currentMode==='duel'){let a=getGroup('A'),b=getGroup('B');$('teamRanking').innerHTML=`<div class="ranking-item">🌸 A팀 <b>${a.score||0}점</b></div><div class="ranking-item">🌊 B팀 <b>${b.score||0}점</b></div>`}
  else if(meta?.sizes?.length>1){let ranking=Object.entries(allTeams).map(([id,v])=>{let d=v?.data?.groups?.ALL||{};let size=meta.sizes[Number(id)]||4;return {id,score:d.score||0,normalized:fairScore(d.score,size)}}).sort((a,b)=>b.normalized-a.normalized);$('teamRanking').replaceChildren(...ranking.map(v=>{let e=document.createElement('div');e.className='ranking-item';e.textContent=`${Number(v.id)+1}팀 · 보정 ${v.normalized}점`;return e}));}
  else $('teamRanking').textContent='함께 만들면 점수가 올라가요!';
- const hi=p.item;setText('heldLabel',!hi?'✋ 빈손':isPlate(hi)?`✋ 🍽️ 접시 · ${contentsOf(hi).length?contentsOf(hi).map(k=>FOOD[k].emoji).join('')+(plateMatch(contentsOf(hi),liveRecipes())?' 완성!':' 미완성'):'비어 있음'}`:`✋ ${FOOD[hi.kind].emoji} ${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`);
+ const hi=p.item;setText('heldLabel',!hi?'빈손':isPlate(hi)?`접시 · ${contentsOf(hi).length?contentsOf(hi).map(k=>FOOD[k].name).join('+')+(plateMatch(contentsOf(hi),liveRecipes())?' 완성!':' 미완성'):'비어 있음'}`:`${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`);
  let station=nearestStation();
  let h=station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',h);setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
  setModeUI();
@@ -533,7 +533,7 @@ function boardViews(){
 }
 // ── 3D 화면 연결: render3d.js는 그리기만 담당. 불러오기에 실패하거나 WebGL이 없으면 기존 2D 그대로 동작 ──
 let view3d=null,use3D=false;
-function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D);setText('viewBtn',use3D?'🖼️ 2D로 보기':'🧊 3D로 보기');$('viewBtn').classList.toggle('hidden',!view3d);try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
+function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D);setText('viewBtn',use3D?'2D로 보기':'3D로 보기');$('viewBtn').classList.toggle('hidden',!view3d);try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
 async function init3D(){
  try{const mod=await import('./render3d.js');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
   let models=new Map();try{models=await (await import('./models.js')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
@@ -653,7 +653,7 @@ function boot(){
  });
  document.addEventListener('keyup',e=>{keys.delete(e.key.length===1?e.key.toLowerCase():e.key)});
  window.addEventListener('blur',()=>keys.clear());
- if(cloudConfigured()){setText('firebaseNote','✅ Firebase 연결 준비 완료 · 선생님이 학급방을 만들어 실시간 협동할 수 있어요.');}
+ if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');}
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
 async function goHome(){

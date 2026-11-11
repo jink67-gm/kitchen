@@ -19,7 +19,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
 
   const wx = gx => gx - W / 2, wz = gy => gy - H / 2;   // 타일 좌표 → 3D 좌표
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x24223f);
+  scene.background = new THREE.Color(0x2b2622);
   const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 80);
   const CAM_ANGLE = THREE.MathUtils.degToRad(56);
 
@@ -385,7 +385,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   const fxMap = new Map();          // 날아가는 재료 (반환·보관·버리기·접시 담기)
   const CONFETTI = 80, confGeo = sph(0.07, 6, 4);
   const confetti = Array.from({ length: CONFETTI }, () => { const m = new THREE.Mesh(confGeo, new THREE.MeshBasicMaterial()); m.visible = false; scene.add(m); return m; });
-  const dimmer = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x24223f, transparent: true, opacity: 0.55, depthTest: false }));
+  const dimmer = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0x2b2622, transparent: true, opacity: 0.55, depthTest: false }));
   dimmer.renderOrder = 15; dimmer.visible = false; scene.add(dimmer);
 
   // ───────── 접시 ─────────
