@@ -3,6 +3,7 @@
 // 상태 형식: { chefs:[{id,x,y,held,name,seat,mine}], focus:설비|null, tray:{재료:true}, particles:[{x,y,life,color}], dim:boolean }
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
+import { clone as cloneSkinned } from './vendor/three/jsm/utils/SkeletonUtils.js';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
@@ -220,19 +221,35 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     boards.set(s.x + ',' + s.y, v);
     return v;
   }
+  // 모델을 주어진 크기의 칸에 꼭 맞게 넣음 (바닥은 y=0, 가운데 정렬)
+  function fitBox(src, w, h, d) {
+    const m = src.clone(), wrap = new THREE.Group(); wrap.add(m);
+    const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    m.position.set(-c.x, -b.min.y, -c.z);
+    wrap.scale.set(w / sz.x, h / sz.y, d / sz.z);
+    return wrap;
+  }
   function buildStation(s) {
     const g = new THREE.Group();
     g.position.set(wx(s.x + 0.5), 0, wz(s.y + 0.5));
     world.add(g);
     const y = TOP;
+    const cabSrc = models.get(s.type === 'cook' ? 'station:stove' : s.type === 'sink' ? 'station:sink' : 'station:cabinet');
+    const useModel = cabSrc && !['bin', 'storage', 'trash'].includes(s.type);
+    if (useModel) g.add(fitBox(cabSrc, 0.98, TOP - (s.type === 'cook' || s.type === 'sink' ? 0 : 0.085), 0.98));     // Kenney 주방 가구
     if (s.type !== 'trash') {
-      add(g, rbox(0.96, 0.8, 0.96, 0.06), BODY[s.type] || M.lav, 0, 0.4);
+      if (!useModel) add(g, rbox(0.96, 0.8, 0.96, 0.06), BODY[s.type] || M.lav, 0, 0.4);
+      if (!(useModel && (s.type === 'cook' || s.type === 'sink')))
       add(g, rbox(1, 0.09, 1, 0.035), s.type === 'cook' || s.type === 'sink' ? M.steel : s.type === 'storage' ? mat(0xe9f7ff, 0.35) : s.type === 'bin' ? M.wood : M.top, 0, TOP - 0.045);
     }
     if (s.type === 'bin') {
       for (const [bx, bz, bw, bd] of [[0, -0.42, 0.92, 0.08], [0, 0.42, 0.92, 0.08], [-0.42, 0, 0.08, 0.84], [0.42, 0, 0.08, 0.84]]) add(g, rbox(bw, 0.2, bd, 0.02), M.woodDark, bx, y + 0.1, bz);
-      [[-0.19, -0.17], [0.19, -0.17], [-0.19, 0.19], [0.19, 0.19], [0, 0.02]].forEach(([fx, fz], i) => {
-        const f = food(s.food); f.position.set(fx, y + (i === 4 ? 0.14 : 0.01), fz); f.rotation.y = i * 1.3; f.scale.setScalar(i === 4 ? 1.1 : 0.95); g.add(f);
+      // 재료 더미: 상자 안쪽(0.76칸) 밖으로 나가지 않게 실제 크기를 재서 맞춤. 2×2로 깔고 가운데 위에 하나
+      [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18], [0, 0]].forEach(([fx, fz], i) => {
+        const f = food(s.food), holder = new THREE.Group(); holder.add(f);
+        const b = new THREE.Box3().setFromObject(f), sz = b.getSize(new THREE.Vector3());
+        holder.scale.setScalar(Math.min(1, (i === 4 ? 0.36 : 0.32) / Math.max(sz.x, sz.z, 1e-6), 0.34 / Math.max(sz.y, 1e-6)));
+        holder.position.set(fx, y + (i === 4 ? 0.13 : 0.01), fz); g.add(holder);
       });
     } else if (s.type === 'cut') {
       add(g, rbox(0.74, 0.06, 0.52, 0.025), mat(0xe9bd82), 0, y + 0.03, 0.02);
@@ -242,7 +259,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       add(knife, rbox(0.05, 0.035, 0.16, 0.015), M.dark, 0, 0.005, 0.16);
       dynParts(g, s, -0.08, y + 0.06, 0.02, { knife, knifeY: y + 0.075 });
     } else if (s.type === 'cook') {
-      add(g, cyl(0.3, 0.3, 0.03, 24), M.dark, 0, y + 0.015);
+      if (!useModel) add(g, cyl(0.3, 0.3, 0.03, 24), M.dark, 0, y + 0.015);
       const fm = mat(0xff7a3c, 0.5, { emissive: 0xff5a1f, emissiveIntensity: 0.3 });
       add(g, geo('ring', () => new THREE.TorusGeometry(0.2, 0.035, 8, 24)), fm, 0, y + 0.035, 0, false).rotation.x = Math.PI / 2;
       const smoke = [];
@@ -252,12 +269,16 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       add(g, cyl(0.32, 0.26, 0.09, 24), mat(0x4b4860, 0.4, { metalness: 0.5 }), 0, y + 0.1);
       add(g, cyl(0.29, 0.25, 0.02, 24), mat(0x2b293a, 0.5), 0, y + 0.14, 0, false);
       add(g, rbox(0.34, 0.04, 0.07, 0.015), M.woodDark, 0.44, y + 0.12, 0.12).rotation.y = -0.3;
-      for (const kx of [-0.25, 0.25]) add(g, cyl(0.05, 0.05, 0.04, 12), M.coral, kx, 0.62, 0.49).rotation.x = Math.PI / 2;
+      if (!useModel) for (const kx of [-0.25, 0.25]) add(g, cyl(0.05, 0.05, 0.04, 12), M.coral, kx, 0.62, 0.49).rotation.x = Math.PI / 2;
     } else if (s.type === 'mix') {
-      add(g, cyl(0.2, 0.25, 0.16), M.coral, 0, y + 0.08);
-      add(g, cyl(0.2, 0.15, 0.36, 20), mat(0xdff3ff, 0.1, { transparent: true, opacity: 0.55 }), 0, y + 0.34, 0, false);
-      add(g, cyl(0.21, 0.21, 0.05), M.dark, 0, y + 0.54);
-      dynParts(g, s, 0, y + 0.2, 0, {}).mini = 0.6;
+      const bl = models.get('station:blender');
+      if (bl) { const bm = fitBox(bl, 0.5, 0.62, 0.42); bm.position.set(0.14, y, -0.12); g.add(bm); add(g, cyl(0.24, 0.17, 0.16, 20), M.mint, -0.12, y + 0.08, 0.12); }   // 믹서기 + 섞는 그릇
+      else {
+        add(g, cyl(0.2, 0.25, 0.16), M.coral, 0, y + 0.08);
+        add(g, cyl(0.2, 0.15, 0.36, 20), mat(0xdff3ff, 0.1, { transparent: true, opacity: 0.55 }), 0, y + 0.34, 0, false);
+        add(g, cyl(0.21, 0.21, 0.05), M.dark, 0, y + 0.54);
+      }
+      dynParts(g, s, bl ? -0.12 : 0, y + (bl ? 0.1 : 0.2), bl ? 0.12 : 0, {}).mini = 0.6;
     } else if (s.type === 'plate') {
       add(g, rbox(0.8, 0.02, 0.8, 0.01), mat(0xd9f0ff, 0.6), 0, y + 0.01);      // 접시 놓는 자리 표시
       dynParts(g, s, 0, y + 0.02, 0, {});
@@ -276,15 +297,21 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       add(g, rbox(0.9, 0.07, 0.03, 0.01), coolM, 0, 0.66, 0.485, false);
       if (!coolLight) { coolLight = new THREE.PointLight(0x7fd0ff, 1.6, 3.2, 1.8); coolLight.position.set(g.position.x + 0.5, y + 0.7, g.position.z + 0.2); scene.add(coolLight); }
     } else if (s.type === 'sink') {
-      add(g, rbox(0.76, 0.05, 0.6, 0.02), M.dark, 0, y - 0.01, 0.06);
-      add(g, rbox(0.7, 0.02, 0.54, 0.01), mat(0x7fd0ff, 0.1, { transparent: true, opacity: 0.85 }), 0, y + 0.012, 0.06, false);
-      add(g, cyl(0.03, 0.03, 0.3, 10), M.steel, 0, y + 0.15, -0.36);
-      add(g, cyl(0.025, 0.025, 0.2, 10), M.steel, 0, y + 0.29, -0.27).rotation.x = Math.PI / 2;
+      if (!useModel) {
+        add(g, rbox(0.76, 0.05, 0.6, 0.02), M.dark, 0, y - 0.01, 0.06);
+        add(g, rbox(0.7, 0.02, 0.54, 0.01), mat(0x7fd0ff, 0.1, { transparent: true, opacity: 0.85 }), 0, y + 0.012, 0.06, false);
+        add(g, cyl(0.03, 0.03, 0.3, 10), M.steel, 0, y + 0.15, -0.36);
+        add(g, cyl(0.025, 0.025, 0.2, 10), M.steel, 0, y + 0.29, -0.27).rotation.x = Math.PI / 2;
+      }
       dynParts(g, s, 0.05, y + 0.03, 0.08, {});
     } else if (s.type === 'trash') {
-      add(g, cyl(0.4, 0.33, 0.78, 20), mat(0x6f6a8c), 0, 0.39);
-      add(g, cyl(0.42, 0.42, 0.06, 20), M.dark, 0, 0.8);
-      add(g, cyl(0.3, 0.3, 0.02, 20), mat(0x1d1b2e), 0, 0.835, 0, false);
+      const tc = models.get('station:trash');
+      if (tc) g.add(fitBox(tc, 0.72, 0.86, 0.72));
+      else {
+        add(g, cyl(0.4, 0.33, 0.78, 20), mat(0x6f6a8c), 0, 0.39);
+        add(g, cyl(0.42, 0.42, 0.06, 20), M.dark, 0, 0.8);
+        add(g, cyl(0.3, 0.3, 0.02, 20), mat(0x1d1b2e), 0, 0.835, 0, false);
+      }
     }
   }
   stations.forEach(buildStation);
@@ -421,12 +448,41 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     scene.add(root);
     return { root, body, handL, handR, footL, footR, carry, ring, x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0, run: 0 };
   }
+  // Kenney Mini Characters 셰프: 동작(대기·걷기·달리기·들기·집기·작업·환호)이 모델에 들어 있음. 모델이 없으면 위의 기본 셰프를 씀
+  function buildChefModel(seat, color) {
+    const src = models.get('char:' + (seat % 5));
+    if (!src) return null;
+    const root = new THREE.Group(), obj = cloneSkinned(src.scene);
+    const b = new THREE.Box3().setFromObject(obj), h = b.max.y - b.min.y;
+    const CH = 1.42;                                   // 셰프 키 (멀리서도 보이도록 조금 크게)
+    obj.scale.setScalar(CH / h); root.add(obj);
+    const hat = new THREE.Group(); hat.position.y = CH * 0.97; hat.scale.setScalar(0.8); root.add(hat);                 // 요리 모자는 직접 만들어 씌움
+    add(hat, cyl(0.17, 0.16, 0.13, 16), mat(0xffffff, 0.6), 0, 0.06);
+    add(hat, sph(0.2, 14, 10), mat(0xffffff, 0.6), 0, 0.18).scale.y = 0.65;
+    add(hat, cyl(0.172, 0.172, 0.04, 16), mat(color, 0.6), 0, 0.02);
+    const blob = new THREE.Mesh(geo('blob', () => new THREE.CircleGeometry(0.3, 20)), new THREE.MeshBasicMaterial({ color: 0x1b1830, transparent: true, opacity: 0.22, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; root.add(blob);
+    const ring = new THREE.Mesh(geo('mine', () => new THREE.TorusGeometry(0.38, 0.035, 6, 28)), new THREE.MeshBasicMaterial({ color: 0xffd66b })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.03; ring.visible = false; root.add(ring);
+    const carry = new THREE.Group(); carry.position.set(0, 0.62, 0.44); root.add(carry);
+    const mixer = new THREE.AnimationMixer(obj), actions = {};
+    for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
+    const dummy = () => new THREE.Group();
+    scene.add(root);
+    return { root, body: dummy(), handL: dummy(), handR: dummy(), footL: dummy(), footR: dummy(), carry, ring, obj, hat, mixer, actions, cur: '', x: null, y: 0, angle: 0, walk: 0, held: null, name: null, tag: null, moveAmt: 0, run: 0 };
+  }
+  function playAnim(v, name, speed = 1) {
+    const a = v.actions[name] || v.actions.idle; if (!a) return;
+    a.timeScale = speed;
+    if (v.cur === name) return;
+    a.reset().fadeIn(0.12).play();
+    if (v.actions[v.cur]) v.actions[v.cur].fadeOut(0.12);
+    v.cur = name;
+  }
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
   let curOrders = [];
   const chefs = new Map();
   function syncChef(c, dt, seen) {
     let v = chefs.get(c.id);
-    if (!v) { v = buildChef(SEAT_COLOR[(c.seat || 0) % SEAT_COLOR.length]); chefs.set(c.id, v); }
+    if (!v) { const col = SEAT_COLOR[(c.seat || 0) % SEAT_COLOR.length]; v = buildChefModel(c.seat || 0, col) || buildChef(col); chefs.set(c.id, v); }
     seen.add(c.id);
     if (v.x === null || Math.hypot(c.x - v.x, c.y - v.y) > 3) { v.x = c.x; v.y = c.y; }   // 처음이거나 순간이동이면 바로 이동
     const k = c.mine ? 1 : Math.min(1, dt * 10);        // 다른 사람은 부드럽게 따라가기 (온라인 끊김 완화)
@@ -470,13 +526,23 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
     v.handL.position.set(lx, ly, lz); v.handR.position.set(rx, ry, rz);
     v.body.rotation.x += cu * (act === 'cut' ? 0.12 : 0.05);
+    if (v.mixer) {                                   // 모델 셰프: 상황에 맞는 동작을 골라 재생
+      const jump = Math.sin(cheer * Math.PI) * 0.3;
+      v.obj.position.y = jump; v.hat.position.y = 1.42 * 0.97 + jump;
+      if (cheer > 0) playAnim(v, 'emote-yes', 1.6);
+      else if (actK > 0) playAnim(v, 'interact-right', 2.2);
+      else if (reach > 0) playAnim(v, 'pick-up', 2);
+      else if (a > 0.3) playAnim(v, v.run > 0.5 ? 'sprint' : 'walk', 1.25);
+      else playAnim(v, carrying ? 'holding-both' : 'idle');
+      v.mixer.update(dt);
+    }
     v.ring.visible = !!c.mine;
     const name = String(c.name || '셰프').slice(0, 8);
     if (name !== v.name || !!c.mine !== v.tagMine) {
       if (v.tag) { v.root.remove(v.tag); v.tag.material.map.dispose(); v.tag.material.dispose(); }
       v.name = name; v.tagMine = !!c.mine;
       v.tag = textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
-      v.tag.position.y = 1.72; v.root.add(v.tag);
+      v.tag.position.y = v.mixer ? 2.0 : 1.72; v.root.add(v.tag);
     }
   }
 

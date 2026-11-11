@@ -26,11 +26,20 @@ function normalize(obj) {
   return out;
 }
 
+// 주방 설비 (Kenney Furniture Kit) — 크기는 쓰는 쪽에서 설비 칸에 맞춤
+export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'kitchenStove', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan' };
+// 셰프 (Kenney Mini Characters) — 자리 번호 순서대로. 걷기·달리기·집기 등 동작이 들어 있음
+export const CHARACTER_FILES = ['character-male-a', 'character-female-a', 'character-male-b', 'character-female-b', 'character-male-c'];
+
 export async function loadModels(timeoutMs = 5000) {
   const models = new Map(), loader = new GLTFLoader();
+  const extra = [
+    ...Object.entries(FURNITURE_FILES).map(([key, file]) => new Promise(res => loader.load(DIR + 'furniture/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); models.set(key, g.scene); res(); }, undefined, () => res()))),
+    ...CHARACTER_FILES.map((file, i) => new Promise(res => loader.load(DIR + 'characters/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); models.set('char:' + i, { scene: g.scene, animations: g.animations }); res(); }, undefined, () => res()))),
+  ];
   const jobs = Object.entries(MODEL_FILES).map(([key, file]) => new Promise(res => {
     loader.load(DIR + file + '.glb', g => { try { models.set(key, normalize(g.scene)); } catch {} res(); }, undefined, () => res());
   }));
-  await Promise.race([Promise.all(jobs), new Promise(r => setTimeout(r, timeoutMs))]);
+  await Promise.race([Promise.all([...jobs, ...extra]), new Promise(r => setTimeout(r, timeoutMs))]);
   return models;
 }
