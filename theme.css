@@ -219,3 +219,6 @@ html,body{height:100%;overflow:hidden}
 .touch-btn{margin-left:4px;padding:14px 22px;font-size:17px}
 .game-toast{bottom:76px}
 @media (max-height:520px){.quick-note{display:none}.under-stage{justify-content:flex-end}.touch-btn{padding:11px 18px;font-size:15px}}
+/* 마지막 30초: 시계가 붉게 깜빡임 */
+.timer-box.final{background:var(--red);animation:rushPulse .6s ease-in-out infinite}
+.timer-box.final b{color:#fff}

@@ -31,10 +31,10 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const needH = H * Math.sin(CAM_ANGLE) + 5.6, needW = W + 3.4;   // 앞줄 설비와 아래 버튼이 잘리지 않을 여유
+    const needH = H * Math.sin(CAM_ANGLE) + 6.3, needW = W + 3.4;   // 앞줄 설비와 아래 버튼이 잘리지 않을 여유
     const dist = Math.max(needH / 2 / t, needW / 2 / t / camera.aspect);
-    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist - 0.2);
-    camera.lookAt(0, 0.4, -0.2);
+    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist + 1.0);
+    camera.lookAt(0, 0.4, 1.0);   // 앞쪽 서빙 창구와 손님 줄이 보이도록
     camera.updateProjectionMatrix();
   }
 
@@ -313,6 +313,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
   }
   stations.forEach(buildStation);
+  let beltTex = null, serveOut = null;
   // ───────── 주방 바깥: 식당 홀 (오픈 키친을 둘러싼 손님 자리) ─────────
   // 화면 가장자리까지 나무 바닥을 깔고, 식탁·의자·화분·러그를 놓아 빈 곳이 없게 함. 모델을 못 읽어도 바닥은 나옴
   {
@@ -368,9 +369,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       put('plantSmall1', s * (KX + 5.6), 4.2, 0.7);
       put('coatRackStanding', s * (KX + 10.2), -2.6, 1.8);
       // 앞쪽(서빙 벨 앞): 손님이 기다리는 자리
-      put('rugRectangle', s * 5.2, KZ + 2.6, 5.2, 0, true);
-      put('benchCushion', s * 5.2, KZ + 2.4, 0.55, Math.PI);
-      put('plantSmall3', s * 8.2, KZ + 2.2, 0.7);
+      put('plantSmall3', s * 9.6, KZ + 1.2, 0.7);
       // 뒷벽 너머
       put('bookcaseOpen', s * 6.5, -KZ - 1.4, 1.9);
       put('loungeSofa', s * 3.2, -KZ - 2.2, 0.85);
@@ -378,8 +377,23 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       put('lampRoundFloor', s * 1.2, -KZ - 1.6, 1.9);
       put('pottedPlant', s * 9.2, -KZ - 1.5, 1.5);
     }
-    // 서빙 창구 앞 높은 의자
-    for (let i = 0; i < 6; i++) put('stoolBar', -2.5 + i * 1, KZ + 0.75, 0.8);
+    // 음식 나가는 곳: 서빙대에서 주방 밖으로 뻗은 받침대. 화살표 무늬가 바깥쪽으로 흘러감
+    {
+      const sv = stations.filter(s => s.type === 'serve');
+      if (sv.length) {
+        const cx = sv.reduce((a, s) => a + wx(s.x + 0.5), 0) / sv.length, bw = sv.length + 0.1;
+        beltTex = canvasTex(256, 256, (g, s) => {
+          for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#fff6e6' : '#d6452f'; g.fillRect(0, i * 64, s, 64); }
+          g.fillStyle = '#2e2520'; for (let i = 0; i < 2; i++) for (const x of [64, 192]) { const y = i * 128 + 20; g.beginPath(); g.moveTo(x - 30, y); g.lineTo(x + 30, y); g.lineTo(x, y + 30); g.closePath(); g.fill(); }
+        });
+        beltTex.wrapS = beltTex.wrapT = THREE.RepeatWrapping; beltTex.repeat.set(1, 1);
+        add(world, new THREE.BoxGeometry(bw + 0.2, 0.56, 1.7), mat(0x8f5f38, 0.8), cx, 0.26, KZ - 0.25);
+        const strip = add(world, new THREE.PlaneGeometry(bw, 1.7), mat(0xffffff, 0.6, { map: beltTex }), cx, 0.55, KZ - 0.25, false); strip.rotation.x = -Math.PI / 2;
+        const signTex = canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#f0b429'; g.fillRect(0, 0, w, h); g.strokeStyle = '#2e2520'; g.lineWidth = 10; g.strokeRect(5, 5, w - 10, h - 10); g.fillStyle = '#2e2520'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold 62px ${FONT}`; g.fillText('음식 나가는 곳', w / 2, h / 2 + 4); });
+        const sign = add(world, new THREE.PlaneGeometry(bw + 0.2, 0.52), mat(0xffffff, 0.7, { map: signTex }), cx, 0.27, KZ + 0.61, false);
+        serveOut = { x: cx, z0: wz(sv[0].y + 0.5), z1: KZ + 1.0 };
+      }
+    }
     tableSet(0, -KZ - 4.2, 'tableRound', 0, 4);
   }
   mergeStatic(world);
@@ -543,6 +557,105 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     if (v.actions[v.cur]) v.actions[v.cur].fadeOut(0.12);
     v.cur = name;
   }
+  // ───────── 손님: 서빙 창구 앞에 몰려드는 사람들 ─────────
+  // 주문 하나마다 손님 한 명이 창구 앞에 서서 머리 위에 주문한 요리를 띄움. 기다리다 지치면 발을 구르고, 음식이 나가면 받아서 돌아감
+  // 그 뒤로 구경·대기 손님이 서 있고, 러시타임에는 더 몰려와 폴짝폴짝 뜀
+  const guestSrc = [0, 1, 2, 3, 4, 5].map(i => models.get('guest:' + i)).filter(Boolean);
+  const guestList = [], orderGuests = new Map(), crowd = [], walkers = [];
+  const KZG = H / 2, SIDE_X = W / 2 + 6;
+  const bubbleBg = canvasTex(128, 128, (g, w) => { g.fillStyle = '#fff'; g.strokeStyle = '#2e2520'; g.lineWidth = 8; g.beginPath(); g.arc(64, 60, 52, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(48, 104); g.lineTo(64, 126); g.lineTo(80, 104); g.fillStyle = '#2e2520'; g.fill(); });
+  const bubbleHot = canvasTex(128, 128, (g, w) => { g.fillStyle = '#ffd9d2'; g.strokeStyle = '#d6452f'; g.lineWidth = 10; g.beginPath(); g.arc(64, 60, 50, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(48, 104); g.lineTo(64, 126); g.lineTo(80, 104); g.fillStyle = '#d6452f'; g.fill(); });
+  let guestNo = 0;
+  function makeGuest(x, z) {
+    if (!guestSrc.length) return null;
+    const src = guestSrc[guestNo++ % guestSrc.length], obj = cloneSkinned(src.scene), root = new THREE.Group();
+    const b = new THREE.Box3().setFromObject(obj), hgt = (b.max.y - b.min.y) || 1;
+    obj.scale.setScalar(1.4 / hgt); root.add(obj);
+    const blob = new THREE.Mesh(geo('blob', () => new THREE.CircleGeometry(0.3, 20)), new THREE.MeshBasicMaterial({ color: 0x1b1830, transparent: true, opacity: 0.22, depthWrite: false })); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.012; root.add(blob);
+    const mixer = new THREE.AnimationMixer(obj), actions = {};
+    for (const clip of src.animations) actions[clip.name] = mixer.clipAction(clip);
+    root.position.set(x, -0.03, z); scene.add(root);
+    const gu = { root, mixer, actions, cur: '', tx: x, tz: z, face: Math.PI, rest: 'idle', speed: 2.6, gone: false, bubble: null, dish: null, phase: Math.random() * 6 };
+    guestList.push(gu); return gu;
+  }
+  function gAnim(gu, name) {
+    if (gu.cur === name || !gu.actions[name]) return;
+    gu.actions[name].reset().fadeIn(0.15).play();
+    if (gu.actions[gu.cur]) gu.actions[gu.cur].fadeOut(0.15);
+    gu.cur = name;
+  }
+  function gStep(gu, dt) {
+    const p = gu.root.position, dx = gu.tx - p.x, dz = gu.tz - p.z, d = Math.hypot(dx, dz);
+    let want = gu.face;
+    if (d > 0.06) { const st = Math.min(d, gu.speed * dt); p.x += dx / d * st; p.z += dz / d * st; want = Math.atan2(dx, dz); gAnim(gu, gu.speed > 3 ? 'sprint' : 'walk'); }
+    else gAnim(gu, gu.rest);
+    let da = want - gu.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); gu.root.rotation.y += da * Math.min(1, dt * 10);
+    gu.mixer.update(dt);
+    return d <= 0.06;
+  }
+  function removeGuest(gu) { scene.remove(gu.root); gu.mixer.stopAllAction(); const i = guestList.indexOf(gu); if (i >= 0) guestList.splice(i, 1); }
+  function setBubble(gu, emoji) {
+    const grp = new THREE.Group();
+    const bg = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleBg, depthTest: false, transparent: true })); bg.scale.set(1.0, 1.0, 1); bg.renderOrder = 16; grp.add(bg);
+    const ic = dishSprite(emoji); ic.scale.set(0.58, 0.58, 1); ic.position.y = 0.05; grp.add(ic);
+    grp.position.y = 2.0; gu.root.add(grp); gu.bubble = grp; gu.bubbleBg = bg;
+  }
+  const ORDER_SPOTS = [[0, 1.2], [-1.7, 0.85], [1.7, 0.85]];
+  const CROWD_SPOTS = [[-3.2, 0.85], [3.3, 0.9], [-4.7, 0.9], [4.8, 0.85], [-6.2, 0.9], [6.3, 0.9], [-2.5, 1.8], [2.6, 1.85], [-0.9, 2.2], [1.0, 2.25], [-4.0, 1.9], [4.1, 1.9]];
+  const spotUsed = [null, null, null];
+  for (let i = 0; i < CROWD_SPOTS.length; i++) crowd.push({ gu: null, on: false });
+  // 양옆 통로를 오가는 사람
+  for (const s of [-1, 1]) { const gu = makeGuest(s * (W / 2 + 1.9), s * 4); if (gu) { gu.speed = 1.5; gu.tz = -s * 4.5; walkers.push({ gu, s, dir: -s }); } }
+  function updateGuests(state, dt, t) {
+    if (beltTex) beltTex.offset.y += dt * (state.rush ? 0.9 : 0.45);
+    if (!guestSrc.length) return;
+    const playing = !state.dim, cx = serveOut ? serveOut.x : 0, list = playing ? (state.guests || []) : [];
+    // 주문 손님
+    for (const o of list) {
+      let og = orderGuests.get(o.id);
+      if (!og) {
+        let slot = spotUsed.indexOf(null); if (slot < 0) continue;
+        const side = orderGuests.size % 2 ? 1 : -1, gu = makeGuest(side * SIDE_X, KZG + 1.6 + Math.random());
+        if (!gu) continue;
+        gu.speed = 4.2; gu.tx = cx + ORDER_SPOTS[slot][0]; gu.tz = KZG + ORDER_SPOTS[slot][1]; setBubble(gu, o.emoji);
+        og = { gu, slot, emoji: o.emoji }; orderGuests.set(o.id, og); spotUsed[slot] = o.id;
+      }
+      const gu = og.gu, hot = o.f <= 0.25;
+      gu.rest = o.f <= 0 ? 'emote-no' : hot ? 'jump' : 'idle';
+      if (gu.bubble) { gu.bubbleBg.material.map = hot ? bubbleHot : bubbleBg; const k = hot ? 1 + Math.abs(Math.sin(t / 110 + gu.phase)) * 0.22 : 1 + Math.sin(t / 420 + gu.phase) * 0.05; gu.bubble.scale.setScalar(k); }
+    }
+    for (const [id, og] of orderGuests) if (!list.some(o => o.id === id)) {      // 주문이 끝남 → 음식을 받아 들고 돌아감
+      orderGuests.delete(id); spotUsed[og.slot] = null;
+      const gu = og.gu; if (gu.bubble) { gu.root.remove(gu.bubble); gu.bubble = null; }
+      if (playing) {
+        const src = models.get('dish:' + og.emoji);
+        if (src) { const m = src.clone(); m.scale.setScalar(0.5); scene.add(m); gu.dish = { m, k: 0, from: new THREE.Vector3(cx, 0.6, serveOut ? serveOut.z0 : KZG - 1) }; }
+        gu.rest = 'emote-yes'; gu.leaveAt = t + 1300;
+      } else gu.leaveAt = t;
+      gu.leaving = true;
+    }
+    // 뒤에서 기다리는 손님: 평소 5명, 러시타임에는 전부
+    const wantN = !playing ? 4 : state.rush ? CROWD_SPOTS.length : 5 + Math.min(3, list.length);
+    crowd.forEach((c, i) => {
+      const want = i < wantN;
+      if (want && !c.gu) { const side = i % 2 ? 1 : -1; c.gu = makeGuest(side * (SIDE_X + Math.random() * 2), KZG + 1.5 + Math.random() * 1.5); if (c.gu) { c.gu.speed = state.rush ? 4.6 : 2.4; c.gu.tx = cx + CROWD_SPOTS[i][0]; c.gu.tz = KZG + CROWD_SPOTS[i][1]; } }
+      if (!want && c.gu && !c.gu.leaving) { c.gu.leaving = true; c.gu.leaveAt = t + i * 120; c.gu = null; }
+      if (c.gu) c.gu.rest = state.rush ? ((Math.floor(t / 900 + c.gu.phase) % 3) ? 'jump' : 'emote-no') : ((Math.floor(t / 2600 + c.gu.phase) % 5) ? 'idle' : 'emote-yes');
+    });
+    for (const w of walkers) { if (Math.abs(w.gu.root.position.z - w.gu.tz) < 0.1) { w.dir = -w.dir; w.gu.tz = w.dir * 4.5; } w.gu.speed = state.rush ? 3.4 : 1.5; }
+    for (const gu of [...guestList]) {
+      if (gu.dish) {                                  // 접시가 받침대를 타고 손님에게 미끄러져 감
+        const d = gu.dish; d.k = Math.min(1, d.k + dt * 2.2);
+        const to = gu.root.position;
+        d.m.position.set(d.from.x + (to.x - d.from.x) * d.k, 0.6 + Math.sin(d.k * Math.PI) * 0.5 + d.k * 0.45, d.from.z + (to.z - 0.35 - d.from.z) * d.k);
+        if (d.k >= 1) { scene.remove(d.m); d.m.position.set(0, 1.05, 0.38); d.m.scale.setScalar(0.5); gu.root.add(d.m); gu.dish = null; }
+      }
+      if (gu.leaving && t >= gu.leaveAt && !gu.goingOut) { gu.goingOut = true; gu.rest = 'idle'; gu.speed = 3.2; gu.tx = (gu.root.position.x >= 0 ? 1 : -1) * (SIDE_X + 3); gu.tz = KZG + 2.6; }
+      const arrived = gStep(gu, dt);
+      if (gu.goingOut && arrived) removeGuest(gu);
+    }
+  }
+
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
   let curOrders = [];
   const chefs = new Map();
@@ -622,6 +735,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     // 러시타임: 주방 조명이 붉게 깜빡임
     const rk = state.rush ? 0.5 + Math.sin(t / 130) * 0.5 : 0;
     sun.color.setRGB(1, 0.94 - rk * 0.35, 0.84 - rk * 0.45); hemi.intensity = 1.25 - rk * 0.25;
+    updateGuests(state, dt, t);
     const seen = new Set();
     for (const c of state.chefs) syncChef(c, dt, seen);
     for (const [id, v] of chefs) if (!seen.has(id)) { scene.remove(v.root); chefs.delete(id); }
