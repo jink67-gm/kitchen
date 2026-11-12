@@ -29,11 +29,20 @@ export function activeOrders(g, now) {
 // 주문 받기: 새 주문은 수학 문제를 맞혀야 '받은 주문'이 됨. 받은 주문의 재료는 문제 없이 손질·조리
 // pausedMs = 문제를 푸는 데 걸린 시간. 그만큼 대기 시간을 뒤로 밀어 줌 (최대 40초)
 export const ACCEPT_PAUSE_MAX_MS = 40000;
-export function acceptOrder(g, id, now, pausedMs = 0) {
+// 어려운 요리일수록 문제를 더 풀고, 그만큼 점수도 받음: 재료 2개 → 1문제, 3개 → 2문제, 4개 → 3문제
+export const ACCEPT_BONUS = 20;            // 두 번째 문제부터 한 문제마다 받는 점수
+export const questionsFor = recipe => Math.max(1, (((recipe || {}).items || []).length || 2) - 1);
+export const acceptBonus = need => Math.max(0, need - 1) * ACCEPT_BONUS;
+// 주문 문제 하나를 맞혔을 때. need(필요한 문제 수)를 채우면 받은 주문이 되고 보너스 점수가 들어옴
+// 팀원이 나누어 풀어도 됨 (푼 수는 주문에 저장). 이미 받은 주문이면 null
+export function acceptOrder(g, id, now, pausedMs = 0, need = 1) {
   const o = g && g.orders && g.orders[id];
   if (!o || o.accepted) return null;
-  const add = Math.max(0, Math.min(ACCEPT_PAUSE_MAX_MS, pausedMs || 0));
-  return { ...g, orders: { ...g.orders, [id]: { ...o, accepted: true, createdAt: o.createdAt + add, expiresAt: o.expiresAt + add } } };
+  const add = Math.max(0, Math.min(ACCEPT_PAUSE_MAX_MS - (o.paused || 0), pausedMs || 0));
+  const solved = (o.solved || 0) + 1, done = solved >= need;
+  const next = { ...o, solved, paused: (o.paused || 0) + add, createdAt: o.createdAt + add, expiresAt: o.expiresAt + add };
+  if (done) next.accepted = true;
+  return { ...g, score: (g.score || 0) + (done ? acceptBonus(need) : 0), orders: { ...g.orders, [id]: next } };
 }
 // 이 재료를 쓸 수 있는지: 'free' 받은 주문에 필요 / 주문 id = 아직 안 받은 주문에 필요 / null = 어떤 주문에도 없음
 export function orderForKind(g, kind, recipes, now) {

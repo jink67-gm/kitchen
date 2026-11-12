@@ -1,7 +1,7 @@
 // 실행: node --test tests/orders.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptOrder, orderForKind, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
+import { acceptOrder, orderForKind, questionsFor, acceptBonus, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
 import { tablePut, tableAdd, tableAddCheck, plateMatch, missingOf, newPlate, contentsOf } from '../plates.js';
 import { newItem, prepare } from '../items.js';
 import { planTeams, CloudRoom } from '../cloud.js';
@@ -168,4 +168,20 @@ test('주문 받기: 문제를 맞히면 받은 주문이 되고, 푸는 동안�
   assert.equal(acceptOrder(g, 'o99', T0 + 9000, 0), null);
   assert.equal(acceptOrder(g, o.id, T0 + 99000, 999999).orders[o.id].expiresAt, o.expiresAt + 40000);   // 멈춤은 최대 40초
   assert.ok(serveOrder(g2, ['lettuce', 'tomato'], RECIPES, T0 + 10000));     // 받은 주문은 그대로 서빙 가능
+});
+
+test('어려운 요리는 주문 문제를 여러 개 풀고 보너스 점수를 받음', () => {
+  assert.deepEqual([2, 3, 4].map(n => questionsFor({ items: Array(n).fill('x') })), [1, 2, 3]);
+  assert.deepEqual([1, 2, 3].map(acceptBonus), [0, 20, 40]);
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const id = Object.keys(g.orders)[0], exp = g.orders[id].expiresAt;
+  g = acceptOrder(g, id, T0 + 5000, 4000, 3);                     // 3문제 중 1번째
+  assert.equal(g.orders[id].accepted, undefined); assert.equal(g.orders[id].solved, 1); assert.equal(g.score, 0);
+  assert.equal(orderForKind(g, 'tomato', RECIPES, T0 + 5000), id);   // 아직 받은 주문이 아님
+  g = acceptOrder(g, id, T0 + 9000, 4000, 3);                     // 2번째 (다른 팀원이 풀어도 같은 주문에 쌓임)
+  assert.equal(g.orders[id].solved, 2); assert.equal(g.score, 0);
+  g = acceptOrder(g, id, T0 + 60000, 50000, 3);                   // 3번째 → 받음, 보너스 +40
+  assert.equal(g.orders[id].accepted, true); assert.equal(g.score, 40);
+  assert.equal(g.orders[id].expiresAt, exp + 40000);              // 멈춘 시간은 세 문제를 합쳐 최대 40초
+  assert.equal(acceptOrder(g, id, T0 + 61000, 1000, 3), null);
 });
