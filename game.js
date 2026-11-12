@@ -493,8 +493,11 @@ async function acceptNow(q){
  try{if(mode==='demo'||!cloud){n=fn(getGroup(side));if(n)teamData.groups[side]=n}else n=await cloud.groupOp(side,fn)}catch(e){console.warn('주문 받기',e)}
  return (n||getGroup(side)).orders?.[q.orderId]||null;   // 갱신된 주문 (이미 서빙되어 사라졌으면 null)
 }
+// 수학 단원: 'all' 또는 '1,3,5'처럼 고른 단원들 중에서 무작위
+const unitList=u=>u==='all'||!u?[1,2,3,4,5,6]:String(u).split(',').map(Number).filter(n=>n>=1&&n<=6);
+function pickUnit(){const l=unitList(unit);return l.length?l[rnd(0,l.length-1)]:rnd(1,6)}
 function askMath(food,kind,board=null,orderId=null,serve=null){
- const pz=mkProblem(unit==='all'?rnd(1,6):unit),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
+ const pz=mkProblem(pickUnit()),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
  activeQuestion={food,kind,pz,wrong:false,board,orderId,serve,openedAt:srvNow()};
  const orec=orderId?RECIPES[liveOrders().find(v=>v.id===orderId)?.recipeId]:null;
 if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',pz.unit+'단원 · '+UNIT_NAMES[pz.unit]);setMath('questionText',pz.question);setText('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
@@ -790,6 +793,8 @@ function boot(){
  $('introSkip').onclick=()=>{document.activeElement?.blur?.();skipIntro()};
  $('skipIntroAllBtn').onclick=()=>cloud?.skipIntro(INTRO_MS-MISSION_AT+300).catch(e=>toast(e.message));
  if(new URLSearchParams(location.search).get('intro')==='0'){$('introCheck').checked=false;$('lobbyIntroCheck').checked=false}   // 테스트용: 주소 뒤 ?intro=0 이면 인트로 끔
+ // 단원 체크 상자 → 숨은 값(unitSelect): 모두 고르면 'all', 아니면 '1,3,5'. 하나는 꼭 남김
+ $('unitChecks').addEventListener('change',e=>{const boxes=[...document.querySelectorAll('#unitChecks input')],on=boxes.filter(b=>b.checked);if(!on.length&&e.target.checked===false){e.target.checked=true;toast('단원은 하나 이상 골라야 해요.');return}$('unitSelect').value=on.length===boxes.length?'all':on.map(b=>b.dataset.unit).join(',')});
  $('leaveBtn').onclick=goHome;$('endHomeBtn').onclick=goHome;
  $('roomInfoBtn').onclick=()=>{if(mode==='demo')show('helpOverlay');else{show('lobbyOverlay');refreshLobby()}};
  $('restartBtn').onclick=()=>{if(mode==='demo')startDemo(currentMode,false);else if(cloud?.role==='teacher')cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0).catch(e=>toast(e.message));else{hide('endOverlay');show('lobbyOverlay');toast('선생님이 다음 라운드를 시작하면 입장해요!')}};

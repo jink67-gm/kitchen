@@ -276,3 +276,6 @@ html,body{height:100%;overflow:hidden}
 .group-row select:disabled{opacity:.6}
 #modeLabel[data-side="A"]{background:#d6456f;color:#fff}
 #modeLabel[data-side="B"]{background:#2f6f9f;color:#fff}
+.unit-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.unit-chip-opt{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;background:#fff;border:2px solid var(--ink);border-radius:8px;padding:6px 8px;cursor:pointer}
+.unit-chip-opt input{width:17px;height:17px;padding:0;accent-color:var(--red)}

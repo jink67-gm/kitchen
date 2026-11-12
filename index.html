@@ -52,7 +52,7 @@
 
   <div id="menuOverlay" class="overlay"><section class="menu-card">
     <div class="menu-content"><h1>우당탕! <em>수학 레스토랑</em></h1><p>수학 문제를 풀어 재료를 손질하고, 친구들과 주문을 완성해요.</p>
-      <div class="feature-chips"><span>4~5명 협동</span><span>2대2 · 학급 대항</span><span>6학년 2학기</span></div>
+      <div class="feature-chips"><span>모둠 협동</span><span>2대2 대결</span><span>6학년 2학기</span></div>
       <label class="field-label">요리사 이름</label><input id="nicknameInput" maxlength="12" placeholder="예: 딸기요리사" value="꼬마셰프" />
       <label class="field-label">난이도</label><select id="presetSelect"><option value="comfy">편안함 · 느긋하게, 쉬운 문제</option><option value="basic" selected>기본</option><option value="hard">도전 · 빠르게, 어려운 문제</option></select>
       <details class="detail-box"><summary>세부 설정 (선생님용)</summary>
@@ -64,7 +64,7 @@
         <label class="field-label">러시타임 이동 속도</label><select id="rushSpeedSelect"><option value="1.2">1.2배</option><option value="1.35">1.35배</option><option value="1.45">1.45배</option></select>
         <label class="field-label">러시타임 새 주문 간격</label><select id="rushIntervalSelect"><option value="15000">15초</option><option value="10000">10초</option><option value="8000">8초</option></select>
       </details>
-      <label class="field-label">수학 단원</label><select id="unitSelect"><option value="all">전체 단원 골고루</option><option value="1">1. 분수의 나눗셈</option><option value="2">2. 소수의 나눗셈</option><option value="3">3. 공간과 입체</option><option value="4">4. 비례식과 비례배분</option><option value="5">5. 원의 둘레와 넓이</option><option value="6">6. 원기둥, 원뿔, 구</option></select>
+      <label class="field-label">수학 단원 (여러 개 고를 수 있어요)</label><div class="unit-checks" id="unitChecks"><label class="unit-chip-opt"><input type="checkbox" data-unit="1" checked /> 1. 분수의 나눗셈</label><label class="unit-chip-opt"><input type="checkbox" data-unit="2" checked /> 2. 소수의 나눗셈</label><label class="unit-chip-opt"><input type="checkbox" data-unit="3" checked /> 3. 공간과 입체</label><label class="unit-chip-opt"><input type="checkbox" data-unit="4" checked /> 4. 비례식과 비례배분</label><label class="unit-chip-opt"><input type="checkbox" data-unit="5" checked /> 5. 원의 둘레와 넓이</label><label class="unit-chip-opt"><input type="checkbox" data-unit="6" checked /> 6. 원기둥, 원뿔, 구</label></div><input type="hidden" id="unitSelect" value="all" />
       <label class="intro-opt"><input type="checkbox" id="introCheck" checked /> 시작 전에 인트로 보기 (약 50초)</label><button class="primary-btn" id="demoBtn">혼자 체험하기</button><button class="secondary-btn" id="demoBattleBtn" style="width:100%;margin-top:12px">봇과 2대2 대결 체험하기</button>
       <div class="menu-actions"><button id="teacherBtn" class="secondary-btn">학급방 만들기 (선생님)</button><button id="joinBtn" class="secondary-btn">게임방 입장 (학생)</button></div>
       <p class="mini-note" id="firebaseNote">혼자 체험은 바로 시작됩니다.</p>
