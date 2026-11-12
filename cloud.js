@@ -109,14 +109,24 @@ export class CloudRoom{
     listen(['teams',String(this.team),'data'],v=>{this.teamData=v||null;this.fire('teamData',this.teamData)});
   }
   // ── 대기실에서 모둠 바꾸기 / 내보내기 ──
+  // 서버가 거절했을 때 알기 쉬운 말로
+  friendly(e){return /permission|denied/i.test(e?.message||'')?new Error('서버가 거절했어요. 선생님이 Firebase에 최신 보안 규칙을 게시했는지 확인해 주세요.'):e}
+  // 교사: 두 학생의 모둠을 맞바꾸기 (모든 모둠이 꽉 찼을 때). 한 번에 저장
+  async swapMembers(a,b){
+    if(this.role!=='teacher')return;
+    if(this.meta?.phase==='playing')throw new Error('게임 중에는 모둠을 바꿀 수 없어요. 게임이 끝난 뒤 바꿔 주세요.');
+    const A=this.allMembers?.[a],B=this.allMembers?.[b];if(!A||!B||A.team===B.team)return;
+    try{await this.ops.update(this.path('members'),{[a+'/team']:B.team,[b+'/team']:A.team})}catch(e){throw this.friendly(e)}
+    this.ops.update(this.path('results',a),{team:Number(B.team)}).catch(()=>{});this.ops.update(this.path('results',b),{team:Number(A.team)}).catch(()=>{});
+  }
   teamCount(t){return Object.values(this.allMembers||{}).filter(m=>Number(m.team)===t).length}
   // 학생이 스스로 다른 모둠으로 (대기실에서만, 자리가 남은 모둠만)
   async moveSelf(t){
     if(this.role!=='student')return;
     if(this.meta?.phase!=='lobby')throw new Error('게임이 시작되기 전에만 모둠을 바꿀 수 있어요.');
     if(!(t>=0&&t<(this.meta.sizes||[]).length)||t===this.team)return;
-    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요.`);
-    await this.ops.update(this.path('members',this.uid),{team:String(t)});
+    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요. 선생님께 자리를 바꿔 달라고 해 주세요.`);
+    try{await this.ops.update(this.path('members',this.uid),{team:String(t)})}catch(e){throw this.friendly(e)}
     await this.ops.update(this.path('results',this.uid),{team:t}).catch(()=>{});
   }
   // 교사: 학생을 다른 모둠으로 (대기실에서만)
@@ -124,16 +134,15 @@ export class CloudRoom{
     if(this.role!=='teacher')return;
     if(this.meta?.phase==='playing')throw new Error('게임 중에는 모둠을 바꿀 수 없어요. 게임이 끝난 뒤 바꿔 주세요.');
     const m=this.allMembers?.[uid];if(!m||Number(m.team)===t)return;
-    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요. 먼저 그 모둠의 학생을 옮겨 주세요.`);
-    await this.ops.update(this.path('members',uid),{team:String(t)});
+    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요. 목록에서 "↔ 학생과 바꾸기"를 골라 자리를 맞바꿔 주세요.`);
+    try{await this.ops.update(this.path('members',uid),{team:String(t)})}catch(e){throw this.friendly(e)}
     await this.ops.update(this.path('results',uid),{team:t}).catch(()=>{});
   }
   // 교사: 학생 내보내기 (다시 들어올 수 없음). 빈자리만큼 정원을 하나 늘려 다른 학생이 들어올 수 있게 함
   async kick(uid){
     if(this.role!=='teacher')return;
     const m=this.allMembers?.[uid];if(!m)return;
-    await this.ops.set(this.path('banned',uid),true);
-    await this.ops.remove(this.path('members',uid));
+    try{await this.ops.set(this.path('banned',uid),true);await this.ops.remove(this.path('members',uid))}catch(e){throw this.friendly(e)}
     await this.ops.remove(this.path('results',uid)).catch(()=>{});
     await this.ops.remove(this.path('teams',String(m.team),'players',uid)).catch(()=>{});
     if((this.meta?.count||0)<25)await this.ops.update(this.path('meta'),{count:this.meta.count+1}).catch(()=>{});
