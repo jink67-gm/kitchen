@@ -730,7 +730,7 @@ function updateTeacherMonitor(){
 // 대기실의 학생 한 줄: 교사에게는 '모둠 바꾸기'와 '내보내기'가 붙음
 function memberRow(uid,u,k,m){
  const li=document.createElement('div');li.className='lobby-member';
- const nm=document.createElement('span');nm.textContent=(m.mode==='duel'?(k<2?'🌸 A편 ':'🌊 B편 '):'👨‍🍳 ')+u.name+(cloud.role==='student'&&uid===cloud.uid?' (나)':'');li.appendChild(nm);
+ const nm=document.createElement('span');nm.textContent=(m.mode==='duel'?(k<2?'🌸 A편 ':'🌊 B편 '):'👨‍🍳 ')+u.name+(cloud.role==='student'&&uid===cloud.uid?' (나)':'')+(u.online===false?' · 연결 끊김':'');if(u.online===false)li.classList.add('offline');li.appendChild(nm);
  if(cloud.role==='teacher'){
   const sel=document.createElement('select');sel.className='lobby-sel';sel.title='모둠 바꾸기';sel.disabled=m.phase==='playing';
   m.sizes.forEach((_,j)=>{const o=document.createElement('option');o.value=j;o.textContent=(j+1)+'모둠';if(j===Number(u.team))o.selected=true;sel.appendChild(o)});
@@ -744,12 +744,12 @@ function memberRow(uid,u,k,m){
  return li;
 }
 function refreshLobby(){
- if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);setText('lobbyCount',`${Object.keys(all).length}/${m.count}명 입장`);setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`);
+ if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);{const on=Object.values(all).filter(u=>u.online!==false).length,n=Object.keys(all).length;setText('lobbyCount',`${n}/${m.max||m.count}명 입장`+(on<n?` · 접속 ${on}명`:''))}setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`);
  let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}모둠 · ${num}명`+(m.mode==='duel'?' (🌸 A편 2 · 🌊 B편 2)':'');div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);mates.forEach(([uid,u],k)=>div.appendChild(memberRow(uid,u,k,m)));if(cloud.role==='student'&&Number(cloud.team)!==i&&m.phase!=='playing'){const b=document.createElement('button');b.className='subtle-btn lobby-move';const full=mates.length>=num;b.textContent=full?'자리 없음 (선생님께 바꿔 달라고 해요)':'이 모둠으로 이동';b.disabled=full;b.onclick=()=>cloud.moveSelf(i).then(()=>toast(`${i+1}모둠으로 옮겼어요!`)).catch(e=>toast(e.message));div.appendChild(b)}if(cloud.role==='student'&&Number(cloud.team)===i)div.classList.add('mine');if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
- let count=Object.keys(all).length;setText('lobbyNotice',count===m.count?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
+ let count=Object.keys(all).length;setText('lobbyNotice',count===(m.max||m.count)?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
  $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
 }
-async function setupCloud(isTeacher){teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모드와 모둠 구성을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
+async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');setText('joinRoomBtn','입장하기');teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모드와 모둠 구성을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
 function wireCloud(obj){
  obj.on('meta',v=>{
   if(!v)return;meta=v;currentMode=v.mode;
@@ -757,6 +757,7 @@ function wireCloud(obj){
   else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&sentPhase==='playing'){sentPhase='lobby';roundStarted=false;show('lobbyOverlay');}
  });
  obj.on('members',v=>{members=v||{};refreshLobby();if(roundStarted)updateUI()});
+ obj.on('net',ok=>{$('netBanner').classList.toggle('hidden',ok)});
  obj.on('moved',({to})=>toast(`${to+1}모둠으로 옮겨졌어요.`));
  obj.on('kicked',async()=>{await goHome();setText('firebaseNote','선생님이 방에서 내보냈어요. 선생님께 여쭤 보세요.');toast('선생님이 방에서 내보냈어요.')});
  obj.on('results',()=>updateTeacherMonitor());
@@ -773,19 +774,33 @@ function boot(){
  // 모둠 수 × 모둠 인원 안내 (2대2 대결은 모둠마다 4명 고정)
  const groupInfo=()=>{const duel=$('createMode').value==='duel',gN=Number($('groupCount').value);if(duel)$('groupSize').value='4';$('groupSize').disabled=duel;const n=gN*Number($('groupSize').value);setText('groupTotal',(duel?`모둠 ${gN}개 × 4명(2명씩 두 편)`:`모둠 ${gN}개 × ${$('groupSize').value}명`)+` = 최대 ${n}명`+(n>25?' · 25명까지만 만들 수 있어요':''));$('groupTotal').classList.toggle('form-error',n>25)};
  ['createMode','groupCount','groupSize'].forEach(id=>$(id).addEventListener('change',groupInfo));groupInfo();
+ // ── 입장·방 만들기 진행 표시: 단계, 늦어질 때 안내, 오류 종류별 안내 ──
+ const STAGE={sdk:'connect',app:'connect',connect:'connect',authRestore:'auth',authNew:'auth',meta:'room',member:'room',seat:'seat',register:'seat',lobby:'done'};
+ let stageAt=0,stageLabel='',slowTimer=null;
+ function showProgress(p){
+  const box=$('joinProgress');box.classList.remove('hidden');const order=['connect','auth','room','seat','done'],cur=order.indexOf(STAGE[p.step]||'connect');
+  box.querySelectorAll('li').forEach((li,i)=>{li.className=i<cur?'done':i===cur?(p.step==='lobby'?'done':'now'):''});
+  stageAt=performance.now();stageLabel=p.label;setText('joinSlow','');
+ }
+ function startProgress(){clearInterval(slowTimer);setText('setupError','');$('joinProgress').classList.remove('hidden');$('joinProgress').querySelectorAll('li').forEach(li=>li.className='');stageAt=performance.now();stageLabel='Firebase 연결 중';
+  slowTimer=setInterval(()=>{const s=(performance.now()-stageAt)/1000;setText('joinSlow',s>=5?`"${stageLabel}" 단계가 늦어지고 있어요 (${Math.floor(s)}초). 조금만 기다려 주세요.`:'')},500)}
+ function stopProgress(err){clearInterval(slowTimer);setText('joinSlow','');if(err){const tag={network:'🌐 연결 문제',auth:'🔑 로그인 문제',permission:'⛔ 권한 문제',code:'🔢 방 확인',timeout:'⏱️ 응답 없음',unknown:'⚠️ 문제'}[err.kind]||'⚠️ 문제';setText('setupError',tag+' · '+err.message);$('joinProgress').querySelector('li.now')?.classList.replace('now','fail')}}
  $('createRoomBtn').onclick=async()=>{
-  let btn=$('createRoomBtn');btn.disabled=true;setText('setupError','');try{
+  let btn=$('createRoomBtn');if(btn.disabled)return;btn.disabled=true;setText('setupError','');startProgress();try{
    const m=$('createMode').value,gN=Number($('groupCount').value),gS=m==='duel'?4:Number($('groupSize').value),n=gN*gS;
    if(n>25)throw new Error('한 방에는 25명까지 들어올 수 있어요. 모둠 수나 인원을 줄여 주세요.');
-   cloud=new CloudRoom();wireCloud(cloud);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim()});$('teacherPinInput').value='';
-   mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
-  }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
+   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim()});$('teacherPinInput').value='';
+   stopProgress();mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
+  }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message})}finally{btn.disabled=false}
  };
+ // 입장: 진행 중에는 버튼을 다시 눌러도 새 요청을 보내지 않음. 실패하면 '다시 시도' (진행 중이던 자리 배정은 이어서 확인)
+ let joining=false;
  $('joinRoomBtn').onclick=async()=>{
-  let btn=$('joinRoomBtn');btn.disabled=true;setText('setupError','');try{
-   cloud=new CloudRoom();wireCloud(cloud);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()});
-   mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
-  }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
+  let btn=$('joinRoomBtn');if(joining)return;joining=true;btn.disabled=true;setText('joinRoomBtn','입장하는 중…');startProgress();try{
+   if(cloud&&cloud.role==='student'&&!cloud.connected){try{await cloud.disconnect()}catch{}}
+   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()});
+   stopProgress();mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
+  }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message});setText('joinRoomBtn','다시 시도')}finally{btn.disabled=false;joining=false;if($('joinRoomBtn').textContent==='입장하는 중…')setText('joinRoomBtn','입장하기')}
  };
  $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{await cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0);$('lobbyIntroCheck').checked=false;refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
  $('lobbyBackBtn').onclick=goHome;
@@ -833,7 +848,7 @@ function boot(){
  if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');}
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
-async function goHome(){introClear();
+async function goHome(){introClear();$('netBanner').classList.add('hidden');
  closePicker();setHeld(null);sfx.setSizzle(false);
  if(cloud)await cloud.disconnect();cloud=null;mode='demo';teacher=false;roundStarted=false;ended=false;activeQuestion=null;sentPhase='';keys.clear();hide('endOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('questionOverlay');show('menuOverlay');setRoomStatus();
 }
