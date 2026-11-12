@@ -22,11 +22,12 @@ export class CloudRoom{
     if(!cloudConfigured())throw new Error('Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
     if(!this.db){
       const [a,b,d]=await Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]);
-      this.ops=d; const app=a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
+      this.ops=d; const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
       const auth=b.getAuth(app);let credential=auth.currentUser;
       if(!credential) credential=(await b.signInAnonymously(auth)).user;
       this.uid=credential.uid;
     }
+    this.ops.goOnline(this.db);   // 방에서 나갈 때 끊었던 연결을 다시 엶
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
   async create({name,count,mode,unit,duration,orderTime,pin,settings,sizes:given}){
@@ -38,7 +39,7 @@ export class CloudRoom{
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
       try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
       catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
-      this.connected=true;this.subscribeBase();return this.code;
+      this.connected=true;this.subscribeBase();this.cleanupOldRooms().catch(()=>{});return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
   }
@@ -111,9 +112,12 @@ export class CloudRoom{
   }
   async syncPlayer(player,force=false){
     if(!this.connected||this.role!=='student')return;
-    if(!force && now()-this.lastMotion<130)return;
+    // 사용량 줄이기: 초당 최대 약 4번, 움직임·든 것이 그대로면 보내지 않음
+    if(!force && now()-this.lastMotion<240)return;
+    const pos={name:this.name,seat:this.seat,x:+player.x.toFixed(2),y:+player.y.toFixed(2),dir:player.dir,held:player.held||''};
+    const L=this.localPos;if(!force&&L&&Math.abs(L.x-pos.x)<0.04&&Math.abs(L.y-pos.y)<0.04&&L.dir===pos.dir&&L.held===pos.held)return;
     this.lastMotion=now();
-    this.localPos={name:this.name,seat:this.seat,x:+player.x.toFixed(2),y:+player.y.toFixed(2),dir:player.dir,held:player.held||'',updatedAt:now()};
+    this.localPos={...pos,updatedAt:now()};
     await this.ops.update(this.path('teams',String(this.team),'players',this.uid),this.localPos);
   }
   async writeMath(side,correct,unit){
@@ -211,5 +215,13 @@ export class CloudRoom{
     const v={score:Math.max(0,Number(g.score)||0)};if(g.served!==undefined)v.served=Number(g.served)||0;
     this.ops.update(this.path('scores',String(this.team),side),v).catch(()=>{});
   }
-  async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;}
+  // 방에서 나가면 구독을 끊고 Firebase 연결도 닫음 (무료 요금제의 동시 접속 100개 한도를 아끼기 위해)
+  async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;try{if(this.role==='student'&&this.uid)await this.ops.remove(this.path('teams',String(this.team),'players',this.uid))}catch{}try{this.ops.goOffline(this.db)}catch{}}
+  // 이 컴퓨터에서 예전에 만든 방 지우기 (새 방을 만들 때). 규칙이 아직 없으면 조용히 건너뜀
+  async cleanupOldRooms(){
+    let list=[];try{list=JSON.parse(localStorage.getItem('mathcook-myrooms')||'[]')}catch{}
+    const keep=[];
+    for(const code of list.filter(c=>c!==this.code).slice(-10)){try{await this.ops.remove(this.ops.ref(this.db,'rooms/'+code))}catch{keep.push(code)}}
+    try{localStorage.setItem('mathcook-myrooms',JSON.stringify([...keep.slice(-10),this.code]))}catch{}
+  }
 }
