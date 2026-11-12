@@ -6,6 +6,35 @@ const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
 const digits=()=>String(100000+Math.floor(Math.random()*900000));
+// ── 입장 단계 진단 ─────────────────────────────────────────────
+// 각 단계에 시간 제한을 두고, 진행 상황(progress)과 소요 시간을 기록합니다.
+// 콘솔 기록([입장 진단])에는 학생 이름·계정 번호·토큰을 남기지 않습니다.
+export const STEP_LABEL={sdk:'Firebase 불러오는 중',app:'Firebase 준비 중',authRestore:'로그인 확인 중',authNew:'로그인 확인 중',connect:'Firebase 연결 중',meta:'게임방 확인 중',member:'게임방 확인 중',seat:'학생 자리 배정 중',register:'학생 자리 배정 중',lobby:'입장 완료'};
+const LIMIT={sdk:20000,app:5000,authRestore:8000,authNew:15000,connect:12000,meta:10000,member:10000,seat:15000,register:10000};
+export class JoinError extends Error{constructor(kind,step,message){super(message);this.kind=kind;this.step=step}}
+export const NET_MSG='게임 서버와 연결되지 않았어요. 인터넷 연결을 확인하거나 선생님께 알려주세요.';
+const DIAG=[];try{window.__joinDiag=DIAG}catch{}
+function diag(step,state,ms,kind){const e={step,state,ms:ms==null?null:Math.round(ms),kind:kind||null,at:Date.now()};DIAG.push(e);if(DIAG.length>200)DIAG.shift();try{console.info('[입장 진단]',STEP_LABEL[step]||step,state,e.ms!=null?e.ms+'ms':'',kind||'')}catch{}}
+// 테스트 전용 (localhost에서만): ?delay_단계=ms 로 늦추기, ?hang=단계 로 응답 없이 멈추기
+const QSX={get(k){try{return location.hostname==='localhost'?new URLSearchParams(location.search).get(k):null}catch{return null}}};const QS=QSX;
+const limitOf=step=>Number(QS.get('limit_'+step))||LIMIT[step];
+function testHook(step){if(QS.get('hang')===step)return new Promise(()=>{});const d=Number(QS.get('delay_'+step)||0);return d>0?new Promise(r=>setTimeout(r,d)):null}
+// 오류를 네 종류로 나눔: network(연결) / auth(로그인) / permission(권한) / code(방 코드·정원 등) / timeout(시간 초과)
+export function classify(e,step){
+  if(e instanceof JoinError)return e;
+  const code=String(e?.code||''),msg=String(e?.message||e||'');
+  if(/permission|denied/i.test(code+msg))return new JoinError('permission',step,'서버가 요청을 거절했어요(권한 오류). 선생님께 알려 주세요. (선생님: Firebase에 최신 보안 규칙이 게시되었는지 확인)');
+  if(code==='auth/too-many-requests'||/too-many-requests/.test(msg))return new JoinError('auth',step,'로그인 요청이 너무 많아 Firebase가 잠시 막았어요(익명 로그인 한도). 몇 분 뒤 다시 시도하고, 계속되면 선생님께 알려 주세요.');
+  if(code==='auth/operation-not-allowed'||code==='auth/admin-restricted-operation')return new JoinError('auth',step,'Firebase 익명 로그인이 꺼져 있어요. 선생님: 콘솔 → Authentication → 로그인 방법에서 "익명"을 사용 설정해 주세요.');
+  if(code==='auth/network-request-failed'||/network|failed to fetch|load failed|dynamically imported/i.test(msg))return new JoinError('network',step,step==='sdk'?'Firebase 프로그램을 불러오지 못했어요(www.gstatic.com). 인터넷 연결을 확인하거나 선생님께 알려주세요.':NET_MSG);
+  if(code.startsWith('auth/'))return new JoinError('auth',step,'로그인 중 문제가 생겼어요('+code+'). 다시 시도하거나 선생님께 알려 주세요.');
+  return new JoinError('unknown',step,'입장 중 문제가 생겼어요: '+msg.slice(0,80));
+}
+function withTimeout(p,step){let id;return Promise.race([p,new Promise((_,rej)=>{id=setTimeout(()=>rej(new JoinError(step==='connect'?'network':'timeout',step,step==='connect'?NET_MSG:`"${STEP_LABEL[step]}" 단계에서 서버 응답이 ${Math.round(limitOf(step)/1000)}초 넘게 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.`)),limitOf(step))})]).finally(()=>clearTimeout(id))}
+// Firebase 준비(SDK·앱·로그인)는 한 화면에서 한 번만: 다시 시도·새 방에서 재사용 (익명 계정을 새로 만들지 않음)
+let SHARED=null,AUTH=null;
+// 자리 배정 트랜잭션: 응답이 늦어도 같은 요청을 다시 보내지 않고, 진행 중인 요청의 결과를 이어서 기다림
+const SEAT_JOBS=new Map();
 export function cloudConfigured(){return Boolean(firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId)}
 export function planTeams(n){
   n=Math.min(MAX,Math.max(1,Number(n)||4));
@@ -15,68 +44,118 @@ export function planTeams(n){
   return result;
 }
 export class CloudRoom{
+  // 한 단계 실행: 진행 알림 → (테스트 지연) → 시간 제한 → 기록
+  async step(name,fn){
+    const t0=performance.now();this.fire('progress',{step:name,label:STEP_LABEL[name]});diag(name,'시작');
+    try{const v=await withTimeout((async()=>{const h=testHook(name);if(h)await h;return fn()})(),name);diag(name,'완료',performance.now()-t0);return v}
+    catch(e){const je=classify(e,name);diag(name,'실패',performance.now()-t0,je.kind);throw je}
+  }
   constructor(){this.uid='';this.code='';this.db=null;this.ops=null;this.unsubs=[];this.seat=-1;this.team=0;this.role='student';this.name='';this.teamMembers={};this.teamData=null;this.meta=null;this.allMembers={};this.allTeams={};this.listeners={};this.localPos=null;this.lastMotion=0;this.connected=false;this.serverOffset=0;this.results={};}
   on(event,handler){this.listeners[event]=handler}
   fire(event,value){this.listeners[event]?.(value)}
   async init(){
-    if(!cloudConfigured())throw new Error('Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
-    if(!this.db){
-      const [a,b,d]=await Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]);
-      this.ops=d; const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);
-      const EMU=location.hostname==='localhost'&&new URLSearchParams(location.search).get('emu')==='1';   // 테스트 전용: 로컬 에뮬레이터
-      if(EMU){this.uid=sessionStorage.getItem('emu-uid')||('u'+Math.random().toString(36).slice(2,10));sessionStorage.setItem('emu-uid',this.uid);try{d.connectDatabaseEmulator(this.db,'127.0.0.1',9000,{mockUserToken:{sub:this.uid,user_id:this.uid}})}catch{}}
-      d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
-      // 테스트 전용: 이 컴퓨터(localhost)에서 주소에 ?emu=1 이면 실제 서버 대신 로컬 에뮬레이터에 연결
-      if(!EMU){
-      const auth=b.getAuth(app);let credential=auth.currentUser;
-      if(!credential) credential=(await b.signInAnonymously(auth)).user;
-      this.uid=credential.uid;
-      }
-    }
+    if(!cloudConfigured())throw new JoinError('code','sdk','Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
+    const EMU=location.hostname==='localhost'&&QS.get('emu')==='1';   // 테스트 전용: 로컬 에뮬레이터
+    // ① Firebase 연결 중: SDK → 앱 → 데이터베이스 연결(.info/connected)
+    if(!SHARED)SHARED=(async()=>{
+      const [a,b,d]=await this.step('sdk',()=>Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]));
+      const {app,db}=await this.step('app',()=>{const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);return {app,db:d.getDatabase(app)}});
+      let emuUid='';
+      if(EMU){emuUid=sessionStorage.getItem('emu-uid')||('u'+Math.random().toString(36).slice(2,10));sessionStorage.setItem('emu-uid',emuUid);try{d.connectDatabaseEmulator(db,'127.0.0.1',9000,{mockUserToken:{sub:emuUid,user_id:emuUid}})}catch{}}
+      const offset={v:0};d.onValue(d.ref(db,'.info/serverTimeOffset'),s=>{offset.v=s.val()||0});
+      return {a,b,d,app,db,offset,emuUid};
+    })().catch(e=>{SHARED=null;throw e});   // 실패하면 다음 시도에서 처음부터
+    const s=await SHARED;
+    this.ops=s.d;this.db=s.db;this.offsetRef=s.offset;
     this.ops.goOnline(this.db);   // 방에서 나갈 때 끊었던 연결을 다시 엶
+    // 실제로 서버와 연결됐는지 확인 (연결이 안 되면 get·트랜잭션이 끝없이 기다리므로 먼저 확인)
+    await this.step('connect',()=>new Promise(res=>{let off=null;off=this.ops.onValue(this.ops.ref(this.db,'.info/connected'),snap=>{if(snap.val()===true){res();setTimeout(()=>off&&off(),0)}})}));
+    // ② 로그인 확인 중: 저장된 로그인 상태가 완전히 복원될 때까지 기다린 뒤 확인 → 이미 로그인한 학생은 같은 계정을 그대로 씀
+    if(!AUTH)AUTH=(async()=>{
+      if(EMU){await this.step('authRestore',()=>null);return s.emuUid}
+      const auth=s.b.getAuth(s.app);
+      await this.step('authRestore',()=>auth.authStateReady?auth.authStateReady():null);
+      if(auth.currentUser){diag('authRestore','기존 계정 사용');return auth.currentUser.uid}
+      return (await this.step('authNew',()=>s.b.signInAnonymously(auth))).user.uid;
+    })().catch(e=>{AUTH=null;throw e});
+    this.uid=await AUTH;
+  }
+  get serverOffset(){return this.offsetRef?this.offsetRef.v:0}
+  set serverOffset(v){}
+  // 입장 뒤 연결 감시: 3초 넘게 끊기면 'net'(false) 알림, 다시 연결되면 'net'(true)
+  watchConnection(){
+    let timer=null,was=true;
+    const u=this.ops.onValue(this.ops.ref(this.db,'.info/connected'),s=>{
+      if(s.val()===true){clearTimeout(timer);timer=null;if(!was){was=true;diag('connect','다시 연결됨');this.fire('net',true)}if(this.role==='student'&&this.allMembers?.[this.uid])this.ops.update(this.path('members',this.uid),{online:true}).catch(()=>{})}
+      else if(!timer)timer=setTimeout(()=>{was=false;diag('connect','연결 끊김');this.fire('net',false)},3000);
+    });
+    this.unsubs.push(()=>{u();clearTimeout(timer)});
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
   async create({name,count,mode,unit,duration,orderTime,pin,settings,sizes:given}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
-      this.code=digits();let snap=await this.ops.get(this.path('meta'));
+      this.code=digits();let snap=await this.step('meta',()=>this.ops.get(this.path('meta')));
       if(snap.exists())continue;
       let sizes=Array.isArray(given)&&given.length?given.map(Number):planTeams(count);
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
-      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
+      const max=sizes.reduce((a,b)=>a+b,0)||Number(count),spare=Math.min(25,max+4);   // max: 실제 정원 / count: 연결 끊김 등으로 버려지는 자리 번호를 위한 여유 (최대 25)
+      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:spare,max,sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
       catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
-      this.connected=true;this.subscribeBase();this.cleanupOldRooms().catch(()=>{});return this.code;
+      this.connected=true;this.subscribeBase();this.watchConnection();this.cleanupOldRooms().catch(()=>{});return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
   }
+  // 학생 입장. 단계마다 시간 제한이 있어 무한 로딩이 생기지 않고, 늦어지면 어느 단계인지 알려 줌
   async join({code,name}){
-    await this.init();this.code=String(code).trim();this.name=name;this.role='student';
-    const snap=await this.ops.get(this.path('meta'));
-    if(!snap.exists())throw new Error('방을 찾지 못했습니다. 코드를 다시 확인해 주세요.');
+    this.role='student';this.code=String(code).trim();this.name=name;
+    if(!/^\d{6}$/.test(this.code))throw new JoinError('code','meta','방 코드는 숫자 6자리예요. 다시 확인해 주세요.');
+    const t0=performance.now();
+    await this.init();
+    const snap=await this.step('meta',()=>this.ops.get(this.path('meta')));
+    if(!snap.exists())throw new JoinError('code','meta','방을 찾지 못했어요. 방 코드를 다시 확인해 주세요.');
     const meta=snap.val();
-    if(meta.phase==='ended')throw new Error('종료된 게임방입니다. 새 방을 만들어 주세요.');
-    const ban=await this.ops.get(this.path('banned',this.uid)).catch(()=>null);
-    if(ban&&ban.val())throw new Error('선생님이 이 방에서 내보냈어요. 선생님께 여쭤 보세요.');
-    const mine=await this.ops.get(this.path('members',this.uid));
-    if(meta.phase==='playing'&&!mine.exists())throw new Error('게임이 이미 진행 중입니다. 다음 게임을 기다려 주세요.');   // 이미 입장했던 학생은 끊겼다가 다시 들어올 수 있음
-    if(mine.exists()){this.seat=mine.val().seat;this.team=Number(mine.val().team);}
-    else{
-      const trans=await this.ops.runTransaction(this.path('nextSeat'),num=>{
-        num=num||0;return num>=meta.count?undefined:num+1;
-      });
-      if(!trans.committed)throw new Error('학급방 정원이 가득 찼습니다.');
-      this.seat=trans.snapshot.val()-1;
-      // 모둠 인원이 같으면 들어오는 순서대로 번갈아 배정 (몇 명만 와도 모둠마다 고르게), 아니면 앞 모둠부터 채움
-      if(meta.sizes.every(s=>s===meta.sizes[0]))this.team=this.seat%meta.sizes.length;
-      else{let acc=0;this.team=meta.sizes.findIndex(n=>{acc+=n;return this.seat<acc});}
-      if(this.team<0)throw new Error('팀을 배정하지 못했습니다.');
-      // 학생이 모둠을 옮겼거나 내보내진 자리가 있으면, 차례의 모둠이 꽉 찼을 수 있음 → 가장 빈 모둠으로
-      try{const all=(await this.ops.get(this.path('members'))).val()||{},cnt=meta.sizes.map((_,i)=>Object.values(all).filter(m=>Number(m.team)===i).length);if(cnt[this.team]>=meta.sizes[this.team]){const free=cnt.map((c,i)=>[meta.sizes[i]-c,i]).sort((a,b)=>b[0]-a[0]||a[1]-b[1])[0];if(free&&free[0]>0)this.team=free[1]}}catch{}
-      await this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now()});
+    if(meta.phase==='ended')throw new JoinError('code','meta','이미 끝난 게임방이에요. 선생님께 새 방 코드를 받아 주세요.');
+    const [ban,mine,allSnap]=await this.step('member',()=>Promise.all([this.ops.get(this.path('banned',this.uid)).catch(()=>null),this.ops.get(this.path('members',this.uid)),this.ops.get(this.path('members'))]));
+    if(ban&&ban.val())throw new JoinError('code','member','선생님이 이 방에서 내보냈어요. 선생님께 여쭤 보세요.');
+    if(mine.exists()){                       // 재접속: 예전 자리·모둠 그대로
+      this.seat=mine.val().seat;this.team=Number(mine.val().team);diag('seat','기존 자리 사용');
+    }else{
+      if(meta.phase==='playing')throw new JoinError('code','member','게임이 이미 진행 중이에요. 다음 판을 기다려 주세요.');
+      const all=allSnap.val()||{},cap=meta.max||meta.count;
+      if(Object.keys(all).length>=cap)throw new JoinError('code','member',`학급방 정원(${cap}명)이 가득 찼어요. 선생님께 알려 주세요.`);
+      this.seat=await this.claimSeat(meta);
+      // 모둠: 번갈아 배정, 그 모둠이 꽉 찼으면 가장 빈 모둠으로
+      const sizes=meta.sizes||[cap];
+      this.team=sizes.every(s=>s===sizes[0])?this.seat%sizes.length:(()=>{let acc=0;return sizes.findIndex(n=>{acc+=n;return this.seat<acc})})();
+      const cnt=sizes.map((_,i)=>Object.values(all).filter(m=>Number(m.team)===i).length);
+      if(!(this.team>=0)||cnt[this.team]>=sizes[this.team]){const free=cnt.map((c,i)=>[sizes[i]-c,i]).sort((a,b)=>b[0]-a[0]||a[1]-b[1])[0];this.team=free?free[1]:0}
+      await this.step('register',()=>this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now(),online:true}));
+      try{localStorage.removeItem(this.seatKey())}catch{}
     }
-    this.connected=true;this.subscribeBase();
-    await this.ops.update(this.path('results',this.uid),{name:this.name,team:this.team,seat:this.seat});
+    this.connected=true;this.subscribeBase();this.watchConnection();
+    // 비정상 종료(창 닫힘·인터넷 끊김) 때 서버가 '접속 끊김'으로 표시 → 교사 대기실에서 보임. 다시 들어오면 자리 그대로
+    this.ops.onDisconnect(this.path('members',this.uid,'online')).set(false).catch(()=>{});
+    this.ops.update(this.path('members',this.uid),{online:true}).catch(()=>{});
+    this.ops.update(this.path('results',this.uid),{name:this.name,team:this.team,seat:this.seat}).catch(()=>{});
+    diag('lobby','완료',performance.now()-t0);this.fire('progress',{step:'lobby',label:STEP_LABEL.lobby});
     return this.code;
+  }
+  seatKey(){return 'mathcook-seat-'+this.code+'-'+this.uid}
+  // 자리 번호 받기. 중복 배정 방지:
+  //  ① 이전 시도에서 받은 자리가 이 컴퓨터에 기록돼 있으면 그대로 사용 (트랜잭션을 다시 보내지 않음)
+  //  ② 같은 화면에서 진행 중인 요청이 있으면 새로 보내지 않고 그 결과를 기다림 (시간 초과 뒤 다시 시도해도 같은 요청)
+  async claimSeat(meta){
+    const key=this.seatKey();
+    try{const s=localStorage.getItem(key);if(s!==null&&Number.isInteger(Number(s))){diag('seat','이전 시도의 자리 사용');return Number(s)}}catch{}
+    let job=SEAT_JOBS.get(key);
+    if(!job){
+      job=this.ops.runTransaction(this.path('nextSeat'),num=>{num=num||0;return num>=meta.count?undefined:num+1},{applyLocally:false})
+        .then(async tr=>{const h=testHook('seatAck');if(h)await h;if(!tr.committed)throw new JoinError('code','seat','학급방 자리가 모두 찼어요. 선생님께 알려 주세요.');const s=tr.snapshot.val()-1;try{localStorage.setItem(key,String(s))}catch{}return s})
+        .finally(()=>SEAT_JOBS.delete(key));
+      job.catch(()=>{});SEAT_JOBS.set(key,job);
+    }else diag('seat','진행 중인 요청 이어서 기다림');
+    return this.step('seat',()=>job);
   }
   subscribeBase(){
     const listen=(p,cb)=>this.unsubs.push(this.ops.onValue(this.path(...p),s=>cb(s.val()),e=>this.fire('error',e.message)));
@@ -145,7 +224,7 @@ export class CloudRoom{
     try{await this.ops.set(this.path('banned',uid),true);await this.ops.remove(this.path('members',uid))}catch(e){throw this.friendly(e)}
     await this.ops.remove(this.path('results',uid)).catch(()=>{});
     await this.ops.remove(this.path('teams',String(m.team),'players',uid)).catch(()=>{});
-    if((this.meta?.count||0)<25)await this.ops.update(this.path('meta'),{count:this.meta.count+1}).catch(()=>{});
+    if((this.meta?.count||0)<25)await this.ops.update(this.path('meta'),{count:this.meta.count+1}).catch(()=>{});   // 자리 번호 여유 하나 더 (실제 정원 max는 그대로)
   }
   // introMs: 인트로 길이. 시작 시각을 그만큼 뒤로 잡아 모든 학생이 인트로를 보고 같은 순간에 시작
   async begin(introMs=0){
@@ -283,7 +362,7 @@ export class CloudRoom{
   async cleanupOldRooms(){
     let list=[];try{list=JSON.parse(localStorage.getItem('mathcook-myrooms')||'[]')}catch{}
     const keep=[];
-    for(const code of list.filter(c=>c!==this.code).slice(-10)){try{await this.ops.remove(this.ops.ref(this.db,'rooms/'+code))}catch{keep.push(code)}}
+    for(const code of list.filter(c=>c!==this.code).slice(-10)){try{const m=(await this.ops.get(this.ops.ref(this.db,'rooms/'+code+'/meta'))).val();if(m&&now()-(m.createdAt||0)<6*3600*1000){keep.push(code);continue}await this.ops.remove(this.ops.ref(this.db,'rooms/'+code))}catch{keep.push(code)}}
     try{localStorage.setItem('mathcook-myrooms',JSON.stringify([...keep.slice(-10),this.code]))}catch{}
   }
 }

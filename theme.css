@@ -286,3 +286,11 @@ html,body{height:100%;overflow:hidden}
 .lobby-move{width:100%;margin-top:6px;font-size:12px;padding:6px 8px}
 .lobby-team.mine{outline:3px solid var(--mustard);outline-offset:1px}
 .lobby-actions #lobbyBackBtn{flex:0 0 auto;min-width:96px;white-space:nowrap}
+.join-progress{margin-top:14px;padding:10px 12px;background:var(--paper-2);border:2px dashed var(--ink);border-radius:10px}
+.join-progress ol{margin:0;padding-left:20px;display:grid;gap:3px;font-size:13px;font-weight:700;color:#a59a8c}
+.join-progress li.now{color:var(--ink)}.join-progress li.now::after{content:" …";animation:rushPulse .8s infinite}
+.join-progress li.done{color:var(--green)}.join-progress li.done::after{content:" ✓"}
+.join-progress li.fail{color:var(--red-dark)}.join-progress li.fail::after{content:" ✕"}
+.join-slow{margin:6px 0 0;font-size:12.5px;font-weight:700;color:var(--red-dark)}
+.net-banner{position:fixed;z-index:60;left:50%;top:10px;transform:translateX(-50%);max-width:92vw;background:var(--red);color:#fff;font-weight:800;font-size:15px;border:2.5px solid var(--ink);border-radius:10px;box-shadow:0 4px 0 var(--ink);padding:9px 16px;text-align:center}
+.lobby-member.offline{opacity:.55}
