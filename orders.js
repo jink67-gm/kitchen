@@ -6,7 +6,7 @@
 
 export const ORDER_TIME_OPTIONS = { easy: 100000, normal: 75000, fast: 55000 };   // 주문 대기 시간(ms): 여유 / 보통 / 빠름
 export const ORDER_TIME_DEFAULT = ORDER_TIME_OPTIONS.normal;
-export const MAX_ORDERS = 3;               // 동시에 떠 있는 주문 최대 개수
+export const MAX_ORDERS = 4;               // 동시에 떠 있는 주문 최대 개수 (러시타임 포함)
 export const RUSH_SECONDS = 40;            // 러시타임: 마지막 40초
 export const RUSH_FRACTION = 0.2;          // 단, 짧은 판은 마지막 20%
 export const RUSH_SPEED = 1.35;            // 러시 중 이동 속도 배율
@@ -14,6 +14,7 @@ export const RUSH_INTERVAL_MS = 10000;     // 러시 중 새 주문 간격
 export const SIZE_BONUS = 30;              // 재료가 2개보다 많은 요리: 재료 1개마다 추가 점수
 export const SIZE_TIME = 0.35;             // 재료가 2개보다 많은 요리: 재료 1개마다 대기 시간 35% 추가
 export const SERVE_SCORE = 100;            // 서빙 기본 점수
+export const FINISH_BONUS = 10;            // 서빙 직전 '완성 문제'를 한 번에 맞히면
 export const COMBO_WINDOW_MS = 14000;      // 이 시간 안에 연속 서빙하면 콤보
 export const COMBO_STEP = 20;              // 콤보 1단계마다 추가 점수
 export const COMBO_CAP = 5;                // 콤보 상한 (+100까지)
@@ -57,6 +58,31 @@ export const patienceColor = f => (f > 0.5 ? 'green' : f > 0.25 ? 'yellow' : 're
 
 // 주문 대기열 갱신: 주문이 없으면 1개 추가, 러시 시작 시 +1, 러시 중 10초마다 +1 (최대 3개)
 // 바뀐 것이 없으면 null. cfg: { startedAt, durationMs, orderTimeMs, recipeCount }
+// ── 오늘의 이벤트: 판마다(seed) 하나가 정해져 같은 협동 모드라도 판마다 다르게 ──
+export const SPECIAL_BONUS = 50;
+export const ROUND_EVENTS = [
+  { id: 'special', title: '오늘의 추천 요리', desc: '추천 요리를 서빙하면 +50점' },
+  { id: 'group', title: '단체 손님', desc: '주문이 처음부터 하나 더 (3개)' },
+  { id: 'relaxed', title: '느긋한 손님', desc: '주문 대기 시간 1.3배' },
+  { id: 'tips', title: '팁 두 배 데이', desc: '빨리 서빙하면 팁이 두 배' },
+];
+// seed(판의 시작 시각) → { 이벤트, 추천 요리 번호 }. 누가 계산해도 같음
+export function roundEvent(seed, recipeCount) {
+  if (seed == null) return null;
+  const h = pickRecipe(seed, 999, 1000), ev = ROUND_EVENTS[h % ROUND_EVENTS.length];
+  return { ...ev, special: ev.id === 'special' ? pickRecipe(seed, 777, recipeCount) : null };
+}
+// 다음 주문의 요리 고르기: cfg.seed(판마다 다른 수, 예: 시작 시각)가 있으면 무작위, 없으면 차례대로
+// 무작위여도 같은 판·같은 순번이면 누가 계산해도 같은 요리 (온라인에서 학생마다 다르게 나오지 않음)
+// 지금 떠 있는 요리와 바로 전에 나온 요리는 피함
+export function pickRecipe(seed, seq, count, avoid = []) {
+  if (seed == null) return seq % count;
+  const ok = [...Array(count).keys()].filter(i => !avoid.includes(i)), list = ok.length ? ok : [...Array(count).keys()];
+  let h = (Math.floor(seed) ^ Math.imul(seq + 1, 2654435761)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 2246822507) >>> 0; h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0; h = (h ^ (h >>> 16)) >>> 0;
+  return list[h % list.length];
+}
+// cfg.minOrders: 항상 떠 있어야 하는 주문 수 (모둠이 3명 이상이면 2개 → 처음부터 여러 명이 나누어 일함)
 export function ordersTick(g, now, cfg) {
   g = g || {};
   const elapsed = now - cfg.startedAt;
@@ -64,8 +90,9 @@ export function ordersTick(g, now, cfg) {
   const orders = { ...(g.orders || {}) };
   let changed = false, seq = g.orderSeq || 0, expired = g.expired || 0, combo = g.combo || 0, rushAdds = g.rushAdds || 0;
   let n = Object.keys(orders).length;
-  const add = () => { const id = 'o' + seq, rid = seq % cfg.recipeCount, more = Math.max(0, ((cfg.recipeSizes || [])[rid] || 2) - 2); orders[id] = { id, n: seq, recipeId: rid, createdAt: now, expiresAt: now + Math.round(cfg.orderTimeMs * (1 + more * SIZE_TIME)) }; seq++; n++; changed = true; };
-  if (n === 0) add();
+  const add = () => { const live = Object.values(orders).map(o => o.recipeId); if (g.lastRecipe != null) live.push(g.lastRecipe); const id = 'o' + seq, rid = pickRecipe(cfg.seed, seq, cfg.recipeCount, live), more = Math.max(0, ((cfg.recipeSizes || [])[rid] || 2) - 2); orders[id] = { id, n: seq, recipeId: rid, createdAt: now, expiresAt: now + Math.round(cfg.orderTimeMs * (1 + more * SIZE_TIME)) }; seq++; n++; changed = true; };
+  const minN = Math.max(1, Math.min(MAX_ORDERS, cfg.minOrders || 1));
+  while (n < minN) add();
   if (isRush(elapsed, cfg.durationMs)) {
     const expected = Math.floor((elapsed - rushStartMs(cfg.durationMs)) / (cfg.rushIntervalMs || RUSH_INTERVAL_MS)) + 1;   // 러시 시작 순간 1번 + 이후 10초마다
     while (rushAdds < expected) { if (n < MAX_ORDERS) add(); rushAdds++; changed = true; }
@@ -79,16 +106,17 @@ export function matchOrder(g, contents, recipes, now) {
   return activeOrders(g, now).find(o => sameSet(contents, recipes[o.recipeId].items)) || null;
 }
 // 서빙: 맞는 주문이 있어야만 점수. 100 + 팁(남은 시간 비례, 5점 단위) + 콤보(14초 안 연속 성공마다 +20, 상한 있음)
-export function serveOrder(g, contents, recipes, now) {
+export function serveOrder(g, contents, recipes, now, finish = 0, ev = null) {
   const o = matchOrder(g, contents, recipes, now);
   if (!o) return null;
-  const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5;
+  const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5 * (ev && ev.id === 'tips' ? 2 : 1);
+  const special = ev && ev.id === 'special' && o.recipeId === ev.special ? SPECIAL_BONUS : 0;
   const combo = g.lastServeAt && now - g.lastServeAt <= COMBO_WINDOW_MS ? (g.combo || 0) + 1 : 0;
   const bonus = Math.min(combo, COMBO_CAP) * COMBO_STEP;
   const size = Math.max(0, ((recipes[o.recipeId] || {}).items || []).length - 2) * SIZE_BONUS;
-  const gained = SERVE_SCORE + size + tip + bonus;
+  const gained = SERVE_SCORE + size + tip + bonus + (finish || 0) + special;
   const orders = { ...g.orders }; delete orders[o.id];
-  return { next: { ...g, orders, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, combo, order: o };
+  return { next: { ...g, orders, lastRecipe: o.recipeId, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, special, finish: finish || 0, combo, order: o };
 }
 // 참여 보너스: 팀원 모두가 수학 문제를 한 번 이상 맞히면 판마다 한 번 +50 (운반만 하는 학생 없이 모두 풀도록 유도)
 export const PART_BONUS = 50;

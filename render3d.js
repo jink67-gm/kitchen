@@ -632,12 +632,20 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     const ic = dishSprite(emoji); ic.scale.set(0.58, 0.58, 1); ic.position.y = 0.05; grp.add(ic);
     grp.position.y = 2.0; gu.root.add(grp); gu.bubble = grp; gu.bubbleBg = bg;
   }
-  const ORDER_SPOTS = [[0, 1.2], [-1.7, 0.85], [1.7, 0.85]];
+  const ORDER_SPOTS = [[0, 1.2], [-1.7, 0.85], [1.7, 0.85], [0, 2.4]];
   const CROWD_SPOTS = [[-3.2, 0.85], [3.3, 0.9], [-4.7, 0.9], [4.8, 0.85], [-6.2, 0.9], [6.3, 0.9], [-2.5, 1.8], [2.6, 1.85], [-0.9, 2.2], [1.0, 2.25], [-4.0, 1.9], [4.1, 1.9]];
-  const spotUsed = [null, null, null];
+  const spotUsed = [null, null, null, null];
   for (let i = 0; i < CROWD_SPOTS.length; i++) crowd.push({ gu: null, on: false });
   // 양옆 통로를 오가는 사람
-  for (const s of [-1, 1]) { const gu = makeGuest(s * (W / 2 + 1.9), s * 4); if (gu) { gu.speed = 1.5; gu.tz = -s * 4.5; walkers.push({ gu, s, dir: -s }); } }
+  // 홀 손님: 식탁에 앉아 먹는 사람, 서서 이야기하는 두 사람, 주방을 구경하며 손 흔드는 사람
+  {
+    const KXa = W / 2;
+    const seat = (s, x, z, rot, i, R) => { const a = rot + (i / 4) * Math.PI * 2 + Math.PI / 4, gu = makeGuest(s * x + Math.sin(a) * R, z + Math.cos(a) * R); if (!gu) return; gu.face = a + Math.PI; gu.root.rotation.y = gu.face; gu.root.position.y = 0.12; gu.rest = 'sit'; walkers.push({ gu, kind: 'sit' }); };
+    seat(-1, KXa + 3.6, -2.6, -0.3, 0, 1.05); seat(-1, KXa + 3.6, -2.6, -0.3, 2, 1.05); seat(1, KXa + 3.6, -2.6, 0.3, 1, 1.05); seat(1, KXa + 3.6, -2.6, 0.3, 3, 1.05);
+    seat(-1, KXa + 3.2, 2.6, -0.15, 0, 1.15); seat(1, KXa + 3.2, 2.6, 0.15, 2, 1.15); seat(1, KXa + 3.2, 2.6, 0.15, 0, 1.15);
+    const stand = (x, z, face, kind) => { const gu = makeGuest(x, z); if (!gu) return; gu.face = face; gu.root.rotation.y = face; walkers.push({ gu, kind }); };
+    stand(-(KXa + 2.6), 5.6, Math.PI / 2, 'chatA'); stand(-(KXa + 1.6), 5.6, -Math.PI / 2, 'chatB'); stand(KXa + 1.7, 5.2, -Math.PI / 2, 'watch');
+  }
   function updateGuests(state, dt, t) {
     if (beltTex) beltTex.offset.y += dt * (state.rush ? 0.9 : 0.45);
     if (!guestSrc.length) return;
@@ -674,7 +682,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       if (!want && c.gu && !c.gu.leaving) { c.gu.leaving = true; c.gu.leaveAt = t + i * 120; c.gu = null; }
       if (c.gu) c.gu.rest = state.rush ? ((Math.floor(t / 900 + c.gu.phase) % 3) ? 'jump' : 'emote-no') : ((Math.floor(t / 2600 + c.gu.phase) % 5) ? 'idle' : 'emote-yes');
     });
-    for (const w of walkers) { if (Math.abs(w.gu.root.position.z - w.gu.tz) < 0.1) { w.dir = -w.dir; w.gu.tz = w.dir * 4.5; } w.gu.speed = state.rush ? 3.4 : 1.5; }
+    for (const w of walkers) { const k = Math.floor(t / 1700 + w.gu.phase); w.gu.rest = w.kind === 'sit' ? 'sit' : state.rush ? (k % 2 ? 'jump' : 'emote-yes') : w.kind === 'chatA' ? (k % 2 ? 'emote-yes' : 'idle') : w.kind === 'chatB' ? (k % 2 ? 'idle' : 'emote-yes') : (k % 3 ? 'idle' : 'emote-yes'); }
     for (const gu of [...guestList]) {
       if (gu.dish) {                                  // 접시가 받침대를 타고 손님에게 미끄러져 감
         const d = gu.dish; d.k = Math.min(1, d.k + dt * 2.2);
@@ -752,10 +760,11 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
     v.ring.visible = !!c.mine;
     const name = String(c.name || '셰프').slice(0, 8);
-    if (name !== v.name || !!c.mine !== v.tagMine) {
+    if (name !== v.name || !!c.mine !== v.tagMine || (c.side || '') !== v.tagSide) {
       if (v.tag) { v.root.remove(v.tag); v.tag.material.map.dispose(); v.tag.material.dispose(); }
-      v.name = name; v.tagMine = !!c.mine;
-      v.tag = textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
+      v.name = name; v.tagMine = !!c.mine; v.tagSide = c.side || '';
+      // 2대2 대결: 편마다 이름표 색 (A편 분홍, B편 파랑)
+      v.tag = c.side ? textSprite((c.side === 'A' ? 'A편 ' : 'B편 ') + (c.mine ? '나' : name), c.side === 'A' ? '#d6456f' : '#2f6f9f', '#ffffff', 0.36) : textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
       v.tag.position.y = v.mixer ? 2.0 : 1.72; v.root.add(v.tag);
     }
   }

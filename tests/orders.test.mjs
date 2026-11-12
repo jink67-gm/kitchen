@@ -1,7 +1,7 @@
 // 실행: node --test tests/orders.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptOrder, orderForKind, questionsFor, acceptBonus, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
+import { roundEvent, ROUND_EVENTS, SPECIAL_BONUS, pickRecipe, acceptOrder, orderForKind, questionsFor, acceptBonus, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
 import { tablePut, tableAdd, tableAddCheck, plateMatch, missingOf, newPlate, contentsOf } from '../plates.js';
 import { newItem, prepare } from '../items.js';
 import { planTeams, CloudRoom } from '../cloud.js';
@@ -21,7 +21,7 @@ test('러시타임 시작 시각: 마지막 40초, 짧은 판은 마지막 20%',
   assert.equal(isRush(180000, 180000), false, '시간이 끝나면 러시도 끝');
   assert.equal(RUSH_SPEED, 1.35);
 });
-test('주문 수: 평소 1개 → 러시 시작 2개 → 10초 뒤 3개 → 3개 초과 없음', () => {
+test('주문 수: 평소 1개 → 러시 시작 2개 → 10초 뒤 3개 → 최대 4개 (MAX_ORDERS)', () => {
   const c = cfg(180, 999999);          // 만료 없이 개수만 확인
   let g = run({}, 0, 143900, c);
   assert.equal(count(g, 143900), 1);
@@ -30,7 +30,7 @@ test('주문 수: 평소 1개 → 러시 시작 2개 → 10초 뒤 3개 → 3개
   g = run(g, 144250, 153900, c); assert.equal(count(g, 153900), 2, '10초가 되기 전에는 그대로');
   g = run(g, 154000, 154000, c); assert.equal(count(g, 154000), 3);
   g = run(g, 154250, 179900, c); assert.equal(count(g, 179900), MAX_ORDERS);
-  assert.equal(Object.keys(g.orders).length, 3);
+  assert.ok(activeOrders(g, 179900).length <= MAX_ORDERS);
   assert.equal(ordersTick(g, T0 + 180000, c), null, '종료 후에는 주문을 만들지 않음');
 });
 test('러시는 한 번만 발동하고, 여러 컴퓨터가 같은 시각에 계산해도 결과가 같음', () => {
@@ -184,4 +184,46 @@ test('어려운 요리는 주문 문제를 여러 개 풀고 보너스 점수를
   assert.equal(g.orders[id].accepted, true); assert.equal(g.score, 40);
   assert.equal(g.orders[id].expiresAt, exp + 40000);              // 멈춘 시간은 세 문제를 합쳐 최대 40초
   assert.equal(acceptOrder(g, id, T0 + 61000, 1000, 3), null);
+});
+
+test('레시피 무작위: 판(seed)마다 순서가 다르고, 같은 판이면 누가 계산해도 같음. 떠 있는 요리와 겹치지 않음', () => {
+  const seqOf = seed => Array.from({ length: 12 }, (_, i) => pickRecipe(seed, i, 13)).join(',');
+  assert.equal(seqOf(111), seqOf(111));
+  assert.notEqual(seqOf(111), seqOf(222));
+  const seen = new Set(); for (let s = 0; s < 40; s++) seen.add(pickRecipe(1700000000000 + s * 9973, 0, 13));
+  assert.ok(seen.size >= 8, '첫 주문이 판마다 여러 가지로 나옴: ' + seen.size);
+  for (let i = 0; i < 200; i++) assert.ok(![1, 2, 3].includes(pickRecipe(5, i, 13, [1, 2, 3])));
+  assert.equal(pickRecipe(undefined, 7, 3), 1);                                // seed가 없으면 예전처럼 차례대로
+});
+test('처음부터 주문 여러 개 (minOrders), 서빙하면 바로 채워짐, 같은 요리가 동시에 두 개 뜨지 않음', () => {
+  const c = { startedAt: T0, durationMs: 180000, orderTimeMs: 75000, recipeCount: RECIPES.length, seed: 424242, minOrders: 2 };
+  let g = ordersTick({}, T0 + 100, c);
+  let live = activeOrders(g, T0 + 100);
+  assert.equal(live.length, 2);
+  assert.notEqual(live[0].recipeId, live[1].recipeId);
+  const r = serveOrder(g, RECIPES[live[0].recipeId].items, RECIPES, T0 + 5000);
+  g = ordersTick(r.next, T0 + 5100, c); live = activeOrders(g, T0 + 5100);
+  assert.equal(live.length, 2);
+  assert.ok(!live.some(o => o.recipeId === r.order.recipeId), '방금 서빙한 요리는 바로 다시 안 나옴');
+  g = run(g, 154000, 179900, c); assert.ok(activeOrders(g, 179900).length <= MAX_ORDERS);
+});
+
+test('완성 문제 보너스: 서빙 점수에 더해짐', () => {
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const r0 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000);
+  const r1 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 10);
+  assert.equal(r1.gained - r0.gained, 10); assert.equal(r1.finish, 10); assert.equal(r0.finish, 0);
+});
+
+test('오늘의 이벤트: 판마다 정해지고, 같은 판이면 같음. 추천 요리·팁 두 배 점수', () => {
+  assert.deepEqual(roundEvent(123, 13), roundEvent(123, 13));
+  const ids = new Set(); for (let s = 0; s < 60; s++) ids.add(roundEvent(1700000000000 + s * 7919, 13).id);
+  assert.equal(ids.size, ROUND_EVENTS.length, '네 가지 이벤트가 모두 나옴');
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const base = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000);
+  const sp = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'special', special: 0 });
+  assert.equal(sp.gained - base.gained, SPECIAL_BONUS);
+  assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'special', special: 2 }).gained, base.gained, '다른 요리는 보너스 없음');
+  const tip = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'tips' });
+  assert.equal(tip.tip, base.tip * 2);
 });

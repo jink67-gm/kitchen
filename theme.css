@@ -40,7 +40,7 @@ h1,h2,h3,button,kbd,.field-label{font-family:var(--display)}
 .canvas-holder{background:#2b2622}
 .stage-top{top:10px;left:10px;right:10px;gap:8px}
 .stage-pill{background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:8px;box-shadow:0 3px 0 var(--ink);backdrop-filter:none;padding:6px 11px;font-size:12px;font-weight:700}
-#roundLabel{display:none}
+#roundLabel{background:var(--mustard)}
 .timer-box{background:var(--mustard);color:var(--ink);border:2px solid var(--ink);border-radius:8px;box-shadow:0 3px 0 var(--ink);padding:5px 12px;font-size:17px;font-weight:700;display:flex;align-items:center;gap:6px}
 .timer-box b{color:var(--ink)}
 .timer-box img{width:18px;height:18px}
@@ -265,3 +265,17 @@ html,body{height:100%;overflow:hidden}
 @keyframes stamp{from{transform:rotate(-4deg) scale(2.4);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
 .intro-opt{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
 .intro-opt input{width:20px;height:20px;padding:0;accent-color:var(--red)}
+/* 주문 카드가 여러 장(최대 4장)이어도 화면을 덮지 않게 폭 제한 */
+.ocard{max-width:196px}
+.oc-lock{font-size:10.5px;white-space:normal;line-height:1.25}
+@media (max-width:900px){.ocard{max-width:150px}}
+/* 오늘의 추천 요리 주문 카드 */
+.ocard.special{background:#fff4cf}
+.ocard.special::after{content:"⭐ 추천 +50";position:absolute;right:-6px;top:-10px;font-family:var(--display);font-size:10.5px;font-weight:700;color:#2e2520;background:var(--mustard);border:2px solid var(--ink);border-radius:7px;padding:1px 6px}
+.group-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.group-row select:disabled{opacity:.6}
+#modeLabel[data-side="A"]{background:#d6456f;color:#fff}
+#modeLabel[data-side="B"]{background:#2f6f9f;color:#fff}
+.unit-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.unit-chip-opt{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;background:#fff;border:2px solid var(--ink);border-radius:8px;padding:6px 8px;cursor:pointer}
+.unit-chip-opt input{width:17px;height:17px;padding:0;accent-color:var(--red)}

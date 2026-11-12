@@ -12,7 +12,7 @@ export const MODEL_FILES = {
   cheese: 'cheese', 'cheese:ready': 'cheese-cut',
   bread: 'loaf', 'bread:ready': 'bread',
   milk: 'carton', 'dough:ready': 'loaf-round',
-  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich', 'dish:🌮': 'taco', 'dish:🥞': 'pancakes',
+  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich', 'dish:🌮': 'taco', 'dish:🥞': 'pancakes', 'dish:🥪': 'sub', 'dish:🧇': 'waffle', 'dish:🧁': 'cupcake', 'dish:🥧': 'pie', 'dish:🫕': 'pot-stew',
 };
 
 // 크기가 제각각인 모델을 "가장 긴 변 = 1, 바닥이 y=0, 가운데 정렬"로 맞춤 → 쓰는 쪽에서 원하는 크기를 곱하기만 하면 됨
@@ -34,11 +34,11 @@ const DECOR_COLORS = { wood: 0xb9824f, woodDark: 0x7a5233, carpet: 0xc9432f, car
 // 손님 (Kenney Mini Characters) — 서빙 창구 앞에 줄 서는 사람들
 export const GUEST_FILES = ['character-female-a', 'character-male-a', 'character-female-c', 'character-male-d', 'character-female-e', 'character-male-f'];
 // 셰프 (Quaternius Sushi Restaurant Kit의 토끼·판다 요리사) — 자리 번호 순서대로
-export const CHARACTER_FILES = ['Rabbit_Pink', 'Rabbit_Cyan', 'Panda', 'Rabbit_Purple', 'Rabbit_Green'];
+export const CHARACTER_FILES = ['Rabbit_Pink', 'Rabbit_Cyan', 'Rabbit_Blond', 'Rabbit_Purple', 'Rabbit_Green'];   // 플레이어는 모두 토끼
 // 게임 상황 → 모델에 들어 있는 동작 이름
 export const CHARACTER_ANIMS = { idle: 'Idle', hold: 'Idle_Holding', walk: 'Walk', walkHold: 'Walk_Holding', run: 'Run', runHold: 'Run_Holding', cut: 'Chop_Loop', work: 'Assembly_Loop', pan: 'Pan_Loop', cheer: 'Yes', no: 'No', wave: 'Wave', hit: 'HitReact', jump: 'Jump' };
-// 인트로의 천재 셰프 (같은 키트의 회색 토끼 요리사, 게임 중에는 나오지 않음)
-export const HEAD_CHEF_FILE = 'Rabbit_Grey';
+// 인트로의 천재 셰프 (같은 키트의 판다 요리사, 게임 중에는 나오지 않음)
+export const HEAD_CHEF_FILE = 'Panda';
 
 export async function loadModels(timeoutMs = 5000) {
   const models = new Map(), loader = new GLTFLoader();

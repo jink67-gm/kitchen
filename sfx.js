@@ -114,6 +114,16 @@ const SONGS = {
   tense: { bpm: 92, wave: 'sine', vol: 0.05, drums: false,
     lead: [null, null, null, null, 76, null, 75, null, null, null, null, null, 76, null, 77, null],
     bass: [40, null, 40, null, 41, null, 40, null] },
+  // 게임 중: 요리(경쾌하게), 대기실·메뉴(잔잔하게), 결과(느긋하게). 러시타임에는 rush를 씀
+  cook: { bpm: 126, wave: 'triangle', vol: 0.026, drums: true,
+    lead: [76, null, 79, 76, 72, null, 74, 76, 77, null, 76, 74, 72, null, 67, null, 69, null, 72, 69, 67, null, 69, 72, 74, 76, 74, 72, 74, null, null, null, 76, null, 79, 76, 72, null, 74, 76, 77, 79, 81, 79, 77, null, 76, null, 74, null, 77, 74, 71, null, 74, 77, 76, 74, 72, 71, 72, null, null, null],
+    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 50, null, 55, null, 48, null, 55, null, 53, null, 57, null, 50, null, 55, null, 48, null, 55, null] },
+  lobby: { bpm: 96, wave: 'sine', vol: 0.03, drums: false,
+    lead: [72, null, null, 76, null, null, 79, null, 77, null, null, 76, null, null, 74, null, 72, null, null, 74, null, null, 76, null, 74, null, null, 71, null, null, 67, null],
+    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 43, null, 50, null] },
+  result: { bpm: 104, wave: 'triangle', vol: 0.03, drums: false,
+    lead: [79, null, 76, null, 72, null, 76, null, 77, null, 74, null, 71, null, 74, null, 76, null, 72, null, 69, null, 72, null, 74, 72, 71, 69, 67, null, null, null],
+    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 43, null, 48, null] },
   hero: { bpm: 132, wave: 'square', vol: 0.028, drums: true,
     lead: [67, null, 72, null, 72, 74, 76, null, 74, null, 72, null, 76, null, 79, null, 79, 77, 76, 74, 76, null, 72, null, 74, 76, 74, 72, 72, null, null, null],
     bass: [48, null, 55, null, 48, null, 55, null, 53, null, 55, null, 48, null, 55, null] },
@@ -144,7 +154,7 @@ function schedule() {
     songStep++; songNext += sp;
   }
 }
-// 배경음악 바꾸기: 'calm' | 'rush' | 'tense' | 'hero' | null(멈춤)
+// 배경음악 바꾸기: 'calm' | 'rush' | 'tense' | 'hero' | 'cook' | 'lobby' | 'result' | null(멈춤)
 export function setMusic(name) {
   const next = name && SONGS[name] ? SONGS[name] : null;
   if (next === song) return;

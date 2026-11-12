@@ -4,6 +4,7 @@
     ".write": false,
     "rooms": {
       "$room": {
+        ".write": "auth != null && !newData.exists() && data.child('meta').child('hostUid').val() === auth.uid",
         "meta": {
           ".read": "auth != null",
           ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid && newData.parent().child('pin').val() === '__TEACHER_PIN__') || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
