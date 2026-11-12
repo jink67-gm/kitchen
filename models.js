@@ -36,7 +36,9 @@ export const GUEST_FILES = ['character-female-a', 'character-male-a', 'character
 // 셰프 (Quaternius Sushi Restaurant Kit의 토끼·판다 요리사) — 자리 번호 순서대로
 export const CHARACTER_FILES = ['Rabbit_Pink', 'Rabbit_Cyan', 'Panda', 'Rabbit_Purple', 'Rabbit_Green'];
 // 게임 상황 → 모델에 들어 있는 동작 이름
-export const CHARACTER_ANIMS = { idle: 'Idle', hold: 'Idle_Holding', walk: 'Walk', walkHold: 'Walk_Holding', run: 'Run', runHold: 'Run_Holding', cut: 'Chop_Loop', work: 'Assembly_Loop', pan: 'Pan_Loop', cheer: 'Yes' };
+export const CHARACTER_ANIMS = { idle: 'Idle', hold: 'Idle_Holding', walk: 'Walk', walkHold: 'Walk_Holding', run: 'Run', runHold: 'Run_Holding', cut: 'Chop_Loop', work: 'Assembly_Loop', pan: 'Pan_Loop', cheer: 'Yes', no: 'No', wave: 'Wave', hit: 'HitReact', jump: 'Jump' };
+// 인트로의 천재 셰프 (같은 키트의 회색 토끼 요리사, 게임 중에는 나오지 않음)
+export const HEAD_CHEF_FILE = 'Rabbit_Grey';
 
 export async function loadModels(timeoutMs = 5000) {
   const models = new Map(), loader = new GLTFLoader();
@@ -46,6 +48,7 @@ export async function loadModels(timeoutMs = 5000) {
     ...GUEST_FILES.map((file, i) => new Promise(res => loader.load(DIR + 'guests/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); models.set('guest:' + i, { scene: g.scene, animations: g.animations }); res(); }, undefined, () => res()))),
     ...DECOR_FILES.map(file => new Promise(res => loader.load(DIR + 'decor/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.material = decorMat(o.material.name); o.castShadow = true; o.receiveShadow = true; } }); models.set('decor:' + file, g.scene); res(); }, undefined, () => res()))),
     ...Object.entries(FURNITURE_FILES).map(([key, file]) => new Promise(res => loader.load(DIR + 'furniture/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); models.set(key, g.scene); res(); }, undefined, () => res()))),
+    new Promise(res => loader.load(DIR + 'chefs/' + HEAD_CHEF_FILE + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); models.set('char:head', { scene: g.scene, animations: g.animations, names: CHARACTER_ANIMS }); res(); }, undefined, () => res())),
     ...CHARACTER_FILES.map((file, i) => new Promise(res => loader.load(DIR + 'chefs/' + file + '.glb', g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); models.set('char:' + i, { scene: g.scene, animations: g.animations, names: CHARACTER_ANIMS }); res(); }, undefined, () => res()))),
   ];
   const jobs = Object.entries(MODEL_FILES).map(([key, file]) => new Promise(res => {

@@ -52,6 +52,19 @@ const SOUNDS = {
   serve: () => { tone('sine', 1318, 1318, 0.5, 0.09); tone('sine', 1760, 1760, 0.5, 0.09, 0.09); },
   combo: () => [523, 659, 784, 1046].forEach((f, i) => tone('triangle', f, f, 0.14, 0.07, 0.25 + i * 0.07)),
   rush: () => { for (let i = 0; i < 3; i++) tone('sawtooth', 660, 880, 0.2, 0.06, i * 0.22); },
+  // ── 인트로용 (직접 합성) ──
+  whoosh: () => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), t = ctx.currentTime; s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 1.5; f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(3500, t + 0.35); g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.15); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4); s.connect(f).connect(g).connect(master); s.start(t, 0, 0.45); },
+  letter: () => [784, 988, 1175].forEach((f, i) => tone('sine', f, f, 0.25, 0.07, i * 0.09)),
+  boing: () => { tone('square', 180, 620, 0.22, 0.05); tone('sine', 360, 900, 0.25, 0.06, 0.02); },
+  pop: () => { tone('sine', 300, 900, 0.09, 0.09); noise(2500, 1, 0.05, 0.06); },
+  murmur: () => { for (let i = 0; i < 9; i++) tone('triangle', 180 + Math.random() * 160, 160 + Math.random() * 200, 0.18, 0.02, i * 0.09); noise(900, 0.5, 0.9, 0.04); },
+  warn: () => { tone('square', 880, 880, 0.1, 0.05); tone('square', 660, 660, 0.1, 0.05, 0.12); tone('square', 880, 880, 0.1, 0.05, 0.24); },
+  thud: () => { tone('sine', 120, 45, 0.35, 0.22); noise(300, 0.6, 0.25, 0.14); },
+  rattle: () => { for (let i = 0; i < 5; i++) { noise(4200, 3, 0.05, 0.08, i * 0.07); tone('square', 1600 + i * 90, 1400, 0.04, 0.025, i * 0.07); } },
+  nope: () => { tone('triangle', 494, 494, 0.16, 0.08); tone('triangle', 392, 392, 0.3, 0.08, 0.17); },
+  gasp: () => { tone('sine', 1400, 150, 1.0, 0.09); tone('triangle', 1200, 130, 1.0, 0.05, 0.03); },
+  drumroll: () => { for (let i = 0; i < 18; i++) noise(240 + (i % 2) * 60, 0.8, 0.06, 0.05 + i * 0.006, i * 0.06); },
+  missionStart: () => [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone('square', f, f, i === 5 ? 0.5 : 0.12, 0.05, i * 0.11)),
 };
 export const SOUND_NAMES = Object.keys(SOUNDS);
 
@@ -65,6 +78,7 @@ const SAMPLES = {
   trash: [['impactSoft_heavy_000.ogg'], 0.9],
   serve: [['impactBell_heavy_000.ogg'], 0.8],
   combo: [['jingles_PIZZI07.ogg'], 0.6], rush: [['jingles_NES05.ogg'], 0.5], roundEnd: [['jingles_STEEL02.ogg'], 0.6],
+  missionStart: [['jingles_NES00.ogg'], 0.6], letter: [['jingles_PIZZI02.ogg'], 0.55],
 };
 const buffers = {};       // 파일 이름 → 소리 데이터
 let loading = false;
@@ -88,6 +102,60 @@ export function play(name) {
   if (!ready()) return false;
   try { loadSamples(); if (!playSample(name)) (SOUNDS[name] || SOUNDS.success)(); return true; } catch { return false; }
 }
+// ── 배경음악 (인트로용, 직접 작곡해 브라우저에서 합성) ──
+// 음표는 MIDI 번호(60 = 가운데 도), null = 쉼표. 한 칸 = 8분음표
+const SONGS = {
+  calm: { bpm: 116, wave: 'triangle', vol: 0.045, drums: false,
+    lead: [72, null, 76, 79, 77, 76, 74, null, 72, 74, 76, 72, 71, null, 67, null, 69, null, 72, 76, 74, 72, 71, null, 72, 76, 79, 84, 79, null, null, null],
+    bass: [48, null, 55, null, 57, null, 55, null, 53, null, 55, null, 48, null, 43, null] },
+  rush: { bpm: 168, wave: 'square', vol: 0.03, drums: true,
+    lead: [69, 72, 76, 72, 69, 72, 76, 79, 77, 76, 74, 72, 74, 76, null, 76, 69, 72, 76, 72, 81, 79, 77, 76, 74, 72, 71, 72, 69, null, 69, null],
+    bass: [45, 57, 45, 57, 41, 53, 41, 53, 43, 55, 43, 55, 40, 52, 40, 52] },
+  tense: { bpm: 92, wave: 'sine', vol: 0.05, drums: false,
+    lead: [null, null, null, null, 76, null, 75, null, null, null, null, null, 76, null, 77, null],
+    bass: [40, null, 40, null, 41, null, 40, null] },
+  hero: { bpm: 132, wave: 'square', vol: 0.028, drums: true,
+    lead: [67, null, 72, null, 72, 74, 76, null, 74, null, 72, null, 76, null, 79, null, 79, 77, 76, 74, 76, null, 72, null, 74, 76, 74, 72, 72, null, null, null],
+    bass: [48, null, 55, null, 48, null, 55, null, 53, null, 55, null, 48, null, 55, null] },
+};
+let song = null, songTimer = null, songGain = null, songStep = 0, songNext = 0;
+const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+function note(type, f, at, dur, gain) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(gain, at + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(songGain); o.start(at); o.stop(at + dur + 0.03);
+}
+function drum(at, hi) {
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = noiseBuf; f.type = hi ? 'highpass' : 'lowpass'; f.frequency.value = hi ? 6000 : 180;
+  g.gain.setValueAtTime(hi ? 0.03 : 0.16, at); g.gain.exponentialRampToValueAtTime(0.0001, at + (hi ? 0.04 : 0.12));
+  s.connect(f).connect(g).connect(songGain); s.start(at, Math.random() * 0.5, 0.15);
+  if (!hi) { const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(140, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.12); og.gain.setValueAtTime(0.18, at); og.gain.exponentialRampToValueAtTime(0.0001, at + 0.14); o.connect(og).connect(songGain); o.start(at); o.stop(at + 0.16); }
+}
+function schedule() {
+  if (!song || !ctx) return;
+  const sp = 30 / song.bpm;                              // 8분음표 길이(초)
+  while (songNext < ctx.currentTime + 0.15) {
+    const i = songStep, L = song.lead[i % song.lead.length], B = song.bass[Math.floor(i / 2) % song.bass.length];
+    if (L != null) note(song.wave, hz(L), songNext, sp * 0.9, song.vol);
+    if (i % 2 === 0 && B != null) note('triangle', hz(B), songNext, sp * 1.8, song.vol * 1.6);
+    if (song.drums) { if (i % 4 === 0) drum(songNext, false); if (i % 2 === 1) drum(songNext, true); }
+    songStep++; songNext += sp;
+  }
+}
+// 배경음악 바꾸기: 'calm' | 'rush' | 'tense' | 'hero' | null(멈춤)
+export function setMusic(name) {
+  const next = name && SONGS[name] ? SONGS[name] : null;
+  if (next === song) return;
+  if (songGain) { const g = songGain; try { g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.08); setTimeout(() => g.disconnect(), 600); } catch {} songGain = null; }
+  song = null; clearInterval(songTimer); songTimer = null;
+  if (!next || !ready()) return;
+  song = next; songGain = ctx.createGain(); songGain.gain.value = 1; songGain.connect(master);
+  songStep = 0; songNext = ctx.currentTime + 0.05; schedule(); songTimer = setInterval(schedule, 40);
+}
+export const musicName = () => (song ? Object.keys(SONGS).find(k => SONGS[k] === song) : null);
+
 // 화덕에 굽는 것이 있는 동안 계속 나는 지글지글 소리
 export function setSizzle(on) {
   if (on && !sizzle) {
@@ -108,7 +176,7 @@ export const VOLUME_STEPS = [0.8, 0.35, 0];
 export function setVolume(v) {
   volume = Math.max(0, Math.min(1, v));
   if (master) master.gain.value = volume;
-  if (volume <= 0) setSizzle(false);
+  if (volume <= 0) { setSizzle(false); setMusic(null); }
   try { localStorage.setItem('mathcook-volume', String(volume)); } catch {}
 }
 export const getVolume = () => volume;

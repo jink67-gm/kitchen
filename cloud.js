@@ -82,14 +82,21 @@ export class CloudRoom{
       listen(['teams',String(this.team),'data'],v=>{this.teamData=v||null;this.fire('teamData',this.teamData)});
     }
   }
-  async begin(){
+  // introMs: 인트로 길이. 시작 시각을 그만큼 뒤로 잡아 모든 학생이 인트로를 보고 같은 순간에 시작
+  async begin(introMs=0){
     if(this.role!=='teacher')throw new Error('교사만 시작할 수 있습니다.');
     let teams=planTeams(this.meta.count);
     const blank=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0});
     const writes={};
     for(let i=0;i<teams.length;i++){writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};writes['scores/'+i]=null}
     await this.ops.update(this.path(),writes);
-    await this.ops.update(this.path('meta'),{phase:'playing',startedAt:this.ops.serverTimestamp()});
+    await this.ops.update(this.path('meta'),{phase:'playing',startedAt:introMs>0?Date.now()+(this.serverOffset||0)+introMs:this.ops.serverTimestamp()});
+  }
+  // 교사: 인트로를 모두 함께 건너뛰기 (시작 시각을 앞당김)
+  async skipIntro(leftMs){
+    if(this.role!=='teacher'||!this.meta?.startedAt)return;
+    const at=Date.now()+(this.serverOffset||0)+leftMs;
+    if(at<this.meta.startedAt)await this.ops.update(this.path('meta'),{startedAt:at});
   }
   async finish(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'ended'})}
   async reLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby',startedAt:0})}
