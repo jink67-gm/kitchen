@@ -22,10 +22,16 @@ export class CloudRoom{
     if(!cloudConfigured())throw new Error('Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
     if(!this.db){
       const [a,b,d]=await Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]);
-      this.ops=d; const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
+      this.ops=d; const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);this.db=d.getDatabase(app);
+      const EMU=location.hostname==='localhost'&&new URLSearchParams(location.search).get('emu')==='1';   // 테스트 전용: 로컬 에뮬레이터
+      if(EMU){this.uid=sessionStorage.getItem('emu-uid')||('u'+Math.random().toString(36).slice(2,10));sessionStorage.setItem('emu-uid',this.uid);try{d.connectDatabaseEmulator(this.db,'127.0.0.1',9000,{mockUserToken:{sub:this.uid,user_id:this.uid}})}catch{}}
+      d.onValue(d.ref(this.db,'.info/serverTimeOffset'),snap=>this.serverOffset=snap.val()||0);
+      // 테스트 전용: 이 컴퓨터(localhost)에서 주소에 ?emu=1 이면 실제 서버 대신 로컬 에뮬레이터에 연결
+      if(!EMU){
       const auth=b.getAuth(app);let credential=auth.currentUser;
       if(!credential) credential=(await b.signInAnonymously(auth)).user;
       this.uid=credential.uid;
+      }
     }
     this.ops.goOnline(this.db);   // 방에서 나갈 때 끊었던 연결을 다시 엶
   }
@@ -49,6 +55,8 @@ export class CloudRoom{
     if(!snap.exists())throw new Error('방을 찾지 못했습니다. 코드를 다시 확인해 주세요.');
     const meta=snap.val();
     if(meta.phase==='ended')throw new Error('종료된 게임방입니다. 새 방을 만들어 주세요.');
+    const ban=await this.ops.get(this.path('banned',this.uid)).catch(()=>null);
+    if(ban&&ban.val())throw new Error('선생님이 이 방에서 내보냈어요. 선생님께 여쭤 보세요.');
     const mine=await this.ops.get(this.path('members',this.uid));
     if(meta.phase==='playing'&&!mine.exists())throw new Error('게임이 이미 진행 중입니다. 다음 게임을 기다려 주세요.');   // 이미 입장했던 학생은 끊겼다가 다시 들어올 수 있음
     if(mine.exists()){this.seat=mine.val().seat;this.team=Number(mine.val().team);}
@@ -62,6 +70,8 @@ export class CloudRoom{
       if(meta.sizes.every(s=>s===meta.sizes[0]))this.team=this.seat%meta.sizes.length;
       else{let acc=0;this.team=meta.sizes.findIndex(n=>{acc+=n;return this.seat<acc});}
       if(this.team<0)throw new Error('팀을 배정하지 못했습니다.');
+      // 학생이 모둠을 옮겼거나 내보내진 자리가 있으면, 차례의 모둠이 꽉 찼을 수 있음 → 가장 빈 모둠으로
+      try{const all=(await this.ops.get(this.path('members'))).val()||{},cnt=meta.sizes.map((_,i)=>Object.values(all).filter(m=>Number(m.team)===i).length);if(cnt[this.team]>=meta.sizes[this.team]){const free=cnt.map((c,i)=>[meta.sizes[i]-c,i]).sort((a,b)=>b[0]-a[0]||a[1]-b[1])[0];if(free&&free[0]>0)this.team=free[1]}}catch{}
       await this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now()});
     }
     this.connected=true;this.subscribeBase();
@@ -78,12 +88,55 @@ export class CloudRoom{
         (v.sizes||[]).forEach((_,i)=>listen(['scores',String(i)],d=>{this.allTeams[i]={data:{groups:d||{}}};this.fire('teams',this.allTeams)}));   // 8단계: 다른 팀은 점수만 볼 수 있음
       }
     });
-    listen(['members'],v=>{this.allMembers=v||{};this.fire('members',this.allMembers)});
+    listen(['members'],v=>{
+      this.allMembers=v||{};
+      if(this.role==='student'&&this.connected){
+        const mine=this.allMembers[this.uid];
+        if(!mine){this.fire('kicked');return}                               // 선생님이 내보냄
+        const t=Number(mine.team);
+        if(t!==this.team){const from=this.team;this.team=t;this.listenTeam();this.fire('moved',{from,to:t})}   // 모둠이 바뀜 → 새 모둠 데이터로
+      }
+      this.fire('members',this.allMembers);
+    });
     if(this.role==='teacher')listen(['results'],v=>{this.results=v||{};this.fire('results',this.results)});
-    if(this.role==='student'){
-      listen(['teams',String(this.team),'players'],v=>{this.teamMembers=v||{};this.fire('players',this.teamMembers)});
-      listen(['teams',String(this.team),'data'],v=>{this.teamData=v||null;this.fire('teamData',this.teamData)});
-    }
+    if(this.role==='student')this.listenTeam();
+  }
+  // 내 모둠의 요리사 위치와 주방 데이터 구독 (모둠을 옮기면 다시 걸음)
+  listenTeam(){
+    (this.teamUnsubs||[]).forEach(u=>u());this.teamUnsubs=[];
+    const listen=(p,cb)=>{const u=this.ops.onValue(this.path(...p),s=>cb(s.val()),e=>this.fire('error',e.message));this.teamUnsubs.push(u);this.unsubs.push(u)};
+    listen(['teams',String(this.team),'players'],v=>{this.teamMembers=v||{};this.fire('players',this.teamMembers)});
+    listen(['teams',String(this.team),'data'],v=>{this.teamData=v||null;this.fire('teamData',this.teamData)});
+  }
+  // ── 대기실에서 모둠 바꾸기 / 내보내기 ──
+  teamCount(t){return Object.values(this.allMembers||{}).filter(m=>Number(m.team)===t).length}
+  // 학생이 스스로 다른 모둠으로 (대기실에서만, 자리가 남은 모둠만)
+  async moveSelf(t){
+    if(this.role!=='student')return;
+    if(this.meta?.phase!=='lobby')throw new Error('게임이 시작되기 전에만 모둠을 바꿀 수 있어요.');
+    if(!(t>=0&&t<(this.meta.sizes||[]).length)||t===this.team)return;
+    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요.`);
+    await this.ops.update(this.path('members',this.uid),{team:String(t)});
+    await this.ops.update(this.path('results',this.uid),{team:t}).catch(()=>{});
+  }
+  // 교사: 학생을 다른 모둠으로 (대기실에서만)
+  async moveMember(uid,t){
+    if(this.role!=='teacher')return;
+    if(this.meta?.phase==='playing')throw new Error('게임 중에는 모둠을 바꿀 수 없어요. 게임이 끝난 뒤 바꿔 주세요.');
+    const m=this.allMembers?.[uid];if(!m||Number(m.team)===t)return;
+    if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요. 먼저 그 모둠의 학생을 옮겨 주세요.`);
+    await this.ops.update(this.path('members',uid),{team:String(t)});
+    await this.ops.update(this.path('results',uid),{team:t}).catch(()=>{});
+  }
+  // 교사: 학생 내보내기 (다시 들어올 수 없음). 빈자리만큼 정원을 하나 늘려 다른 학생이 들어올 수 있게 함
+  async kick(uid){
+    if(this.role!=='teacher')return;
+    const m=this.allMembers?.[uid];if(!m)return;
+    await this.ops.set(this.path('banned',uid),true);
+    await this.ops.remove(this.path('members',uid));
+    await this.ops.remove(this.path('results',uid)).catch(()=>{});
+    await this.ops.remove(this.path('teams',String(m.team),'players',uid)).catch(()=>{});
+    if((this.meta?.count||0)<25)await this.ops.update(this.path('meta'),{count:this.meta.count+1}).catch(()=>{});
   }
   // introMs: 인트로 길이. 시작 시각을 그만큼 뒤로 잡아 모든 학생이 인트로를 보고 같은 순간에 시작
   async begin(introMs=0){
