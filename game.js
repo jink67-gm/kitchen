@@ -600,6 +600,14 @@ function skipIntro(){
  if(mode==='demo'){meta.startedAt=Math.min(meta.startedAt,Date.now()+INTRO_MS-MISSION_AT+300);introLast=introPos();return}
  introSkipped=true;
 }
+// 장면에 맞는 배경음악: 메뉴·대기실(잔잔) / 요리(경쾌) / 러시타임(긴박) / 결과(느긋). 인트로는 introTick이 따로 정함
+// 브라우저는 첫 클릭·키 입력 전에는 소리를 막으므로 그 뒤부터 켬
+let audioOK=false,musicCheck=0;
+addEventListener('pointerdown',()=>{audioOK=true},{once:true});addEventListener('keydown',()=>{audioOK=true},{once:true});
+function syncMusic(){
+ if(!audioOK||introUI||inIntro())return;
+ sfx.setMusic(roundStarted&&!ended?(rushNow?'rush':'cook'):ended&&!$('endOverlay').classList.contains('hidden')?'result':'lobby');
+}
 function drawGame(t){
  if(use3D&&view3d){
   try{
@@ -652,7 +660,7 @@ async function init3D(){
   view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
  catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
 }
-window.__game={introSeek(ms){if(mode==='demo'&&meta){meta.startedAt=srvNow()+INTRO_MS-ms;introLast=ms}},introHold(ms){if(mode==='demo'){introFreeze=ms;if(ms==null&&meta)meta.startedAt=Math.min(meta.startedAt,Date.now())}},get intro(){return {on:inIntro(),pos:Math.round(introPos()),skipped:introSkipped,ui:introUI,startAt:meta?.startedAt||0,offset:cloud?.serverOffset||0}},get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
+window.__game={get music(){return sfx.musicName()},introSeek(ms){if(mode==='demo'&&meta){meta.startedAt=srvNow()+INTRO_MS-ms;introLast=ms}},introHold(ms){if(mode==='demo'){introFreeze=ms;if(ms==null&&meta)meta.startedAt=Math.min(meta.startedAt,Date.now())}},get intro(){return {on:inIntro(),pos:Math.round(introPos()),skipped:introSkipped,ui:introUI,startAt:meta?.startedAt||0,offset:cloud?.serverOffset||0}},get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
 function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
  if(roundStarted&&!ended&&inIntro())introTick();
  else if(roundStarted&&!ended){if(introUI)introDone();
@@ -670,6 +678,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<170
  }
  for(let pt of particles){pt.x+=pt.vx*dt*60;pt.y+=pt.vy*dt*60;pt.vy+=.09*dt*60;pt.life-=dt*.9}particles=particles.filter(p=>p.life>0);
  if(cloud?.role==='teacher' && cloud.meta?.phase==='playing' && Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))updateTeacherMonitor();
+ if(t-musicCheck>400){musicCheck=t;syncMusic()}
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
 function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}

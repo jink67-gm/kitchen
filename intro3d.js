@@ -130,7 +130,7 @@ export function createIntro3D(c) {
     root = new THREE.Group(); scene.add(root);
     for (const gu of c.guestList) if (gu.root.visible) { gu.root.visible = false; hidden.push(gu); }   // 게임용 손님은 잠시 숨김
     const hs = c.models.get('char:head') || c.models.get('char:0');
-    head = actor(hs, 1.8, root);
+    head = actor(hs, 1.7, root);
     hat = makeHat(); root.add(hat);
     headTag = c.textSprite('천재 셰프', '#f0b429', '#2e2520', 0.44, 256); headTag.position.y = 2.75; head.root.add(headTag);
     bang = c.textSprite('!!', '#d6452f', '#ffffff', 0.62, 160); bang.position.y = 2.45; bang.visible = false; head.root.add(bang);
@@ -207,7 +207,7 @@ export function createIntro3D(c) {
     a.mixer.update(dt);
     // 모자는 머리를 따라감
     const hb = bone(a, 'Head'); hat.visible = vis;
-    if (hb) { hb.getWorldPosition(tmp); hb.getWorldQuaternion(hat.quaternion); hat.position.copy(tmp); hat.translateY(0.42); hat.scale.setScalar(1); }
+    if (hb) { hb.getWorldPosition(tmp); hb.getWorldQuaternion(hat.quaternion); hat.position.copy(tmp); hat.translateY(HAT_UP); hat.scale.setScalar(1.25); }
     // 이름표: 얼굴을 크게 잡는 장면에서는 숨김
     headTag.visible = vis && !(ms > 42200 && ms < 48400) && !(ms > 7000 && ms < 12300) && !(ms > 24300 && ms < 32000);
     bang.visible = vis && ((ms > 20400 && ms < 24000) || (ms > 46300 && ms < 48400)); if (bang.visible) bang.position.y = 2.45 + Math.abs(Math.sin(t / 90)) * 0.12;
@@ -289,14 +289,17 @@ export function createIntro3D(c) {
   }
 
   // ───────── 카메라 ─────────
+  const HAT_UP = 0.5;
+  const faceY = () => { const hb = bone(head, 'Head'); return hb ? hb.getWorldPosition(tmp2).y + 0.03 : 1.2; };   // 셰프 얼굴 높이 (점프하면 함께 올라감)
   function shot(ms) {
+    const F = faceY();
     const set = (p, l) => { camPos.set(...p); camLook.set(...l); };
     const mix = (p0, l0, p1, l1, k) => set(p0.map((v, i) => lerp(v, p1[i], k)), l0.map((v, i) => lerp(v, l1[i], k)));
     const chef = head.root.position;
     if (ms < 2800) mix([-15.5, 4.2, 5.2], [-12.4, 0.7, -2.2], [-10.2, 4.8, 5.6], [-12.4, 0.8, -2.0], seg(ms, 0, 2800));
     else if (ms < 7000) mix([-10.2, 4.8, 5.6], [-12.4, 0.8, -2.0], [3.2, 4.4, 7.0], [1.5, 1.1, -0.6], seg(ms, 2800, 6400));
-    else if (ms < 12300) mix([2.7, 2.9, 3.7], [1.5, 1.55, -0.6], [2.1, 2.55, 2.5], [1.5, 1.55, -0.6], seg(ms, 7000, 12300));
-    else if (ms < 15000) { const lx = Math.min(chef.x, 8.5), lz = Math.min(chef.z, 4.6); mix([2.1, 2.55, 2.5], [1.5, 1.55, -0.6], [lx - 1.5, 4.6, lz + 7.4], [lx, 1.0, lz], seg(ms, 12300, 12900)); }
+    else if (ms < 12300) mix([2.7, F + 1.5, 3.7], [1.5, F + 0.3, -0.6], [2.1, F + 1.2, 2.5], [1.5, F + 0.3, -0.6], seg(ms, 7000, 12300));
+    else if (ms < 15000) { const lx = Math.min(chef.x, 8.5), lz = Math.min(chef.z, 4.6); mix([2.1, F + 1.2, 2.5], [1.5, F + 0.3, -0.6], [lx - 1.5, 4.6, lz + 7.4], [lx, 1.0, lz], seg(ms, 12300, 12900)); }
     else if (ms < 20200) mix([0, 9.5, 17.5], [0, 0.4, 3.8], [0, 8.6, 15.5], [0, 0.5, 3.6], seg(ms, 15000, 20200));
     else if (ms < 24000) mix([0, 8.6, 15.5], [0, 0.5, 3.6], [0.5, 4.6, 8.4], [0.5, 0.9, wz(7.6)], seg(ms, 20200, 21400));
     else if (ms < 24900) mix([0.5, 4.6, 8.4], [0.5, 0.9, wz(7.6)], [-0.8, 3.2, 2.0], [-0.4, 1.7, -4.1], seg(ms, 24000, 24900));
@@ -305,10 +308,10 @@ export function createIntro3D(c) {
     else if (ms < 35000) set([0, 1.9, 13.4], [0, 1.2, 3.4]);
     else if (ms < 39000) mix([0, 1.9, 13.4], [0, 1.2, 3.4], [0, 3.5, 7.8], [0, 0.85, wz(8.6)], seg(ms, 35000, 36800));
     else if (ms < 42200) set([7.4, 3.0, 0.7], [0, 1.1, 0.5]);
-    else if (ms < 45000) mix([1.0, 1.55, 1.4], [0, 1.05, -1.6], [0.45, 1.3, 0.2], [0, 1.05, -1.6], seg(ms, 42200, 45000));
+    else if (ms < 45000) mix([1.0, F + 0.5, 1.4], [0, F, -1.6], [0.45, F + 0.25, 0.2], [0, F, -1.6], seg(ms, 42200, 45000));
     else if (ms < 46300) set([0, 1.9, -0.5], [0, 0.8, wz(8.6)]);
-    else if (ms < 48300) mix([0, 1.6 + chef.y * 0.9, 1.3], [0, 1.15 + chef.y, -1.6], [0, 1.5 + chef.y * 0.9, 0.55], [0, 1.2 + chef.y, -1.6], seg(ms, 46300, 46650));
-    else { const g = c.gameCamPose(); mix([0, 1.5, 0.55], [0, 1.2, -1.6], g.pos.toArray(), g.look.toArray(), seg(ms, 48300, 50600)); }
+    else if (ms < 48300) mix([0, F + 0.4, 1.4], [0, F, -1.6], [0, F + 0.3, 0.6], [0, F + 0.05, -1.6], seg(ms, 46300, 46650));
+    else { const g = c.gameCamPose(); mix([0, F + 0.3, 0.6], [0, F + 0.05, -1.6], g.pos.toArray(), g.look.toArray(), seg(ms, 48300, 50600)); }
     // 화면 흔들림
     const amp = ms > 15000 && ms < 19500 ? 0.05 : ms > 20400 && ms < 24000 ? 0.08 : ms > 46300 && ms < 47800 ? 0.16 * (1 - (ms - 46300) / 1500) : 0;
     if (amp) camPos.add(V((Math.random() - 0.5) * amp, (Math.random() - 0.5) * amp, 0));
