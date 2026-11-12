@@ -265,3 +265,7 @@ html,body{height:100%;overflow:hidden}
 @keyframes stamp{from{transform:rotate(-4deg) scale(2.4);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
 .intro-opt{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
 .intro-opt input{width:20px;height:20px;padding:0;accent-color:var(--red)}
+/* 주문 카드가 여러 장(최대 4장)이어도 화면을 덮지 않게 폭 제한 */
+.ocard{max-width:196px}
+.oc-lock{font-size:10.5px;white-space:normal;line-height:1.25}
+@media (max-width:900px){.ocard{max-width:150px}}

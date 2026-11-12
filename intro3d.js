@@ -102,7 +102,7 @@ export function createIntro3D(c) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(0.5, 0.35, 1); sp.renderOrder = 23;
     return sp;
   }
-  const CARD_DISH = ['🍔', '🥗', '🍰', '🍕', '🥞', '🌮'];
+  const CARD_DISH = ['🍔', '🥗', '🍰', '🍕', '🥞', '🌮', '🧇', '🥪', '🧁'];
   function makeCardTextures() {
     return CARD_DISH.map(e => {
       const t = tex(128, 160, (k, w, h) => {

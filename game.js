@@ -23,8 +23,13 @@ const RECIPES=[
  {emoji:'🥞',title:'폭신 팬케이크',desc:'밀가루와 우유를 섞고 딸기를 손질해요',items:['flour','milk','berry']},
  {emoji:'🥙',title:'싱싱 치즈 샌드',desc:'빵을 굽고 치즈·양상추·토마토를 손질해요',items:['bread','cheese','lettuce','tomato']},
  {emoji:'🍰',title:'딸기 생크림 케이크',desc:'밀가루와 딸기를 준비해요',items:['flour','berry']},
- {emoji:'🌮',title:'든든 타코',desc:'반죽과 고기를 굽고 양상추와 치즈를 손질해요',items:['dough','meat','lettuce','cheese']}
-];
+ {emoji:'🌮',title:'든든 타코',desc:'반죽과 고기를 굽고 양상추와 치즈를 손질해요',items:['dough','meat','lettuce','cheese']},
+ {emoji:'🥪',title:'든든 서브 샌드위치',desc:'빵과 고기를 굽고 토마토를 손질해요',items:['bread','meat','tomato']},
+ {emoji:'🧇',title:'바삭 와플',desc:'밀가루와 우유를 섞어요',items:['flour','milk']},
+ {emoji:'🧁',title:'크림치즈 컵케이크',desc:'밀가루를 섞고 치즈와 딸기를 손질해요',items:['flour','cheese','berry']},
+ {emoji:'🥧',title:'새콤 딸기 파이',desc:'반죽을 굽고 딸기를 손질해요',items:['dough','berry']},
+ {emoji:'🫕',title:'퐁당 치즈 퐁듀',desc:'빵을 굽고 치즈를 손질하고 우유를 섞어요',items:['bread','cheese','milk']}
+];   // 판마다 무작위 순서로 나옴 (orders.js pickRecipe)
 // 주방 배치 (2.0 새 구조): 벽을 따라 이어진 조리대 + 가운데 Z자 섬. 이 글자 지도만 고치면 2D·3D 양쪽 배치가 함께 바뀝니다.
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
 const LAYOUT=[
@@ -206,7 +211,10 @@ function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 function putIcon(el,emoji){const src=ICONS[emoji];if(!src){el.textContent=emoji;return}if(el.dataset.emoji===emoji)return;el.dataset.emoji=emoji;const img=document.createElement('img');img.src=src;img.alt=emoji;img.className='emo';img.draggable=false;el.replaceChildren(img)}
 const NO_ORDER={emoji:'⏳',title:'주문을 기다리는 중',desc:'곧 새 주문이 들어와요',items:[]};
 const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣'};
-const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:S().orderTimeMs,rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length)});
+const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:S().orderTimeMs,rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length),seed:FIXED_ORDERS?undefined:meta?.startedAt||0,minOrders:FIXED_ORDERS?1:teamSize()>=3?2:1});
+const FIXED_ORDERS=new URLSearchParams(location.search).get('fixedOrders')==='1';   // 테스트용: 예전처럼 차례대로 1개씩
+// 내 모둠(대결은 내 편) 인원: 3명 이상이면 처음부터 주문 2개
+function teamSize(){if(currentMode==='duel')return 2;if(mode==='demo')return 4;return Number(meta?.sizes?.[team])||Object.values(members||{}).filter(m=>Number(m.team)===team).length||1}
 const liveOrders=(side=getSide())=>activeOrders(getGroup(side),srvNow());
 const liveRecipes=()=>liveOrders().map(o=>RECIPES[o.recipeId]);
 function order(side=getSide()){const o=liveOrders(side)[0];return o?RECIPES[o.recipeId]:NO_ORDER}   // 가장 먼저 온 주문

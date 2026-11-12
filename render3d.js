@@ -632,9 +632,9 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     const ic = dishSprite(emoji); ic.scale.set(0.58, 0.58, 1); ic.position.y = 0.05; grp.add(ic);
     grp.position.y = 2.0; gu.root.add(grp); gu.bubble = grp; gu.bubbleBg = bg;
   }
-  const ORDER_SPOTS = [[0, 1.2], [-1.7, 0.85], [1.7, 0.85]];
+  const ORDER_SPOTS = [[0, 1.2], [-1.7, 0.85], [1.7, 0.85], [0, 2.4]];
   const CROWD_SPOTS = [[-3.2, 0.85], [3.3, 0.9], [-4.7, 0.9], [4.8, 0.85], [-6.2, 0.9], [6.3, 0.9], [-2.5, 1.8], [2.6, 1.85], [-0.9, 2.2], [1.0, 2.25], [-4.0, 1.9], [4.1, 1.9]];
-  const spotUsed = [null, null, null];
+  const spotUsed = [null, null, null, null];
   for (let i = 0; i < CROWD_SPOTS.length; i++) crowd.push({ gu: null, on: false });
   // 양옆 통로를 오가는 사람
   // 홀 손님: 식탁에 앉아 먹는 사람, 서서 이야기하는 두 사람, 주방을 구경하며 손 흔드는 사람
