@@ -475,6 +475,21 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     if (!s) { if (list.length >= 3) s = list[0]; else { const sp = textSprite(word, bg, fg, size, 256); sp.visible = false; scene.add(sp); s = { sp, t0: -1e9, bs: sp.scale.clone() }; list.push(s); shouts.push(s); } }
     s.t0 = lastT; s.x = x + 0.75 + (Math.random() - 0.5) * 0.3; s.y = y - 0.25; s.z = z;   // 게이지·이름표와 겹치지 않게 오른쪽 옆에
   }
+  // 가까이 가면 뜨는 이름표, 다음에 갈 곳을 가리키는 화살표
+  const tagCache = new Map();
+  function showTags(list, t) {
+    for (const sp of tagCache.values()) sp.visible = false;
+    for (const tg of list) {
+      const key = tg.text + '@' + tg.x + ',' + tg.y;
+      if (!tagCache.has(key)) { const sp = tg.main ? textSprite(tg.text, '#2e2520', '#fffdf5', 0.6, 448) : textSprite(tg.text, '#fffdf5', '#2e2520', 0.4, 192); sp.position.set(wx(tg.x + 0.5), TOP + (tg.main ? 2.25 : 1.3), wz(tg.y + 0.5)); sp.renderOrder = tg.main ? 22 : 18; scene.add(sp); tagCache.set(key, sp); }
+      tagCache.get(key).visible = true;
+    }
+  }
+  const arrowM = new THREE.MeshBasicMaterial({ color: 0xffc928 }), arrowEdge = new THREE.MeshBasicMaterial({ color: 0x2e2520, side: THREE.BackSide });
+  const arrows = Array.from({ length: 4 }, () => { const g = new THREE.Group(); const c = new THREE.Mesh(geo('arrow', () => new THREE.ConeGeometry(0.24, 0.5, 4)), arrowM); c.rotation.x = Math.PI; const e = new THREE.Mesh(geo('arrow', () => new THREE.ConeGeometry(0.24, 0.5, 4)), arrowEdge); e.rotation.x = Math.PI; e.scale.setScalar(1.22); g.add(e, c); g.visible = false; scene.add(g); return g; });
+  function showGuide(list, t) {
+    arrows.forEach((a, i) => { const s = list[i]; a.visible = !!s; if (s) { a.position.set(wx(s.x + 0.5), TOP + 1.75 + Math.abs(Math.sin(t / 240)) * 0.35, wz(s.y + 0.5)); a.rotation.y = t / 500; } });
+  }
   const FX_COLORS = [0xffd66b, 0xd6452f, 0x5fcf8f, 0x7fd0ff, 0xffffff];
   const popMap = new Map();
   const fxMap = new Map();          // 날아가는 재료 (반환·보관·버리기·접시 담기)
@@ -634,7 +649,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       }
       const gu = og.gu, hot = o.f <= 0.25;
       gu.rest = o.f <= 0 ? 'emote-no' : hot ? 'jump' : 'idle';
-      if (gu.bubble) { gu.bubbleBg.material.map = hot ? bubbleHot : bubbleBg; const k = hot ? 1 + Math.abs(Math.sin(t / 110 + gu.phase)) * 0.22 : 1 + Math.sin(t / 420 + gu.phase) * 0.05; gu.bubble.scale.setScalar(k); }
+      if (gu.bubble) { gu.bubble.children[1].material.opacity = o.locked ? 0.35 : 1; gu.bubbleBg.material.map = hot ? bubbleHot : bubbleBg; const k = hot ? 1 + Math.abs(Math.sin(t / 110 + gu.phase)) * 0.22 : 1 + Math.sin(t / 420 + gu.phase) * 0.05; gu.bubble.scale.setScalar(k); }
     }
     for (const [id, og] of orderGuests) if (!list.some(o => o.id === id)) {      // 주문이 끝남 → 음식을 받아 들고 돌아감
       orderGuests.delete(id); spotUsed[og.slot] = null;
@@ -748,6 +763,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     const rk = state.rush ? 0.5 + Math.sin(t / 130) * 0.5 : 0;
     sun.color.setRGB(1, 0.94 - rk * 0.35, 0.84 - rk * 0.45); hemi.intensity = 1.25 - rk * 0.25;
     updateGuests(state, dt, t);
+    showTags(state.tags || [], t); showGuide(state.dim ? [] : state.guide || [], t);
     const seen = new Set();
     for (const c of state.chefs) syncChef(c, dt, seen);
     for (const [id, v] of chefs) if (!seen.has(id)) { scene.remove(v.root); chefs.delete(id); }
