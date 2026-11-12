@@ -31,7 +31,7 @@
             <div id="introTitle" class="intro-title hidden"><b>우당탕! <em>수학 레스토랑</em></b><span id="introMission">MISSION START!</span></div>
             <button id="introSkip" class="intro-skip" type="button">건너뛰기 <kbd>Esc</kbd></button>
           </div>
-          <div class="canvas-holder"><canvas id="gameCanvas" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas><canvas id="game3d" class="hidden" aria-label="수학 레스토랑 3D 주방 화면"></canvas></div>
+          <div class="canvas-holder"><div id="loading3d" class="loading3d"><b>🍳 3D 주방을 준비하고 있어요…</b><small id="loading3dSub">처음에는 조금 걸릴 수 있어요</small></div><canvas id="gameCanvas" class="hidden" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas><canvas id="game3d" class="hidden" aria-label="수학 레스토랑 3D 주방 화면"></canvas></div>
           <div class="game-toast" id="toast" aria-live="polite"></div>
           <div class="under-stage">
             <div class="quick-note"><span>다음 할 일</span><span id="statusHint">재료 상자로 이동해서 E를 눌러 보세요!</span></div>

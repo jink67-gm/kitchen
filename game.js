@@ -637,8 +637,9 @@ function drawGame(t){
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
    view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?ns.targets.map(s=>({x:s.x,y:s.y})):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
    return;
-  }catch(e){console.warn('3D 오류 → 2D로 전환',e);set3D(false);toast('3D 화면에 문제가 생겨 2D로 바꿨어요.')}
+  }catch(e){console.warn('3D 그리기 오류',e);gl3dErrors=gl3dErrors.filter(t=>performance.now()-t<5000);gl3dErrors.push(performance.now());if(gl3dErrors.length>=5)rebuild3D('그리기 오류가 반복됨');return}   // 한두 번은 넘어가고, 반복되면 3D를 새로 켬 (2D로 바꾸지 않음)
  }
+ if(!fallback2D)return;   // 3D 준비 중이거나 다시 켜는 중에는 2D를 그리지 않음
  drawFloor();let focus=nearestStation();
  for(let st of STATIONS){drawStation(st,t);if(focus===st&&roundStarted&&!activeQuestion){let [x,y]=canvasPos(st.x+.5,st.y+.1);g.strokeStyle='#ffdf94';g.lineWidth=3;g.strokeRect(x-24,y-6,47,43);drawEmoji('E',x+21,y-8,12)}}
  for(const b of boardViews()){let [bx,by]=canvasPos(b.x,b.y);if(b.type==='plate'){drawEmoji(b.complete?b.emoji:'⚪',bx+24,by+14,b.complete?24:22);if(!b.complete)b.contents.forEach((k,i)=>drawEmoji(FOOD[k].emoji,bx+15+i*16,by+14,14))}if(b.type==='rack')drawEmoji('🍽️',bx+24,by+14,20);if(b.kind)drawEmoji(b.look==='burnt'?'⚫':FOOD[b.kind].emoji,bx+14,by+15,b.ready?20:16);if(b.ready)drawEmoji('✨',bx+34,by+8,11);if(b.type!=='plate'&&b.type!=='rack'&&!(b.type==='sink'&&b.state!=='working')){fillRounded(bx+4,by-9,40,6,3,'#1d2a3d');fillRounded(bx+4,by-9,Math.max(3,40*b.progress),6,3,b.state==='warning'?'#ff6b57':b.state==='burnt'?'#555':b.ready?'#61e4a0':b.state==='stale'?'#9aa7b8':'#ffd166')}g.font='800 9px Nunito,"Noto Sans KR",sans-serif';g.textAlign='center';g.fillStyle='#fff';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(b.label,bx+24,by-13);g.shadowBlur=0}
@@ -673,12 +674,29 @@ function boardViews(){
 }
 // ── 3D 화면 연결: render3d.js는 그리기만 담당. 불러오기에 실패하거나 WebGL이 없으면 기존 2D 그대로 동작 ──
 let view3d=null,use3D=false;
-function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D);setText('viewBtn',use3D?'2D로 보기':'3D로 보기');$('viewBtn').classList.add('hidden');try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
+// 화면: 항상 3D. 2D 그림은 기기가 3D(WebGL)를 아예 지원하지 않을 때만 (fallback2D)
+let fallback2D=false,gl3dErrors=[],rebuilding3D=false;
+const hasWebGL=()=>{try{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'))}catch{return false}};
+function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D||!fallback2D);$('loading3d').classList.toggle('hidden',use3D||fallback2D);setText('viewBtn',use3D?'2D로 보기':'3D로 보기');$('viewBtn').classList.add('hidden');try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
+// 3D를 새로 켜기: 그래픽 연결이 끊기거나 오류가 반복될 때. 새 캔버스로 바꾼 뒤 다시 만듦
+function rebuild3D(why){
+ if(rebuilding3D||fallback2D)return;rebuilding3D=true;console.warn('3D 다시 켜는 중:',why);
+ view3d=null;set3D(false);setText('loading3dSub','화면을 다시 준비하는 중이에요');
+ const old=$('game3d'),c=old.cloneNode(false);old.replaceWith(c);
+ setTimeout(()=>{rebuilding3D=false;init3D()},800);
+}
+let init3DTries=0;
 async function init3D(){
+ init3DTries++;
+ if(!hasWebGL()){fallback2D=true;view3d=null;set3D(false);setTimeout(()=>toast('이 기기는 3D를 지원하지 않아 간단한 화면으로 보여요.'),1500);return}
  try{const mod=await import('./render3d.js');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
-  let models=new Map();try{models=await (await import('./models.js')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
-  view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
- catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
+  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
+  if(!init3D.models)init3D.models=models;
+  const cv=$('game3d');cv.addEventListener('webglcontextlost',e=>{e.preventDefault();rebuild3D('그래픽 연결이 끊김')},{once:true});
+  view3d=mod.createRenderer3D(cv,{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models:init3D.models});init3DTries=0;let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
+ catch(e){console.warn('3D를 켜지 못함 (시도 '+init3DTries+'번)',e);view3d=null;set3D(false);
+  if(init3DTries<3){setText('loading3dSub','다시 시도하는 중이에요 ('+init3DTries+'/3)');const old=$('game3d'),c=old.cloneNode(false);old.replaceWith(c);setTimeout(init3D,1500)}
+  else{fallback2D=true;set3D(false);toast('3D 화면을 켤 수 없어 간단한 화면으로 보여요. 브라우저를 다시 열어 보세요.')}}
 }
 window.__game={get music(){return sfx.musicName()},introSeek(ms){if(mode==='demo'&&meta){meta.startedAt=srvNow()+INTRO_MS-ms;introLast=ms}},introHold(ms){if(mode==='demo'){introFreeze=ms;if(ms==null&&meta)meta.startedAt=Math.min(meta.startedAt,Date.now())}},get intro(){return {on:inIntro(),pos:Math.round(introPos()),skipped:introSkipped,ui:introUI,startAt:meta?.startedAt||0,offset:cloud?.serverOffset||0}},get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
 function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
