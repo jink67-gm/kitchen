@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
 import { clone as cloneSkinned } from './vendor/three/jsm/utils/SkeletonUtils.js';
+import { createIntro3D } from './intro3d.js';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
@@ -30,12 +31,16 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelCap));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    const g = gameCamPose();
+    camera.position.copy(g.pos); camera.lookAt(g.look);
+    camera.updateProjectionMatrix();
+  }
+  // 게임 화면 카메라 위치: 화면 비율이 달라도 주방 전체가 보이게
+  function gameCamPose() {
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const needH = H * Math.sin(CAM_ANGLE) + 6.3, needW = W + 3.4;   // 앞줄 설비와 아래 버튼이 잘리지 않을 여유
     const dist = Math.max(needH / 2 / t, needW / 2 / t / camera.aspect);
-    camera.position.set(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist + 1.0);
-    camera.lookAt(0, 0.4, 1.0);   // 앞쪽 서빙 창구와 손님 줄이 보이도록
-    camera.updateProjectionMatrix();
+    return { pos: new THREE.Vector3(0, Math.sin(CAM_ANGLE) * dist, Math.cos(CAM_ANGLE) * dist + 1.0), look: new THREE.Vector3(0, 0.4, 1.0) };   // 앞쪽 서빙 창구와 손님 줄이 보이도록
   }
 
   // ───────── 조명 ─────────
@@ -683,6 +688,10 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
   }
 
+  // 인트로 컷신 (intro3d.js): 필요할 때 처음 만들어짐
+  let intro = null;
+  const introCtx = () => ({ THREE, scene, camera, models, cloneSkinned, textSprite, canvasTex, burst, ring, shout, makeGuest, gAnim, gStep, removeGuest, guestList, wx, wz, W, H, TOP, sun, hemi, icons, FONT, gameCamPose });
+
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
   let curOrders = [];
   const chefs = new Map();
@@ -762,7 +771,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     // 러시타임: 주방 조명이 붉게 깜빡임
     const rk = state.rush ? 0.5 + Math.sin(t / 130) * 0.5 : 0;
     sun.color.setRGB(1, 0.94 - rk * 0.35, 0.84 - rk * 0.45); hemi.intensity = 1.25 - rk * 0.25;
-    updateGuests(state, dt, t);
+    if (state.intro) { if (!intro) intro = createIntro3D(introCtx()); intro.update(state.intro.ms, dt, t, state.intro); }
+    else { if (intro && intro.active) { intro.end(); cw = 0; resize(); } updateGuests(state, dt, t); }
     showTags(state.tags || [], t); showGuide(state.dim ? [] : state.guide || [], t);
     const seen = new Set();
     for (const c of state.chefs) syncChef(c, dt, seen);

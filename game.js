@@ -2,6 +2,7 @@ import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
 import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js';
 import { ordersTick, activeOrders, serveOrder,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
+import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js';
 import * as sfx from './sfx.js';
 import { makeProblem, isCorrect, weakUnit, UNIT_NAMES } from './math.js';
 import { PRESETS, sanitize, withChops, cookTimes } from './settings.js';
@@ -54,6 +55,11 @@ let pickerOpen=false,fx=[],popups=[];
 const getStorage=()=>teamData?.storage||{};
 // ── 도마 상태 (3단계). 규칙은 stations.js, 여기서는 저장 위치(혼자 체험=메모리, 온라인=Firebase 트랜잭션)만 고릅니다 ──
 const srvNow=()=>Date.now()+(cloud?.serverOffset||0);
+// ── 인트로 컷신 《사라진 천재 셰프》: 게임 시작 시각(meta.startedAt)을 인트로 길이만큼 뒤로 잡고, 그 전까지는 인트로를 보여 줌 ──
+// 인트로 위치 = INTRO_MS - (시작 시각 - 지금). 모든 학생이 같은 시작 시각을 보므로 같은 장면을 보고 같은 순간에 게임이 시작됨
+let introUI=false,introSkipped=false,introLast=-1,demoIntro=true,introFreeze=null;   // introFreeze: 테스트용 장면 멈춤
+const introPos=()=>introFreeze!=null?introFreeze:meta?.startedAt?INTRO_MS-(meta.startedAt-srvNow()):INTRO_MS;
+const inIntro=()=>roundStarted&&!ended&&(introFreeze!=null||(!!meta?.startedAt&&srvNow()<meta.startedAt));
 const boardOf=st=>teamData?.stations?.[stationId(st)]||null;
 async function stationOp(st,fn){
  const id=stationId(st);
@@ -191,7 +197,7 @@ const clamp=(a,min,max)=>Math.max(min,Math.min(max,a));
 const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const blankGroup=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0,orders:{}});
 const safeName=s=>String(s||'꼬마셰프').trim().slice(0,12)||'꼬마셰프';
-function toast(t){setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
+function toast(t){if(inIntro())return;setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
 function sound(type){sfx.play(type)}
 function getSide(){if(currentMode!=='duel')return 'ALL';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return (list.findIndex(([uid])=>uid===myUid)<2)?'A':'B'}
 function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
@@ -232,13 +238,13 @@ function playerColor(n){return COLOR[n%COLOR.length]}
 function resetLocal(kind="coop"){
  mode='demo';cloud=null;myUid='demo';seat=0;team=0;members={demo:{name:p.name,seat:0,team:'0'},bot1:{name:'도우미1',seat:1,team:'0'},bot2:{name:'도우미2',seat:2,team:'0'},bot3:{name:'도우미3',seat:3,team:'0'}};currentMode=kind;
  const demoSec=Math.max(20,Math.min(600,Number(new URLSearchParams(location.search).get('demoSeconds'))||180));   // 주소 뒤에 ?demoSeconds=60 을 붙이면 체험 시간을 바꿀 수 있음
- meta={phase:'playing',mode:kind,unit,startedAt:Date.now(),duration:demoSec,orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value]||ORDER_TIME_DEFAULT,settings:menuSettings(),sizes:[4],count:4};resetStats();
+ meta={phase:'playing',mode:kind,unit,startedAt:Date.now()+(demoIntro&&$('introCheck').checked&&use3D?INTRO_MS:0),duration:demoSec,orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value]||ORDER_TIME_DEFAULT,settings:menuSettings(),sizes:[4],count:4};resetStats();
  teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates(),solvers:{}};cookSeen={};popups=[];fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=demoSec;nowTime=demoSec;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;myServed=0;cardKey='';setRush(false);
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
  setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결':'혼자 체험');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
 }
-function startDemo(kind='coop'){unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',item:null,name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
+function startDemo(kind='coop',withIntro=true){demoIntro=withIntro;unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',item:null,name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
 function setModeUI(){let nm={coop:'협동 주방',duel:'2대2 대결',class:'학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);setText('roundLabel','🍰 '+(['디저트 주방','회전 주방','축제 주방'][Math.floor(elapsed/110)%3]));}
 function updateUI(){
  if(!roundStarted)return;
@@ -307,7 +313,7 @@ function nearestStation(){let best=null,dist=1.55;for(let s of STATIONS){if(PASS
 function walkable(x,y){if(x<1.1||x>W-1.1||y<1.1||y>H-1.1)return false;const radius=.29;for(let sx of [-radius,radius])for(let sy of [-radius,radius])if(blocked.has(Math.floor(x+sx)+','+Math.floor(y+sy)))return false;return true}
 function tryMove(dx,dy){let speed=0.115;let nx=p.x+dx*speed,ny=p.y+dy*speed;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.updatedAt=Date.now();}
 async function updatePlayer(force=false){players[myUid]={...p};if(mode!=='demo'&&cloud){try{await cloud.syncPlayer(p,force)}catch(e){console.warn('위치 동기화',e)}}}
-async function interact(){
+async function interact(){if(inIntro())return;
  if(!roundStarted||ended||activeQuestion||pending||pickerOpen)return;
  const st=nearestStation();if(!st){toast('조리대나 재료 상자 가까이 가보세요!');return}
  let held=p.held;
@@ -464,7 +470,7 @@ function shuffle(a){let z=[...a];for(let i=z.length-1;i>0;i--){let j=rnd(0,i);[z
 function mkProblem(u){return makeProblem(Number(u)||rnd(1,6),S().mathLevel)}   // 문제 만들기는 math.js
 // 주문 받기 문제 (주문 카드의 버튼이나 Q 키). 맞히면 그 요리의 재료는 모두 문제 없이 준비
 function askOrder(id){
- if(!roundStarted||activeQuestion||pickerOpen)return;
+ if(!roundStarted||activeQuestion||pickerOpen||inIntro())return;
  const o=liveOrders().find(v=>!v.accepted&&(!id||v.id===id));if(!o){if(liveOrders().length)toast('이미 받은 주문이에요. 재료를 준비해요!');return}
  askMath(null,'order',null,o.id);
 }
@@ -566,9 +572,38 @@ function drawChef(ch,isMine,t){
  if(isMine){g.strokeStyle='#ffd775';g.lineWidth=3;g.beginPath();g.ellipse(x,y+12,20,10,0,0,Math.PI*2);g.stroke()}
  let nm=String(ch.name||'셰프').slice(0,8);g.font='800 11px Nunito,"Noto Sans KR",sans-serif';let width=Math.max(52,g.measureText(nm).width+14);fillRounded(x-width/2,y-53+bounce,width,18,8,isMine?'#4c785d':'#293d53');g.fillStyle='#fff';g.textAlign='center';g.fillText(nm,x,y-40+bounce);
 }
+function introTeam(){
+ if(mode==='demo')return [{name:p.name,seat:0,me:true},...bots.map(b=>({name:b.name,seat:b.seat}))];
+ return Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat).map(([id,m])=>({name:m.name,seat:m.seat,me:id===myUid}));
+}
+function introTick(){
+ const pos=introPos();
+ if(!introUI){introUI=true;introLast=pos;introSkipped=introSkipped||!use3D;keys.clear();show('introLayer');$('stageWrap').classList.add('intro-on')}
+ const watching=!introSkipped&&use3D,l=watching?lineAt(pos):null;
+ $('stageWrap').classList.toggle('intro-watch',watching);
+ $('introSub').classList.toggle('hidden',!l);if(l){setText('introWho',l[2]);setText('introText',l[3]);$('introSub').dataset.who=l[2]}
+ $('introChapter').classList.toggle('hidden',!(watching&&pos<3600));$('introChapter').style.opacity=String(Math.min(1,pos/400,(3600-pos)/600));
+ const titleOn=pos>=(watching?TITLE_AT:MISSION_AT-1200);
+ $('introTitle').classList.toggle('hidden',!titleOn);$('introTitle').classList.toggle('mission',pos>=MISSION_AT);
+ const wait=!watching&&!titleOn;$('introWait').classList.toggle('hidden',!wait);
+ if(wait)setText('introWait',`친구들과 함께 시작해요! ${Math.max(1,Math.ceil((meta.startedAt-srvNow())/1000))}초`);
+ $('introSkip').classList.toggle('hidden',pos>=TITLE_AT-400||(introSkipped&&mode!=='demo'));
+ if(watching){for(const [at,name] of SOUND_CUES)if(introLast<at&&pos>=at&&pos-at<700)sfx.play(name);sfx.setMusic(musicAt(pos))}
+ else{if(introLast<MISSION_AT&&pos>=MISSION_AT)sfx.play('missionStart');sfx.setMusic(null)}
+ introLast=pos;
+}
+function introClear(){if(!introUI)return;introUI=false;introSkipped=false;hide('introLayer');$('stageWrap').classList.remove('intro-on','intro-watch');sfx.setMusic(null)}
+function introDone(){introClear();toast('🎉 영업 시작! 주문서의 문제를 풀고 요리를 시작해요.');updateUI()}
+// 건너뛰기: 혼자 체험은 바로 MISSION START로, 온라인 학생은 내 화면만 건너뛰고 친구들과 함께 시작할 때까지 카운트다운
+function skipIntro(){
+ if(!inIntro())return;sfx.setMusic(null);
+ if(mode==='demo'){meta.startedAt=Math.min(meta.startedAt,Date.now()+INTRO_MS-MISSION_AT+300);introLast=introPos();return}
+ introSkipped=true;
+}
 function drawGame(t){
  if(use3D&&view3d){
   try{
+   if(inIntro()&&!introSkipped){view3d.render({chefs:[],focus:null,focusLabel:'',boards:[],storage:[],fx:[],popups:[],orders:[],rush:false,tags:[],guide:[],guests:[],order:null,particles:[],dim:false,intro:{ms:introPos(),team:introTeam()}},t);return}
    const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch}));
    if(roundStarted)chefs.push({id:'me',...p,mine:true});
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
@@ -610,16 +645,17 @@ function boardViews(){
 }
 // ── 3D 화면 연결: render3d.js는 그리기만 담당. 불러오기에 실패하거나 WebGL이 없으면 기존 2D 그대로 동작 ──
 let view3d=null,use3D=false;
-function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D);setText('viewBtn',use3D?'2D로 보기':'3D로 보기');$('viewBtn').classList.toggle('hidden',!view3d);try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
+function set3D(on){use3D=!!(on&&view3d);$('game3d').classList.toggle('hidden',!use3D);canvas.classList.toggle('hidden',use3D);setText('viewBtn',use3D?'2D로 보기':'3D로 보기');$('viewBtn').classList.add('hidden');try{localStorage.setItem('mathcook-view',use3D?'3d':'2d')}catch{}}
 async function init3D(){
  try{const mod=await import('./render3d.js');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
   let models=new Map();try{models=await (await import('./models.js')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
-  view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(saved!=='2d');window.__view3d=view3d}
+  view3d=mod.createRenderer3D($('game3d'),{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models});let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
  catch(e){console.warn('3D를 켤 수 없어 2D로 실행합니다.',e);view3d=null;set3D(false)}
 }
-window.__game={get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
+window.__game={introSeek(ms){if(mode==='demo'&&meta){meta.startedAt=srvNow()+INTRO_MS-ms;introLast=ms}},introHold(ms){if(mode==='demo'){introFreeze=ms;if(ms==null&&meta)meta.startedAt=Math.min(meta.startedAt,Date.now())}},get intro(){return {on:inIntro(),pos:Math.round(introPos()),skipped:introSkipped,ui:introUI,startAt:meta?.startedAt||0,offset:cloud?.serverOffset||0}},get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
 function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
- if(roundStarted&&!ended){
+ if(roundStarted&&!ended&&inIntro())introTick();
+ else if(roundStarted&&!ended){if(introUI)introDone();
   if(!activeQuestion&&!pickerOpen){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
    if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2*(rushNow?S().rushSpeed:1);let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}
   }
@@ -636,7 +672,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<170
  if(cloud?.role==='teacher' && cloud.meta?.phase==='playing' && Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))updateTeacherMonitor();
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
-function finishRound(){if(ended)return;ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
+function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
  let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg);show('endOverlay');sound('success');}
 function beginOnline(){
  if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
@@ -654,7 +690,8 @@ function updateTeacherMonitor(){
  setText('teacherTime','남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'));
  let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
  $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
- $('endRoundBtn').disabled=!running;setText('teacherScoreTitle',running?'실시간 팀 점수':'이번 라운드 최종 팀 점수');
+ $('endRoundBtn').disabled=!running;
+ {const left=cloud.meta.startedAt?Math.ceil((cloud.meta.startedAt-srvNow())/1000):0;if(running&&left>0)setText('teacherTime',`인트로 상영 중 · ${left}초 뒤 게임 시작`);$('skipIntroAllBtn').classList.toggle('hidden',!(running&&left>4))}setText('teacherScoreTitle',running?'실시간 팀 점수':'이번 라운드 최종 팀 점수');
  const rows=Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat),tb=$('teacherStudents');
  tb.replaceChildren();
  if(rows.length){const t=document.createElement('table');t.className='student-table';t.innerHTML='<thead><tr><th>별명</th><th>팀</th><th>푼 문제</th><th>정답</th><th>정답률</th><th>힌트</th><th>서빙</th><th>다시 볼 단원</th></tr></thead>';const body=t.createTBody();
@@ -665,7 +702,7 @@ function refreshLobby(){
  if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);setText('lobbyCount',`${Object.keys(all).length}/${m.count}명 입장`);setText('lobbyMode',({coop:'🤝 협동',duel:'⚔️ 2대2 대결',class:'🏆 학급 대항전'})[m.mode]);
  let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}팀 · ${num}명`;div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);for(let [,u] of mates){let li=document.createElement('div');li.className='lobby-member';li.textContent='👨‍🍳 '+u.name;div.appendChild(li)}if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
  let count=Object.keys(all).length;setText('lobbyNotice',count===m.count?'🎉 모든 학생이 입장했습니다!':'학생들이 입장할 때마다 팀에 자동 배정됩니다.');
- $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
+ $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
 }
 async function setupCloud(isTeacher){teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'학급 인원과 모드를 선택하면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
 function wireCloud(obj){
@@ -699,7 +736,7 @@ function boot(){
    mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
   }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
  };
- $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{await cloud.begin();refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
+ $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{await cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0);$('lobbyIntroCheck').checked=false;refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
  $('lobbyBackBtn').onclick=goHome;
  $('csvBtn').onclick=()=>{
    if(!cloud || cloud.role!=='teacher')return;
@@ -720,13 +757,17 @@ function boot(){
  $('presetSelect').onchange=fillPreset;fillPreset();
  $('hintBtn').onclick=()=>{if(!activeQuestion)return;if(!activeQuestion.hinted){activeQuestion.hinted=true;hintStat(activeQuestion.pz.unit)}setText('questionFeedback','힌트: '+activeQuestion.pz.hint)};
  $('cancelQuestionBtn').onclick=()=>{abortQuestion();toast('준비되면 다시 도전해 보세요!')};
+ $('introSkip').onclick=()=>{document.activeElement?.blur?.();skipIntro()};
+ $('skipIntroAllBtn').onclick=()=>cloud?.skipIntro(INTRO_MS-MISSION_AT+300).catch(e=>toast(e.message));
+ if(new URLSearchParams(location.search).get('intro')==='0'){$('introCheck').checked=false;$('lobbyIntroCheck').checked=false}   // 테스트용: 주소 뒤 ?intro=0 이면 인트로 끔
  $('leaveBtn').onclick=goHome;$('endHomeBtn').onclick=goHome;
  $('roomInfoBtn').onclick=()=>{if(mode==='demo')show('helpOverlay');else{show('lobbyOverlay');refreshLobby()}};
- $('restartBtn').onclick=()=>{if(mode==='demo')startDemo(currentMode);else if(cloud?.role==='teacher')cloud.begin().catch(e=>toast(e.message));else{hide('endOverlay');show('lobbyOverlay');toast('선생님이 다음 라운드를 시작하면 입장해요!')}};
+ $('restartBtn').onclick=()=>{if(mode==='demo')startDemo(currentMode,false);else if(cloud?.role==='teacher')cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0).catch(e=>toast(e.message));else{hide('endOverlay');show('lobbyOverlay');toast('선생님이 다음 라운드를 시작하면 입장해요!')}};
  document.addEventListener('keydown',e=>{
   const key=e.key.length===1?e.key.toLowerCase():e.key;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Space','Spacebar'].includes(key)&&e.target.tagName!=='INPUT')e.preventDefault();
   if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+  if(inIntro()){if(key==='Escape'&&!e.repeat)skipIntro();return}
   if(e.target.tagName==='BUTTON'&&(key===' '||key==='Spacebar')&&!activeQuestion&&!pickerOpen){e.preventDefault();e.target.blur()}   // 버튼에 남은 포커스가 Space 연타를 가로채지 않게
   if(!pickerOpen)keys.add(key);
   if((key==='e'||key===' '||key==='Space'||key==='Spacebar')&&!e.repeat)interact();
@@ -739,7 +780,7 @@ function boot(){
  if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');}
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
-async function goHome(){
+async function goHome(){introClear();
  closePicker();setHeld(null);sfx.setSizzle(false);
  if(cloud)await cloud.disconnect();cloud=null;mode='demo';teacher=false;roundStarted=false;ended=false;activeQuestion=null;sentPhase='';keys.clear();hide('endOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('questionOverlay');show('menuOverlay');setRoomStatus();
 }

@@ -235,3 +235,33 @@ html,body{height:100%;overflow:hidden}
 .quick-note{font-size:15px;padding:10px 14px;max-width:60%}
 .quick-note span:first-child{background:var(--mustard);color:var(--ink);border:2px solid var(--ink)}
 @media (max-height:520px){.quick-note{display:flex;font-size:12px;padding:6px 9px;max-width:48%}.under-stage{justify-content:space-between}}
+
+/* ── 인트로 컷신 《사라진 천재 셰프》 ── */
+.stage-wrap.intro-on .stage-top,.stage-wrap.intro-on .under-stage,.stage-wrap.intro-on .order-cards,.stage-wrap.intro-on .game-toast{display:none}
+.intro-layer{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+.intro-layer .lb{position:absolute;left:0;right:0;height:0;background:#120e0b;transition:height .5s ease}
+.lb-top{top:0}.lb-bot{bottom:0}
+.stage-wrap.intro-watch .lb{height:8.5vh}
+.intro-chapter{position:absolute;left:50%;top:calc(8.5vh + 22px);transform:translateX(-50%);text-align:center;color:#fff;background:rgba(18,14,11,.72);border:2px solid #fbf5e9;border-radius:14px;padding:10px 26px 12px}
+.intro-chapter small{display:block;font-family:var(--display);font-size:clamp(12px,1.6vw,16px);letter-spacing:2px;opacity:.85;margin-bottom:6px}
+.intro-chapter b{font-family:var(--display);font-size:clamp(30px,5.5vw,62px);color:#ffe08a;-webkit-text-stroke:2px #2e2520;paint-order:stroke fill}
+@keyframes introFade{0%{opacity:0;transform:translate(-50%,10px)}15%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.intro-sub{position:absolute;left:50%;bottom:calc(8.5vh + 12px);transform:translateX(-50%);width:max-content;max-width:min(920px,92%);background:rgba(18,14,11,.84);color:#fff;border:2px solid #fbf5e9;border-radius:12px;padding:9px 20px 11px;text-align:center}
+#introWho{display:inline-block;font-family:var(--display);font-size:13px;font-weight:700;background:#fbf5e9;color:#2e2520;border-radius:6px;padding:2px 9px;margin-bottom:5px}
+.intro-sub[data-who="천재 셰프"] #introWho{background:#f0b429}
+.intro-sub[data-who="손님들"] #introWho{background:#d6452f;color:#fff}
+.intro-sub[data-who="요리사들"] #introWho{background:#3f8f5f;color:#fff}
+.intro-sub p{margin:0;font-size:clamp(17px,2.3vw,25px);font-weight:800;line-height:1.4;word-break:keep-all}
+.intro-skip{pointer-events:auto;position:absolute;right:14px;top:calc(8.5vh + 10px);font-family:var(--display);font-size:14px;font-weight:700;color:#2e2520;background:#fbf5e9;border:2px solid #2e2520;border-radius:9px;box-shadow:0 3px 0 #2e2520;padding:7px 12px}
+.stage-wrap:not(.intro-watch) .intro-skip{top:14px}
+.intro-skip kbd{font-size:11px;padding:0 5px}
+.intro-wait{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--display);font-size:clamp(20px,3vw,32px);font-weight:700;color:#2e2520;background:#fbf5e9;border:3px solid #2e2520;border-radius:14px;box-shadow:0 6px 0 #2e2520;padding:16px 26px}
+.intro-title{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;text-align:center;background:radial-gradient(circle,rgba(18,14,11,.35),rgba(18,14,11,.7))}
+.intro-title b{font-family:var(--display);font-size:clamp(38px,7.5vw,92px);font-weight:700;color:#fff;-webkit-text-stroke:3px #2e2520;paint-order:stroke fill;animation:titleDrop .6s cubic-bezier(.3,1.6,.5,1) both}
+.intro-title b em{font-style:normal;color:#ffd66b}
+#introMission{font-family:var(--display);font-size:clamp(26px,4.6vw,58px);font-weight:700;color:#fff;background:#d6452f;border:4px solid #fff;border-radius:12px;padding:6px 22px;transform:rotate(-4deg);opacity:0}
+.intro-title.mission #introMission{animation:stamp .45s cubic-bezier(.3,1.7,.5,1) forwards}
+@keyframes titleDrop{from{transform:translateY(-80px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+@keyframes stamp{from{transform:rotate(-4deg) scale(2.4);opacity:0}to{transform:rotate(-4deg) scale(1);opacity:1}}
+.intro-opt{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
+.intro-opt input{width:20px;height:20px;padding:0;accent-color:var(--red)}
