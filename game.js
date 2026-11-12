@@ -1,7 +1,7 @@
 import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
 import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js';
-import { ordersTick, activeOrders, serveOrder,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
+import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
 import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js';
 import * as sfx from './sfx.js';
 import { makeProblem, isCorrect, weakUnit, UNIT_NAMES } from './math.js';
@@ -211,7 +211,8 @@ function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 function putIcon(el,emoji){const src=ICONS[emoji];if(!src){el.textContent=emoji;return}if(el.dataset.emoji===emoji)return;el.dataset.emoji=emoji;const img=document.createElement('img');img.src=src;img.alt=emoji;img.className='emo';img.draggable=false;el.replaceChildren(img)}
 const NO_ORDER={emoji:'⏳',title:'주문을 기다리는 중',desc:'곧 새 주문이 들어와요',items:[]};
 const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣'};
-const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:S().orderTimeMs,rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length),seed:FIXED_ORDERS?undefined:meta?.startedAt||0,minOrders:FIXED_ORDERS?1:teamSize()>=3?2:1});
+const curEvent=()=>FIXED_ORDERS?null:roundEvent(meta?.startedAt||0,RECIPES.length);   // 오늘의 이벤트 (판마다 다름)
+const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:Math.round(S().orderTimeMs*(curEvent()?.id==='relaxed'?1.3:1)),rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length),seed:FIXED_ORDERS?undefined:meta?.startedAt||0,minOrders:FIXED_ORDERS?1:(teamSize()>=3?2:1)+(curEvent()?.id==='group'?1:0)});
 const FIXED_ORDERS=new URLSearchParams(location.search).get('fixedOrders')==='1';   // 테스트용: 예전처럼 차례대로 1개씩
 // 내 모둠(대결은 내 편) 인원: 3명 이상이면 처음부터 주문 2개
 function teamSize(){if(currentMode==='duel')return 2;if(mode==='demo')return 4;return Number(meta?.sizes?.[team])||Object.values(members||{}).filter(m=>Number(m.team)===team).length||1}
@@ -228,11 +229,12 @@ function orderTick(t){
  else{tickBusy=true;cloud.groupOp(side,old=>ordersTick(old,srvNow(),orderCfg())).catch(e=>console.warn('주문 갱신',e)).finally(()=>{tickBusy=false})}
 }
 function rushSound(){sfx.play('rush')}
+function syncEventPill(){const tx=roundStarted&&!inIntro()?eventText():'';const el=$('roundLabel');if(el.textContent!==tx)el.textContent=tx;el.classList.toggle('hidden',!tx)}
 function setRush(on){if(rushNow===on)return;rushNow=on;$('stageWrap').classList.toggle('rush',on);$('rushLabel').classList.toggle('hidden',!on);if(on){rushSound();toast('🔥 러시타임! 주문이 몰려와요. 발이 빨라졌어요!')}}
 // 왼쪽 위 주문 카드: 주문 목록이 바뀔 때만 다시 만들고, 게이지와 '담김' 표시는 매 프레임 갱신
 function drawOrderCards(){
  const list=roundStarted?liveOrders():[],key=list.map(o=>o.id).join(','),now=srvNow(),holder=$('orderCards');
- if(key!==cardKey){cardKey=key;holder.replaceChildren(...list.map(o=>{const r=RECIPES[o.recipeId],c=document.createElement('article');c.className='ocard';c.dataset.id=o.id;
+ if(key!==cardKey){cardKey=key;holder.replaceChildren(...list.map(o=>{const r=RECIPES[o.recipeId],c=document.createElement('article');c.className='ocard'+(curEvent()?.special===o.recipeId?' special':'');c.dataset.id=o.id;
    c.innerHTML='<div class="oc-tape"></div><div class="oc-dish"></div><h3></h3><div class="oc-needs"></div><div class="oc-bar"><b></b></div><button class="oc-lock" type="button">문제 풀고 주문 받기 <kbd>Q</kbd></button>';c.querySelector('.oc-lock').onclick=()=>{document.activeElement?.blur?.();askOrder(o.id)};
    putIcon(c.querySelector('.oc-dish'),r.emoji);c.querySelector('h3').textContent=r.title;
    c.querySelector('.oc-needs').replaceChildren(...r.items.map(k=>{const n=document.createElement('span');n.className='oc-need';n.dataset.kind=k;n.title=FOOD[k].name;n.innerHTML='<em></em><i></i>';putIcon(n.querySelector('em'),FOOD[k].emoji);putIcon(n.querySelector('i'),PREP_ICON[FOOD[k].prep]);return n}));return c}))}
@@ -250,10 +252,10 @@ function resetLocal(kind="coop"){
  teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates(),solvers:{}};cookSeen={};popups=[];fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=demoSec;nowTime=demoSec;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;myServed=0;cardKey='';setRush(false);
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
- setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결':'혼자 체험');setText('roundLabel','🍰 디저트 주방');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');
+ setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결':'혼자 체험');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');setTimeout(()=>{if(!inIntro())announceEvent()},2800);
 }
 function startDemo(kind='coop',withIntro=true){demoIntro=withIntro;unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',item:null,name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
-function setModeUI(){let nm={coop:'협동 주방',duel:'2대2 대결',class:'학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);setText('roundLabel','🍰 '+(['디저트 주방','회전 주방','축제 주방'][Math.floor(elapsed/110)%3]));}
+function setModeUI(){let nm={coop:'협동 주방',duel:'2대2 대결',class:'학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);}
 function updateUI(){
  if(!roundStarted)return;
  let side=getSide(),grp=getGroup(side),rec=order(side);
@@ -398,10 +400,10 @@ async function useServe(st,finish=null){
  pending=true;
  try{
   let out;const side=getSide();
-  if(mode!=='demo')out=await cloud.servePlate(side,c,RECIPES,srvNow,finish);
-  else{out=serveOrder(getGroup(side),c,RECIPES,srvNow(),finish);if(out)teamData.groups[side]=out.next}
+  if(mode!=='demo')out=await cloud.servePlate(side,c,RECIPES,srvNow,finish,curEvent());
+  else{out=serveOrder(getGroup(side),c,RECIPES,srvNow(),finish,curEvent());if(out)teamData.groups[side]=out.next}
   if(out){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);await platesOp(plateDirtied);myServed++;
-   const title=RECIPES[out.order.recipeId].title,extra=[out.finish?`완성 문제 +${out.finish}`:'',out.size?`재료 많은 요리 +${out.size}`:'',out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
+   const title=RECIPES[out.order.recipeId].title,extra=[out.special?`추천 요리 +${out.special}`:'',out.finish?`완성 문제 +${out.finish}`:'',out.size?`재료 많은 요리 +${out.size}`:'',out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
    if(mode!=='demo'&&cloud){const ids=Object.entries(members).filter(([,m])=>Number(m.team)===team).map(([id])=>id);cloud.groupOp(side,g=>participationBonus(g,ids,teamData?.solvers)).then(g=>{if(g&&g.partBonus){cloud.publishScore(side,g);toast(`🙌 팀원 모두가 문제를 풀었어요! 참여 보너스 +${PART_BONUS}`)}}).catch(()=>{})}
    celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+out.gained,x:st.x+.5,y:st.y+.5,t:performance.now()});p.cheer=performance.now();bellSound();if(out.combo>0){popups.push({text:`🔥 콤보 ×${out.combo+1}`,x:st.x+.5,y:st.y-.6,t:performance.now()+250,hot:true});sound('combo')}toast(`🎉 ${title} 서빙 완료! +${out.gained}점`+(extra?` (${extra})`:''));}
   else{toast('주문이 바뀌었어요. 주문 카드를 다시 확인해요!');sound('error')}
@@ -603,7 +605,10 @@ function introTick(){
  introLast=pos;
 }
 function introClear(){if(!introUI)return;introUI=false;introSkipped=false;hide('introLayer');$('stageWrap').classList.remove('intro-on','intro-watch');sfx.setMusic(null)}
-function introDone(){introClear();toast('🎉 영업 시작! 주문서의 문제를 풀고 요리를 시작해요.');updateUI()}
+function introDone(){introClear();toast('🎉 영업 시작! 주문서의 문제를 풀고 요리를 시작해요.');setTimeout(announceEvent,2700);updateUI()}
+// 오늘의 이벤트 알림 + 위쪽 표시줄
+function eventText(){const e=curEvent();if(!e)return '';return '⭐ '+e.title+(e.special!=null?' · '+RECIPES[e.special].title+' +50':'')}
+function announceEvent(){const e=curEvent();if(!e||!roundStarted||ended)return;toast('오늘의 이벤트! '+eventText().slice(2)+' — '+e.desc);sound('success')}
 // 건너뛰기: 혼자 체험은 바로 MISSION START로, 온라인 학생은 내 화면만 건너뛰고 친구들과 함께 시작할 때까지 카운트다운
 function skipIntro(){
  if(!inIntro())return;sfx.setMusic(null);
@@ -688,7 +693,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<170
  }
  for(let pt of particles){pt.x+=pt.vx*dt*60;pt.y+=pt.vy*dt*60;pt.vy+=.09*dt*60;pt.life-=dt*.9}particles=particles.filter(p=>p.life>0);
  if(cloud?.role==='teacher' && cloud.meta?.phase==='playing' && Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))updateTeacherMonitor();
- if(t-musicCheck>400){musicCheck=t;syncMusic()}
+ if(t-musicCheck>400){musicCheck=t;syncMusic();syncEventPill()}
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
 function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}

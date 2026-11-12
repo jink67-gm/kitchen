@@ -1,7 +1,7 @@
 // 실행: node --test tests/orders.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pickRecipe, acceptOrder, orderForKind, questionsFor, acceptBonus, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
+import { roundEvent, ROUND_EVENTS, SPECIAL_BONUS, pickRecipe, acceptOrder, orderForKind, questionsFor, acceptBonus, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
 import { tablePut, tableAdd, tableAddCheck, plateMatch, missingOf, newPlate, contentsOf } from '../plates.js';
 import { newItem, prepare } from '../items.js';
 import { planTeams, CloudRoom } from '../cloud.js';
@@ -213,4 +213,17 @@ test('완성 문제 보너스: 서빙 점수에 더해짐', () => {
   const r0 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000);
   const r1 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 10);
   assert.equal(r1.gained - r0.gained, 10); assert.equal(r1.finish, 10); assert.equal(r0.finish, 0);
+});
+
+test('오늘의 이벤트: 판마다 정해지고, 같은 판이면 같음. 추천 요리·팁 두 배 점수', () => {
+  assert.deepEqual(roundEvent(123, 13), roundEvent(123, 13));
+  const ids = new Set(); for (let s = 0; s < 60; s++) ids.add(roundEvent(1700000000000 + s * 7919, 13).id);
+  assert.equal(ids.size, ROUND_EVENTS.length, '네 가지 이벤트가 모두 나옴');
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const base = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000);
+  const sp = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'special', special: 0 });
+  assert.equal(sp.gained - base.gained, SPECIAL_BONUS);
+  assert.equal(serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'special', special: 2 }).gained, base.gained, '다른 요리는 보너스 없음');
+  const tip = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'tips' });
+  assert.equal(tip.tip, base.tip * 2);
 });

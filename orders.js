@@ -58,6 +58,20 @@ export const patienceColor = f => (f > 0.5 ? 'green' : f > 0.25 ? 'yellow' : 're
 
 // 주문 대기열 갱신: 주문이 없으면 1개 추가, 러시 시작 시 +1, 러시 중 10초마다 +1 (최대 3개)
 // 바뀐 것이 없으면 null. cfg: { startedAt, durationMs, orderTimeMs, recipeCount }
+// ── 오늘의 이벤트: 판마다(seed) 하나가 정해져 같은 협동 모드라도 판마다 다르게 ──
+export const SPECIAL_BONUS = 50;
+export const ROUND_EVENTS = [
+  { id: 'special', title: '오늘의 추천 요리', desc: '추천 요리를 서빙하면 +50점' },
+  { id: 'group', title: '단체 손님', desc: '주문이 처음부터 하나 더 (3개)' },
+  { id: 'relaxed', title: '느긋한 손님', desc: '주문 대기 시간 1.3배' },
+  { id: 'tips', title: '팁 두 배 데이', desc: '빨리 서빙하면 팁이 두 배' },
+];
+// seed(판의 시작 시각) → { 이벤트, 추천 요리 번호 }. 누가 계산해도 같음
+export function roundEvent(seed, recipeCount) {
+  if (seed == null) return null;
+  const h = pickRecipe(seed, 999, 1000), ev = ROUND_EVENTS[h % ROUND_EVENTS.length];
+  return { ...ev, special: ev.id === 'special' ? pickRecipe(seed, 777, recipeCount) : null };
+}
 // 다음 주문의 요리 고르기: cfg.seed(판마다 다른 수, 예: 시작 시각)가 있으면 무작위, 없으면 차례대로
 // 무작위여도 같은 판·같은 순번이면 누가 계산해도 같은 요리 (온라인에서 학생마다 다르게 나오지 않음)
 // 지금 떠 있는 요리와 바로 전에 나온 요리는 피함
@@ -92,16 +106,17 @@ export function matchOrder(g, contents, recipes, now) {
   return activeOrders(g, now).find(o => sameSet(contents, recipes[o.recipeId].items)) || null;
 }
 // 서빙: 맞는 주문이 있어야만 점수. 100 + 팁(남은 시간 비례, 5점 단위) + 콤보(14초 안 연속 성공마다 +20, 상한 있음)
-export function serveOrder(g, contents, recipes, now, finish = 0) {
+export function serveOrder(g, contents, recipes, now, finish = 0, ev = null) {
   const o = matchOrder(g, contents, recipes, now);
   if (!o) return null;
-  const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5;
+  const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5 * (ev && ev.id === 'tips' ? 2 : 1);
+  const special = ev && ev.id === 'special' && o.recipeId === ev.special ? SPECIAL_BONUS : 0;
   const combo = g.lastServeAt && now - g.lastServeAt <= COMBO_WINDOW_MS ? (g.combo || 0) + 1 : 0;
   const bonus = Math.min(combo, COMBO_CAP) * COMBO_STEP;
   const size = Math.max(0, ((recipes[o.recipeId] || {}).items || []).length - 2) * SIZE_BONUS;
-  const gained = SERVE_SCORE + size + tip + bonus + (finish || 0);
+  const gained = SERVE_SCORE + size + tip + bonus + (finish || 0) + special;
   const orders = { ...g.orders }; delete orders[o.id];
-  return { next: { ...g, orders, lastRecipe: o.recipeId, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, finish: finish || 0, combo, order: o };
+  return { next: { ...g, orders, lastRecipe: o.recipeId, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, special, finish: finish || 0, combo, order: o };
 }
 // 참여 보너스: 팀원 모두가 수학 문제를 한 번 이상 맞히면 판마다 한 번 +50 (운반만 하는 학생 없이 모두 풀도록 유도)
 export const PART_BONUS = 50;
