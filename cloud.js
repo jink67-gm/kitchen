@@ -187,9 +187,9 @@ export class CloudRoom{
     const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>fn(old||{})||undefined);
     return res.committed?(res.snapshot.val()||{}):null;
   }
-  async servePlate(side,contents,allRecipes,nowFn){
+  async servePlate(side,contents,allRecipes,nowFn,finish=0){
     let out=null;
-    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{out=serveOrder(old||{},contents,allRecipes,nowFn());return out?out.next:undefined});
+    const res=await this.ops.runTransaction(this.path('teams',String(this.team),'data','groups',side),old=>{out=serveOrder(old||{},contents,allRecipes,nowFn(),finish);return out?out.next:undefined});
     if(!res.committed||!out)return null;
     this.ops.runTransaction(this.path('results',this.uid,'served'),v=>(v||0)+1).catch(()=>{});   // 개인 기여 기록 (팀 점수와 별도)
     this.publishScore(side,out.next);

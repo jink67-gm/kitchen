@@ -1,7 +1,7 @@
 import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
 import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js';
-import { ordersTick, activeOrders, serveOrder,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
+import { ordersTick, activeOrders, serveOrder,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
 import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js';
 import * as sfx from './sfx.js';
 import { makeProblem, isCorrect, weakUnit, UNIT_NAMES } from './math.js';
@@ -279,7 +279,7 @@ function nextStep(){
  if(!roundStarted||ended)return null;
  const T=type=>STATIONS.filter(s=>s.type===type),it=p.item,os=liveOrders();
  if(it&&!isPlate(it)&&it.state==='burnt')return{text:'탄 음식은 쓰레기통에 버려요.',targets:T('trash')};
- if(it&&isPlate(it)){const c=contentsOf(it);if(plateMatch(c,liveRecipes()))return{text:'요리 완성! 서빙 벨로 가져가서 E를 눌러요.',targets:T('serve')};return{text:c.length?'재료가 아직 모자라요. 접시를 플레이팅대에 다시 놓아요.':'빈 접시를 플레이팅대에 놓아요.',targets:T('plate').filter(s=>!boardOf(s))}}
+ if(it&&isPlate(it)){const c=contentsOf(it);if(plateMatch(c,liveRecipes()))return{text:'요리 완성! 서빙 벨로 가져가서 E를 누르고 마지막 문제를 풀어요.',targets:T('serve')};return{text:c.length?'재료가 아직 모자라요. 접시를 플레이팅대에 다시 놓아요.':'빈 접시를 플레이팅대에 놓아요.',targets:T('plate').filter(s=>!boardOf(s))}}
  if(it&&it.state==='raw'){const pr=FOOD[it.kind].prep,free=T(pr).filter(s=>!boardOf(s));return{text:`${eul(FOOD[it.kind].name)} ${PREP_PLACE[pr][0]}에 올리고 E를 눌러요.`,targets:free.length?free:T(pr)}}
  if(it){const tables=T('plate').filter(s=>boardOf(s)?.state==='plate');if(tables.length)return{text:`준비한 ${eul(FOOD[it.kind].name)} 플레이팅대의 접시에 올려요.`,targets:tables};return{text:'접시가 아직 없어요. 재료를 보관대에 두고 접시대에서 접시를 꺼내요.',targets:T('storage')}}
  if(!os.length)return{text:'새 주문을 기다려요.',targets:[]};
@@ -389,18 +389,19 @@ async function usePlateTable(st){
 }
 // 서빙 벨: 완성 접시를 직접 들고 와야만 점수. 서빙한 접시는 더러운 접시가 되어 싱크대로 감
 function bellSound(){sfx.play('serve')}
-async function useServe(st){
+async function useServe(st,finish=null){
  const it=p.item,recs=liveRecipes();
  if(!isPlate(it)){toast('완성한 접시를 직접 들고 와야 서빙할 수 있어요!');sound('error');return}
  const c=contentsOf(it);
  if(!plateMatch(c,recs)){const miss=missingOf(c,recs);toast(!c.length?'빈 접시는 서빙할 수 없어요!':miss.length?'아직 완성되지 않은 접시예요. 남은 재료: '+miss.map(k=>FOOD[k].name).join(', '):'지금 주문에 없는 요리예요. 주문 카드를 확인해요!');sound('error');return}
+ if(finish==null){askMath(null,'serve',null,null,{st,rec:plateMatch(c,recs)});return}   // 완성 문제를 맞혀야 서빙
  pending=true;
  try{
   let out;const side=getSide();
-  if(mode!=='demo')out=await cloud.servePlate(side,c,RECIPES,srvNow);
-  else{out=serveOrder(getGroup(side),c,RECIPES,srvNow());if(out)teamData.groups[side]=out.next}
+  if(mode!=='demo')out=await cloud.servePlate(side,c,RECIPES,srvNow,finish);
+  else{out=serveOrder(getGroup(side),c,RECIPES,srvNow(),finish);if(out)teamData.groups[side]=out.next}
   if(out){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);await platesOp(plateDirtied);myServed++;
-   const title=RECIPES[out.order.recipeId].title,extra=[out.size?`재료 많은 요리 +${out.size}`:'',out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
+   const title=RECIPES[out.order.recipeId].title,extra=[out.finish?`완성 문제 +${out.finish}`:'',out.size?`재료 많은 요리 +${out.size}`:'',out.tip?`팁 +${out.tip}`:'',out.bonus?`콤보 +${out.bonus}`:''].filter(Boolean).join(', ');
    if(mode!=='demo'&&cloud){const ids=Object.entries(members).filter(([,m])=>Number(m.team)===team).map(([id])=>id);cloud.groupOp(side,g=>participationBonus(g,ids,teamData?.solvers)).then(g=>{if(g&&g.partBonus){cloud.publishScore(side,g);toast(`🙌 팀원 모두가 문제를 풀었어요! 참여 보너스 +${PART_BONUS}`)}}).catch(()=>{})}
    celebrate(st.x+.5,st.y+.5,25);popups.push({text:'+'+out.gained,x:st.x+.5,y:st.y+.5,t:performance.now()});p.cheer=performance.now();bellSound();if(out.combo>0){popups.push({text:`🔥 콤보 ×${out.combo+1}`,x:st.x+.5,y:st.y-.6,t:performance.now()+250,hot:true});sound('combo')}toast(`🎉 ${title} 서빙 완료! +${out.gained}점`+(extra?` (${extra})`:''));}
   else{toast('주문이 바뀌었어요. 주문 카드를 다시 확인해요!');sound('error')}
@@ -488,11 +489,11 @@ async function acceptNow(q){
  try{if(mode==='demo'||!cloud){n=fn(getGroup(side));if(n)teamData.groups[side]=n}else n=await cloud.groupOp(side,fn)}catch(e){console.warn('주문 받기',e)}
  return (n||getGroup(side)).orders?.[q.orderId]||null;   // 갱신된 주문 (이미 서빙되어 사라졌으면 null)
 }
-function askMath(food,kind,board=null,orderId=null){
+function askMath(food,kind,board=null,orderId=null,serve=null){
  const pz=mkProblem(unit==='all'?rnd(1,6):unit),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
- activeQuestion={food,kind,pz,wrong:false,board,orderId,openedAt:srvNow()};
+ activeQuestion={food,kind,pz,wrong:false,board,orderId,serve,openedAt:srvNow()};
  const orec=orderId?RECIPES[liveOrders().find(v=>v.id===orderId)?.recipeId]:null;
- if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',pz.unit+'단원 · '+UNIT_NAMES[pz.unit]);setMath('questionText',pz.question);setText('questionFeedback',orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
+if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',pz.unit+'단원 · '+UNIT_NAMES[pz.unit]);setMath('questionText',pz.question);setText('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
  $('questionGrid').replaceChildren();if(pz.grid){const tb=document.createElement('table');tb.className='block-grid';for(const row of pz.grid){const tr=tb.insertRow();for(const v of row)tr.insertCell().textContent=v}const cap=document.createElement('div');cap.className='block-grid-cap';cap.textContent='↑ 뒤 · 앞 ↓';$('questionGrid').append(tb,cap)}
  let ans=$('answerGrid');ans.replaceChildren(...pz.options.map((opt,i)=>{let b=document.createElement('button');b.className='answer-btn';b.innerHTML='<span class="opt-no">'+(i+1)+'</span>'+fracHTML(opt);b.addEventListener('click',()=>answerMath(opt,b));return b}));show('questionOverlay');sound('pickup');
 }
@@ -518,6 +519,7 @@ async function answerMath(choice,button){if(!activeQuestion||activeQuestion.solv
   if(q.orderId){const oo=await acceptNow(q);
    if(oo&&!oo.accepted){activeQuestion=null;toast(`정답! 한 문제 더 (${oo.solved}/${questionsFor(RECIPES[oo.recipeId])})`);askMath(q.food,q.kind,q.board,q.orderId);return}   // 어려운 요리: 다음 문제로 이어짐
    const bonus=oo?acceptBonus(questionsFor(RECIPES[oo.recipeId])):0;if(bonus){popups.push({text:'+'+bonus,x:p.x,y:p.y-.6,t:performance.now()});q.bonusMsg=` 문제 보너스 +${bonus}점!`}}
+  if(q.kind==='serve'){activeQuestion=null;hide('questionOverlay');await useServe(q.serve.st,q.wrong?0:FINISH_BONUS);updateUI();return}
   if(q.kind==='order'){activeQuestion=null;hide('questionOverlay');sound('success');toast('📝 주문을 받았어요!'+(q.bonusMsg||'')+' 이 요리의 재료는 문제 없이 준비해요.');updateUI();return}
   if(q.board){activeQuestion=null;hide('questionOverlay');if(!q.orderId)mathPass=S().freePass;const msg=await startWork(q.kind,q.board);toast(msg||'다시 사용해 주세요.');updateUI();return}
   setHeld(prepare(p.item)||{...newItem(q.food,myUid),state:'prepared'});activeQuestion=null;hide('questionOverlay');await updatePlayer(true);celebrate(p.x,p.y,10);toast(FOOD[q.food].emoji+' 손질 완료! 🍽️ 접시로 가져가요.');updateUI();},700);

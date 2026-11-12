@@ -207,3 +207,10 @@ test('처음부터 주문 여러 개 (minOrders), 서빙하면 바로 채워짐,
   assert.ok(!live.some(o => o.recipeId === r.order.recipeId), '방금 서빙한 요리는 바로 다시 안 나옴');
   g = run(g, 154000, 179900, c); assert.ok(activeOrders(g, 179900).length <= MAX_ORDERS);
 });
+
+test('완성 문제 보너스: 서빙 점수에 더해짐', () => {
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const r0 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000);
+  const r1 = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 10);
+  assert.equal(r1.gained - r0.gained, 10); assert.equal(r1.finish, 10); assert.equal(r0.finish, 0);
+});

@@ -14,6 +14,7 @@ export const RUSH_INTERVAL_MS = 10000;     // 러시 중 새 주문 간격
 export const SIZE_BONUS = 30;              // 재료가 2개보다 많은 요리: 재료 1개마다 추가 점수
 export const SIZE_TIME = 0.35;             // 재료가 2개보다 많은 요리: 재료 1개마다 대기 시간 35% 추가
 export const SERVE_SCORE = 100;            // 서빙 기본 점수
+export const FINISH_BONUS = 10;            // 서빙 직전 '완성 문제'를 한 번에 맞히면
 export const COMBO_WINDOW_MS = 14000;      // 이 시간 안에 연속 서빙하면 콤보
 export const COMBO_STEP = 20;              // 콤보 1단계마다 추가 점수
 export const COMBO_CAP = 5;                // 콤보 상한 (+100까지)
@@ -91,16 +92,16 @@ export function matchOrder(g, contents, recipes, now) {
   return activeOrders(g, now).find(o => sameSet(contents, recipes[o.recipeId].items)) || null;
 }
 // 서빙: 맞는 주문이 있어야만 점수. 100 + 팁(남은 시간 비례, 5점 단위) + 콤보(14초 안 연속 성공마다 +20, 상한 있음)
-export function serveOrder(g, contents, recipes, now) {
+export function serveOrder(g, contents, recipes, now, finish = 0) {
   const o = matchOrder(g, contents, recipes, now);
   if (!o) return null;
   const tip = Math.round(TIP_MAX * patience(o, now) / 5) * 5;
   const combo = g.lastServeAt && now - g.lastServeAt <= COMBO_WINDOW_MS ? (g.combo || 0) + 1 : 0;
   const bonus = Math.min(combo, COMBO_CAP) * COMBO_STEP;
   const size = Math.max(0, ((recipes[o.recipeId] || {}).items || []).length - 2) * SIZE_BONUS;
-  const gained = SERVE_SCORE + size + tip + bonus;
+  const gained = SERVE_SCORE + size + tip + bonus + (finish || 0);
   const orders = { ...g.orders }; delete orders[o.id];
-  return { next: { ...g, orders, lastRecipe: o.recipeId, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, combo, order: o };
+  return { next: { ...g, orders, lastRecipe: o.recipeId, score: (g.score || 0) + gained, served: (g.served || 0) + 1, combo, lastServeAt: now }, gained, tip, bonus, size, finish: finish || 0, combo, order: o };
 }
 // 참여 보너스: 팀원 모두가 수학 문제를 한 번 이상 맞히면 판마다 한 번 +50 (운반만 하는 학생 없이 모두 풀도록 유도)
 export const PART_BONUS = 50;
