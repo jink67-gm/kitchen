@@ -204,6 +204,8 @@ const blankGroup=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0,orders:{}})
 const safeName=s=>String(s||'꼬마셰프').trim().slice(0,12)||'꼬마셰프';
 function toast(t){if(inIntro())return;setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
 function sound(type){sfx.play(type)}
+// 2대2 대결에서 다른 학생의 편: 같은 모둠 안에서 자리 번호 순으로 앞의 두 명이 A편
+function sideOf(uid,seatNo){if(currentMode!=='duel')return null;if(mode==='demo')return seatNo<2?'A':'B';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return list.findIndex(([id])=>id===uid)<2?'A':'B'}
 function getSide(){if(currentMode!=='duel')return 'ALL';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return (list.findIndex(([uid])=>uid===myUid)<2)?'A':'B'}
 function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 // ── 6단계: 주문 대기열. 규칙은 orders.js, 여기서는 설정값과 저장 위치만 정함 ──
@@ -252,10 +254,10 @@ function resetLocal(kind="coop"){
  teamData={groups:{ALL:blankGroup(),A:blankGroup(),B:blankGroup()},storage:{},stations:{},plates:defaultPlates(),solvers:{}};cookSeen={};popups=[];fx=[];closePicker();
  players={demo:{...p}};allTeams={0:{data:teamData}};totalTime=demoSec;nowTime=demoSec;roundStarted=true;ended=false;pending=false;elapsed=0;rivalServed=0;activeQuestion=null;myServed=0;cardKey='';setRush(false);
  hide('menuOverlay');hide('setupOverlay');hide('endOverlay');hide('lobbyOverlay');hide('questionOverlay');
- setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결':'혼자 체험');updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');setTimeout(()=>{if(!inIntro())announceEvent()},2800);
+ setRoomStatus();setText('modeLabel',kind==='duel'?'봇과 2대2 대결 · 나는 🌸 A편':'혼자 체험');$('modeLabel').dataset.side=kind==='duel'?'A':'';updateUI();toast('요리사 출동! 재료 상자에서 시작해 보세요 🍓');setTimeout(()=>{if(!inIntro())announceEvent()},2800);
 }
 function startDemo(kind='coop',withIntro=true){demoIntro=withIntro;unit=$('unitSelect').value;p={x:7,y:7,dir:'down',held:'',item:null,name:getName(),seat:0,updatedAt:Date.now()};resetLocal(kind)}
-function setModeUI(){let nm={coop:'협동 주방',duel:'2대2 대결',class:'학급 대항전'};setText('modeLabel',nm[currentMode]||nm.coop);}
+function setModeUI(){let nm={coop:'협동 요리',duel:'2대2 대결',class:'협동 요리'};setText('modeLabel',(nm[currentMode]||nm.coop)+(currentMode==='duel'?(getSide()==='A'?' · 나는 🌸 A편':' · 나는 🌊 B편'):''));$('modeLabel').dataset.side=currentMode==='duel'?getSide():'';}
 function updateUI(){
  if(!roundStarted)return;
  let side=getSide(),grp=getGroup(side),rec=order(side);
@@ -627,8 +629,8 @@ function drawGame(t){
  if(use3D&&view3d){
   try{
    if(inIntro()&&!introSkipped){view3d.render({chefs:[],focus:null,focusLabel:'',boards:[],storage:[],fx:[],popups:[],orders:[],rush:false,tags:[],guide:[],guests:[],order:null,particles:[],dim:false,intro:{ms:introPos(),team:introTeam()}},t);return}
-   const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch}));
-   if(roundStarted)chefs.push({id:'me',...p,mine:true});
+   const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b,side:sideOf('bot'+i,b.seat)})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch,side:sideOf(id)}));
+   if(roundStarted)chefs.push({id:'me',...p,mine:true,side:currentMode==='duel'?getSide():null});
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
    view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?ns.targets.map(s=>({x:s.x,y:s.y})):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
    return;
@@ -723,12 +725,12 @@ function updateTeacherMonitor(){
   tb.append(t)}
 }
 function refreshLobby(){
- if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);setText('lobbyCount',`${Object.keys(all).length}/${m.count}명 입장`);setText('lobbyMode',({coop:'🤝 협동',duel:'⚔️ 2대2 대결',class:'🏆 학급 대항전'})[m.mode]);
- let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}팀 · ${num}명`;div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);for(let [,u] of mates){let li=document.createElement('div');li.className='lobby-member';li.textContent='👨‍🍳 '+u.name;div.appendChild(li)}if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
- let count=Object.keys(all).length;setText('lobbyNotice',count===m.count?'🎉 모든 학생이 입장했습니다!':'학생들이 입장할 때마다 팀에 자동 배정됩니다.');
+ if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);setText('lobbyCount',`${Object.keys(all).length}/${m.count}명 입장`);setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`);
+ let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}모둠 · ${num}명`+(m.mode==='duel'?' (🌸 A편 2 · 🌊 B편 2)':'');div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);mates.forEach(([,u],k)=>{let li=document.createElement('div');li.className='lobby-member';li.textContent=(m.mode==='duel'?(k<2?'🌸 A편 ':'🌊 B편 '):'👨‍🍳 ')+u.name;div.appendChild(li)});if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
+ let count=Object.keys(all).length;setText('lobbyNotice',count===m.count?'🎉 모든 학생이 입장했습니다!':'학생들이 입장하는 순서대로 모둠에 번갈아 배정됩니다. 다 모이지 않아도 시작할 수 있어요.');
  $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
 }
-async function setupCloud(isTeacher){teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'학급 인원과 모드를 선택하면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
+async function setupCloud(isTeacher){teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모드와 모둠 구성을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
 function wireCloud(obj){
  obj.on('meta',v=>{
   if(!v)return;meta=v;currentMode=v.mode;
@@ -747,10 +749,14 @@ function boot(){
  $('demoBattleBtn').onclick=()=>startDemo('duel');
  $('teacherBtn').onclick=()=>setupCloud(true);
  $('joinBtn').onclick=()=>setupCloud(false);
+ // 모둠 수 × 모둠 인원 안내 (2대2 대결은 모둠마다 4명 고정)
+ const groupInfo=()=>{const duel=$('createMode').value==='duel',gN=Number($('groupCount').value);if(duel)$('groupSize').value='4';$('groupSize').disabled=duel;const n=gN*Number($('groupSize').value);setText('groupTotal',(duel?`모둠 ${gN}개 × 4명(2명씩 두 편)`:`모둠 ${gN}개 × ${$('groupSize').value}명`)+` = 최대 ${n}명`+(n>25?' · 25명까지만 만들 수 있어요':''));$('groupTotal').classList.toggle('form-error',n>25)};
+ ['createMode','groupCount','groupSize'].forEach(id=>$(id).addEventListener('change',groupInfo));groupInfo();
  $('createRoomBtn').onclick=async()=>{
   let btn=$('createRoomBtn');btn.disabled=true;setText('setupError','');try{
-   let n=Number($('classCount').value),m=$('createMode').value;if(m==='duel'&&n!==4)m='class';
-   cloud=new CloudRoom();wireCloud(cloud);await cloud.create({name:getName(),count:n,mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim()});$('teacherPinInput').value='';
+   const m=$('createMode').value,gN=Number($('groupCount').value),gS=m==='duel'?4:Number($('groupSize').value),n=gN*gS;
+   if(n>25)throw new Error('한 방에는 25명까지 들어올 수 있어요. 모둠 수나 인원을 줄여 주세요.');
+   cloud=new CloudRoom();wireCloud(cloud);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim()});$('teacherPinInput').value='';
    mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
   }catch(e){setText('setupError',e.message)}finally{btn.disabled=false}
  };

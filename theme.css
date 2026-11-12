@@ -272,3 +272,7 @@ html,body{height:100%;overflow:hidden}
 /* 오늘의 추천 요리 주문 카드 */
 .ocard.special{background:#fff4cf}
 .ocard.special::after{content:"⭐ 추천 +50";position:absolute;right:-6px;top:-10px;font-family:var(--display);font-size:10.5px;font-weight:700;color:#2e2520;background:var(--mustard);border:2px solid var(--ink);border-radius:7px;padding:1px 6px}
+.group-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.group-row select:disabled{opacity:.6}
+#modeLabel[data-side="A"]{background:#d6456f;color:#fff}
+#modeLabel[data-side="B"]{background:#2f6f9f;color:#fff}

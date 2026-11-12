@@ -760,10 +760,11 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
     v.ring.visible = !!c.mine;
     const name = String(c.name || '셰프').slice(0, 8);
-    if (name !== v.name || !!c.mine !== v.tagMine) {
+    if (name !== v.name || !!c.mine !== v.tagMine || (c.side || '') !== v.tagSide) {
       if (v.tag) { v.root.remove(v.tag); v.tag.material.map.dispose(); v.tag.material.dispose(); }
-      v.name = name; v.tagMine = !!c.mine;
-      v.tag = textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
+      v.name = name; v.tagMine = !!c.mine; v.tagSide = c.side || '';
+      // 2대2 대결: 편마다 이름표 색 (A편 분홍, B편 파랑)
+      v.tag = c.side ? textSprite((c.side === 'A' ? 'A편 ' : 'B편 ') + (c.mine ? '나' : name), c.side === 'A' ? '#d6456f' : '#2f6f9f', '#ffffff', 0.36) : textSprite(name, c.mine ? '#4c785d' : '#4a3f78', '#ffffff', 0.34);
       v.tag.position.y = v.mixer ? 2.0 : 1.72; v.root.add(v.tag);
     }
   }

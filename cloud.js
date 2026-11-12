@@ -29,14 +29,14 @@ export class CloudRoom{
     }
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
-  async create({name,count,mode,unit,duration,orderTime,pin,settings}){
+  async create({name,count,mode,unit,duration,orderTime,pin,settings,sizes:given}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
       this.code=digits();let snap=await this.ops.get(this.path('meta'));
       if(snap.exists())continue;
-      let sizes=planTeams(count);
+      let sizes=Array.isArray(given)&&given.length?given.map(Number):planTeams(count);
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
-      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel' && Number(count)!==4?'class':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
+      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:Number(count),sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
       catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
       this.connected=true;this.subscribeBase();return this.code;
     }
@@ -57,7 +57,9 @@ export class CloudRoom{
       });
       if(!trans.committed)throw new Error('학급방 정원이 가득 찼습니다.');
       this.seat=trans.snapshot.val()-1;
-      let acc=0;this.team=meta.sizes.findIndex(n=>{acc+=n;return this.seat<acc});
+      // 모둠 인원이 같으면 들어오는 순서대로 번갈아 배정 (몇 명만 와도 모둠마다 고르게), 아니면 앞 모둠부터 채움
+      if(meta.sizes.every(s=>s===meta.sizes[0]))this.team=this.seat%meta.sizes.length;
+      else{let acc=0;this.team=meta.sizes.findIndex(n=>{acc+=n;return this.seat<acc});}
       if(this.team<0)throw new Error('팀을 배정하지 못했습니다.');
       await this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now()});
     }
@@ -85,7 +87,7 @@ export class CloudRoom{
   // introMs: 인트로 길이. 시작 시각을 그만큼 뒤로 잡아 모든 학생이 인트로를 보고 같은 순간에 시작
   async begin(introMs=0){
     if(this.role!=='teacher')throw new Error('교사만 시작할 수 있습니다.');
-    let teams=planTeams(this.meta.count);
+    let teams=this.meta.sizes&&this.meta.sizes.length?this.meta.sizes:planTeams(this.meta.count);
     const blank=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0});
     const writes={};
     for(let i=0;i<teams.length;i++){writes['teams/'+i+'/data']={groups:{ALL:blank(),A:blank(),B:blank()}};writes['scores/'+i]=null}
