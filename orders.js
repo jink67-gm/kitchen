@@ -26,6 +26,22 @@ export function isRush(elapsedMs, durationMs) { return elapsedMs >= rushStartMs(
 export function activeOrders(g, now) {
   return Object.values((g && g.orders) || {}).sort((a, b) => a.n - b.n);
 }
+// 주문 받기: 새 주문은 수학 문제를 맞혀야 '받은 주문'이 됨. 받은 주문의 재료는 문제 없이 손질·조리
+// pausedMs = 문제를 푸는 데 걸린 시간. 그만큼 대기 시간을 뒤로 밀어 줌 (최대 40초)
+export const ACCEPT_PAUSE_MAX_MS = 40000;
+export function acceptOrder(g, id, now, pausedMs = 0) {
+  const o = g && g.orders && g.orders[id];
+  if (!o || o.accepted) return null;
+  const add = Math.max(0, Math.min(ACCEPT_PAUSE_MAX_MS, pausedMs || 0));
+  return { ...g, orders: { ...g.orders, [id]: { ...o, accepted: true, createdAt: o.createdAt + add, expiresAt: o.expiresAt + add } } };
+}
+// 이 재료를 쓸 수 있는지: 'free' 받은 주문에 필요 / 주문 id = 아직 안 받은 주문에 필요 / null = 어떤 주문에도 없음
+export function orderForKind(g, kind, recipes, now) {
+  const list = activeOrders(g, now), needs = o => ((recipes[o.recipeId] || {}).items || []).includes(kind);
+  if (list.some(o => o.accepted && needs(o))) return 'free';
+  const lock = list.find(o => !o.accepted && needs(o));
+  return lock ? lock.id : null;
+}
 // 남은 대기 시간 비율 1 → 0, 그리고 게이지 색
 export function patience(o, now) { return Math.max(0, Math.min(1, (o.expiresAt - now) / (o.expiresAt - o.createdAt))); }
 export const patienceColor = f => (f > 0.5 ? 'green' : f > 0.25 ? 'yellow' : 'red');

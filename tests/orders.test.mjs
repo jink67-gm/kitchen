@@ -1,7 +1,7 @@
 // 실행: node --test tests/orders.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
+import { acceptOrder, orderForKind, ordersTick, activeOrders, serveOrder, matchOrder, patience, patienceColor, isRush, rushStartMs, fairScore, MAX_ORDERS, RUSH_SPEED, ORDER_TIME_OPTIONS } from '../orders.js';
 import { tablePut, tableAdd, tableAddCheck, plateMatch, missingOf, newPlate, contentsOf } from '../plates.js';
 import { newItem, prepare } from '../items.js';
 import { planTeams, CloudRoom } from '../cloud.js';
@@ -151,4 +151,21 @@ test('재료가 3~4개인 요리: 대기 시간이 길고 서빙 점수에 재�
   assert.equal(o2.expiresAt - o2.createdAt, 102000);                     // 재료 4개: 70% 더
   assert.equal(serveOrder(g, ['bread', 'cheese', 'lettuce'], BIG, T0 + 3000), null);   // 재료가 하나 모자라면 서빙 불가
   assert.equal(serveOrder(g, ['bread', 'cheese', 'lettuce', 'tomato'], BIG, T0 + 3000).size, 60);
+});
+
+test('주문 받기: 문제를 맞히면 받은 주문이 되고, 푸는 동안의 시간만큼 대기 시간이 늘어남', () => {
+  let g = ordersTick({}, T0 + 1000, cfg());
+  const o = Object.values(g.orders)[0];
+  assert.equal(orderForKind(g, 'tomato', RECIPES, T0 + 1000), o.id);        // 아직 안 받은 주문의 재료 → 그 주문의 문제
+  assert.equal(orderForKind(g, 'meat', RECIPES, T0 + 1000), null);          // 어떤 주문에도 없는 재료
+  const g2 = acceptOrder(g, o.id, T0 + 9000, 8000);
+  assert.equal(g2.orders[o.id].accepted, true);
+  assert.equal(g2.orders[o.id].expiresAt, o.expiresAt + 8000);
+  assert.equal(g2.orders[o.id].expiresAt - g2.orders[o.id].createdAt, o.expiresAt - o.createdAt);
+  assert.equal(orderForKind(g2, 'tomato', RECIPES, T0 + 9000), 'free');     // 받은 주문의 재료는 문제 없이
+  assert.equal(orderForKind(g2, 'lettuce', RECIPES, T0 + 9000), 'free');
+  assert.equal(acceptOrder(g2, o.id, T0 + 9500, 500), null);                // 두 번 받을 수 없음 (동시에 풀어도 한 번만)
+  assert.equal(acceptOrder(g, 'o99', T0 + 9000, 0), null);
+  assert.equal(acceptOrder(g, o.id, T0 + 99000, 999999).orders[o.id].expiresAt, o.expiresAt + 40000);   // 멈춤은 최대 40초
+  assert.ok(serveOrder(g2, ['lettuce', 'tomato'], RECIPES, T0 + 10000));     // 받은 주문은 그대로 서빙 가능
 });
