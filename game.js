@@ -248,7 +248,7 @@ function putIcon(el,emoji){const src=ICONS[emoji];if(!src){el.textContent=emoji;
 // 주문 재료 판단용: 수프가 들어간 요리는 수프의 재료(토마토·치즈·우유)도 그 요리의 재료로 봄
 const RECIPES_EXP=RECIPES.map(r=>({...r,items:[...r.items,...r.items.flatMap(k=>POT_RECIPES[k]||[])]}));
 const NO_ORDER={emoji:'⏳',title:'주문을 기다리는 중',desc:'곧 새 주문이 들어와요',items:[]};
-const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣',pot:'🍳'};
+const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣',pot:'♨️'};
 const curEvent=()=>FIXED_ORDERS?null:roundEvent(meta?.startedAt||0,RECIPES.length);   // 오늘의 이벤트 (판마다 다름)
 const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:Math.round(S().orderTimeMs*(curEvent()?.id==='relaxed'?1.3:1)),rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length),seed:FIXED_ORDERS?undefined:meta?.startedAt||0,minOrders:FIXED_ORDERS?1:(teamSize()>=3?2:1)+(curEvent()?.id==='group'?1:0)});
 const FIXED_ORDERS=new URLSearchParams(location.search).get('fixedOrders')==='1';   // 테스트용: 예전처럼 차례대로 1개씩
@@ -270,12 +270,19 @@ function rushSound(){sfx.play('rush')}
 function syncEventPill(){const tx=roundStarted&&!inIntro()?eventText():'';const el=$('roundLabel');if(el.textContent!==tx)el.textContent=tx;el.classList.toggle('hidden',!tx)}
 function setRush(on){if(rushNow===on)return;rushNow=on;$('stageWrap').classList.toggle('rush',on);$('rushLabel').classList.toggle('hidden',!on);if(on){rushSound();toast('🔥 러시타임! 주문이 몰려와요. 발이 빨라졌어요!')}}
 // 왼쪽 위 주문 카드: 주문 목록이 바뀔 때만 다시 만들고, 게이지와 '담김' 표시는 매 프레임 갱신
+// 주문 카드의 재료 한 칸: 그림 + 이름 + 할 일(어디서 무엇을). 냄비 요리는 '냄비'
+function needChip(k){const f=FOOD[k],n=document.createElement('span');n.className='oc-need';n.dataset.kind=k;n.title=f.name+' · '+PREP_PLACE[f.prep].join('에서 ');
+ n.innerHTML='<span class="oc-pic"><em></em><i></i></span><b class="oc-name"></b><small class="oc-do"></small>';putIcon(n.querySelector('em'),f.emoji);putIcon(n.querySelector('i'),PREP_ICON[f.prep]);
+ n.querySelector('.oc-name').textContent=f.name;n.querySelector('.oc-do').textContent=f.prep==='pot'?'냄비에서':PREP_PLACE[f.prep][1];return n}
 function drawOrderCards(){
  const list=roundStarted?liveOrders():[],key=list.map(o=>o.id).join(','),now=srvNow(),holder=$('orderCards');
  if(key!==cardKey){cardKey=key;holder.replaceChildren(...list.map(o=>{const r=RECIPES[o.recipeId],c=document.createElement('article');c.className='ocard'+(curEvent()?.special===o.recipeId?' special':'');c.dataset.id=o.id;
-   c.innerHTML='<div class="oc-tape"></div><div class="oc-dish"></div><h3></h3><div class="oc-needs"></div><div class="oc-bar"><b></b></div><button class="oc-lock" type="button">문제 풀고 주문 받기 <kbd>Q</kbd></button>';c.querySelector('.oc-lock').onclick=()=>{document.activeElement?.blur?.();askOrder(o.id)};
+   c.innerHTML='<div class="oc-tape"></div><div class="oc-head"><div class="oc-dish"></div><h3></h3></div><div class="oc-needs"></div><div class="oc-bar"><b></b></div><button class="oc-lock" type="button">문제 풀고 주문 받기 <kbd>Q</kbd></button>';c.querySelector('.oc-lock').onclick=()=>{document.activeElement?.blur?.();askOrder(o.id)};
    putIcon(c.querySelector('.oc-dish'),r.emoji);c.querySelector('h3').textContent=r.title;
-   c.querySelector('.oc-needs').replaceChildren(...r.items.map(k=>{const n=document.createElement('span');n.className='oc-need';n.dataset.kind=k;n.title=FOOD[k].name;n.innerHTML='<em></em><i></i>';putIcon(n.querySelector('em'),FOOD[k].emoji);putIcon(n.querySelector('i'),PREP_ICON[FOOD[k].prep]);return n}));return c}))}
+   c.querySelector('.oc-needs').replaceChildren(...r.items.map(needChip));
+   const pots=r.items.filter(k=>POT_RECIPES[k]);   // 냄비 요리는 무엇을 넣는지 한 줄 더
+   if(pots.length){const st=document.createElement('div');st.className='oc-steps';st.innerHTML=pots.map(k=>`<p><span class="oc-pot"></span><b>냄비</b> ${POT_RECIPES[k].map(x=>`<span class="oc-mini" data-e="${FOOD[x].emoji}"></span>${FOOD[x].name}`).join(' + ')}</p>`).join('');for(const m of st.querySelectorAll('[data-e]'))putIcon(m,m.dataset.e);for(const m of st.querySelectorAll('.oc-pot'))putIcon(m,PREP_ICON.pot);c.querySelector('.oc-needs').after(st)}
+   return c}))}
  const plated=platedKinds();
  for(const c of holder.children){const o=list.find(v=>v.id===c.dataset.id);if(!o)continue;const f=patience(o,now),b=c.querySelector('.oc-bar b');b.style.width=(f*100).toFixed(1)+'%';b.className=patienceColor(f);c.classList.toggle('locked',!o.accepted);{const nq=questionsFor(RECIPES[o.recipeId]),lb=c.querySelector('.oc-lock'),tx=nq>1?`문제 ${nq}개 풀고 주문 받기 (${o.solved||0}/${nq}) · 보너스 +${acceptBonus(nq)}`:'문제 풀고 주문 받기';if(lb.dataset.tx!==tx){lb.dataset.tx=tx;lb.innerHTML=tx+' <kbd>Q</kbd>'}}c.classList.toggle('hurry',f>0&&f<=.25);c.classList.toggle('late',f<=0);for(const n of c.querySelectorAll('.oc-need'))n.classList.toggle('done',plated.has(n.dataset.kind))}
 }

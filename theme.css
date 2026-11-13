@@ -321,3 +321,27 @@ html,body{height:100%;overflow:hidden}
 .student-results summary::before{content:"🔒 "}
 .student-results[open] summary::before{content:"🔓 "}
 .student-results[open] summary{font-size:14px}
+
+/* 주문 카드 재료: 그림을 조금 키우고 아래에 이름·할 일 (썰기·굽기·섞기·냄비에서). 요리 그림은 제목 옆에 작게 */
+.order-cards{align-items:flex-start}
+.ocard{width:auto;min-width:112px;max-width:168px;padding:9px 6px 6px}
+.ocard .oc-head{display:flex;align-items:center;justify-content:center;gap:3px;margin:0 0 4px}
+.ocard .oc-dish img.emo{width:22px;height:22px;display:block}
+.ocard h3{margin:0;font-size:12px}
+.oc-needs{flex-wrap:wrap;gap:5px 4px;justify-content:center}
+.oc-need,.oc-need.done{display:flex;flex-direction:column;align-items:center;width:40px;height:auto;padding:0;background:none;border:0;border-radius:0}
+.oc-need .oc-pic{position:relative;display:grid;place-items:center;width:36px;height:36px;background:#fff;border:2px solid var(--ink);border-radius:8px}
+.oc-need.done .oc-pic{background:#dff3e4}
+.oc-need em img.emo{width:25px;height:25px}
+.oc-need i{right:-6px;bottom:-5px;width:18px;height:18px}
+.oc-need i img.emo{width:11px;height:11px}
+.oc-need.done::after{left:-5px;top:-7px;z-index:1}
+.oc-name{margin-top:2px;font-size:9.5px;font-weight:800;line-height:1.1;white-space:nowrap;letter-spacing:-.4px}
+.oc-do{display:inline-block;margin-top:1px;padding:0 4px;font-size:8.5px;font-weight:800;line-height:13px;color:var(--ink);background:var(--mustard);border:1.5px solid var(--ink);border-radius:7px;white-space:nowrap}
+.oc-need.done .oc-do{background:var(--green);color:#fff}
+.oc-steps{margin:4px 0 1px;padding:2px 3px;font-size:9px;font-weight:700;line-height:1.25;letter-spacing:-.3px;background:#fff4d6;border:1.5px dashed var(--ink);border-radius:6px;white-space:nowrap}
+.oc-steps p{margin:0}
+.oc-steps b{margin-right:1px}
+.oc-steps img.emo{width:12px;height:12px;vertical-align:-2px}
+.ocard .oc-lock{font-size:10px;padding:4px 3px}
+@media (max-width:900px){.order-cards{gap:5px}.ocard{min-width:0;max-width:128px;padding:7px 4px 5px}.ocard .oc-dish{display:none}.ocard h3{font-size:10.5px}.ocard .oc-head{margin-bottom:3px}.oc-needs{gap:5px 3px}.oc-need,.oc-need.done{width:36px}.oc-need .oc-pic{width:30px;height:30px;border-radius:7px}.oc-need em img.emo{width:21px;height:21px}.oc-need i{width:16px;height:16px;right:-6px;bottom:-5px}.oc-need i img.emo{width:10px;height:10px}.oc-name{font-size:8.5px;letter-spacing:-.5px}.oc-do{font-size:8px;line-height:12px;padding:0 3px}.oc-steps{font-size:8px;letter-spacing:-.4px;padding:2px}.oc-steps img.emo{width:11px;height:11px}.ocard .oc-lock{font-size:9px;padding:3px 2px}}
