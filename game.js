@@ -727,7 +727,7 @@ function beginOnline(){
  let same=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);let i=same.findIndex(([id])=>id===myUid),v=startPoints[Math.max(0,i)%startPoints.length];
  p={x:v[0],y:v[1],dir:'down',held:'',item:null,seat,name:getName(),updatedAt:Date.now()};fx=[];closePicker();resetStats();
  cloud.spawn(p).catch(e=>toast('입장 오류: '+e.message));
- hide('menuOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('endOverlay');hide('questionOverlay');roundStarted=true;ended=false;pending=false;activeQuestion=null;elapsed=0;sentPhase='playing';setRoomStatus();setModeUI();updateUI();toast('🎉 게임 시작! 친구들과 요리를 완성하세요.');
+ hide('menuOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('endOverlay');hide('questionOverlay');roundStarted=true;ended=false;pending=false;activeQuestion=null;elapsed=0;sentPhase='playing';setRoomStatus();setModeUI();updateUI();toast(meta?.startedAt&&srvNow()-meta.startedAt>3000?'다시 들어왔어요! 같은 모둠 친구들과 이어서 요리해요.':'🎉 게임 시작! 친구들과 요리를 완성하세요.');
 }
 function updateTeacherMonitor(){
  if(!cloud||cloud.role!=='teacher')return;
@@ -817,10 +817,13 @@ function boot(){
   let btn=$('joinRoomBtn');if(joining)return;joining=true;btn.disabled=true;setText('joinRoomBtn','입장하는 중…');startProgress();try{
    if(cloud&&cloud.role==='student'&&!cloud.connected){try{await cloud.disconnect()}catch{}}
    cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()});
-   stopProgress();mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
+   stopProgress();mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');
+   if(cloud.meta?.phase==='playing'){if(!roundStarted||sentPhase!=='playing')beginOnline()}   // 게임 중 다시 들어옴 (원래 이 방에 있던 학생만)
+   else{show('lobbyOverlay');refreshLobby()}
+   setRoomStatus();
   }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message});setText('joinRoomBtn','다시 시도')}finally{btn.disabled=false;joining=false;if($('joinRoomBtn').textContent==='입장하는 중…')setText('joinRoomBtn','입장하기')}
  };
- $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{await cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0);$('lobbyIntroCheck').checked=false;refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
+ $('startBtn').onclick=async()=>{if(!cloud)return;let btn=$('startBtn');btn.disabled=true;try{$('studentResults').open=false;await cloud.begin($('lobbyIntroCheck').checked?INTRO_MS:0);$('lobbyIntroCheck').checked=false;refreshLobby();toast('요리 축제가 시작됐습니다!')}catch(e){toast(e.message)}finally{btn.disabled=false}};
  $('lobbyBackBtn').onclick=goHome;
  $('csvBtn').onclick=()=>{
    if(!cloud || cloud.role!=='teacher')return;

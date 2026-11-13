@@ -119,9 +119,10 @@ export class CloudRoom{
     const [ban,mine,allSnap]=await this.step('member',()=>Promise.all([this.ops.get(this.path('banned',this.uid)).catch(()=>null),this.ops.get(this.path('members',this.uid)),this.ops.get(this.path('members'))]));
     if(ban&&ban.val())throw new JoinError('code','member','선생님이 이 방에서 내보냈어요. 선생님께 여쭤 보세요.');
     if(mine.exists()){                       // 재접속: 예전 자리·모둠 그대로
-      this.seat=mine.val().seat;this.team=Number(mine.val().team);diag('seat','기존 자리 사용');
+      this.seat=mine.val().seat;this.team=Number(mine.val().team);diag('seat',meta.phase==='playing'?'게임 중 다시 들어옴':'기존 자리 사용');
     }else{
-      if(meta.phase==='playing')throw new JoinError('code','member','게임이 이미 진행 중이에요. 다음 판을 기다려 주세요.');
+      // 게임 중에는 처음부터 이 방에 있던 학생(튕김·새로 고침·나갔다 온 학생)만 다시 들어올 수 있음
+      if(meta.phase==='playing')throw new JoinError('code','member','게임이 이미 진행 중이에요. 이 방에 처음부터 있던 학생만 다시 들어올 수 있어요. 다음 판을 기다려 주세요.');
       const all=allSnap.val()||{},cap=meta.max||meta.count;
       if(Object.keys(all).length>=cap)throw new JoinError('code','member',`학급방 정원(${cap}명)이 가득 찼어요. 선생님께 알려 주세요.`);
       this.seat=await this.claimSeat(meta);
