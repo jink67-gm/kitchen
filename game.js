@@ -781,7 +781,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<170
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
 function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
- let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg);show('endOverlay');sound('success');}
+ let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg+(cloud&&mode!=='demo'?' · 잠시 뒤 대기방으로 돌아가요.':''));show('endOverlay');sound('success');}
 function beginOnline(){
  if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
  let startPoints=[[7.5,7.5],[10.5,7.5],[6.5,8.5],[11.5,8.5],[9.5,8.5]];
@@ -790,12 +790,18 @@ function beginOnline(){
  cloud.spawn(p).catch(e=>toast('입장 오류: '+e.message));
  hide('menuOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('endOverlay');hide('questionOverlay');roundStarted=true;ended=false;pending=false;activeQuestion=null;elapsed=0;sentPhase='playing';setRoomStatus();setModeUI();updateUI();toast(meta?.startedAt&&srvNow()-meta.startedAt>3000?'다시 들어왔어요! 같은 모둠 친구들과 이어서 요리해요.':'🎉 게임 시작! 친구들과 요리를 완성하세요.');
 }
+// 판이 끝나면 모두 대기방으로: 학생은 결과 화면을 RESULT_MS 동안 본 뒤 대기방(모둠 이동 가능), 교사는 지난 판 점수를 계속 봄
+const RESULT_MS=12000;let lobbyTimer=null;
+function backToLobby(){sentPhase='lobby';roundStarted=false;ended=false;activeQuestion=null;closePicker();hide('questionOverlay');hide('endOverlay');show('lobbyOverlay');refreshLobby();toast('대기방으로 돌아왔어요! 선생님이 다음 판을 시작할 때까지 기다려요.')}
+function scheduleLobby(){if(!cloud||cloud.role!=='teacher'||lobbyTimer)return;lobbyTimer=setTimeout(()=>{lobbyTimer=null;if(cloud?.role==='teacher'&&cloud.meta&&cloud.meta.phase!=='lobby')cloud.toLobby().then(()=>{refreshLobby();toast('모두 대기방으로 돌아왔어요. 모둠을 바꾸거나 다음 판을 시작할 수 있어요.')}).catch(e=>toast(e.message))},RESULT_MS)}
 function updateTeacherMonitor(){
  if(!cloud||cloud.role!=='teacher')return;
- let running=cloud.meta?.phase==='playing';$('teacherMonitor').classList.toggle('hidden',!running&&cloud.meta?.phase!=='ended');
+ if(cloud.meta?.phase==='playing'&&cloud.meta.startedAt&&Date.now()+(cloud.serverOffset||0)>cloud.meta.startedAt+cloud.meta.duration*1000+1500)scheduleLobby();   // 시간이 다 됨
+ if(cloud.meta?.phase==='ended')scheduleLobby();
+ let running=cloud.meta?.phase==='playing';$('teacherMonitor').classList.toggle('hidden',!running&&!cloud.meta?.startedAt);
  if(!cloud.meta)return;
  let remaining=Math.max(0,cloud.meta.duration-Math.floor((Date.now()+(cloud.serverOffset||0)-cloud.meta.startedAt)/1000));
- setText('teacherTime','남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'));
+ setText('teacherTime',running?'남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'):cloud.meta.phase==='lobby'?'지난 판 결과':'영업 끝! 곧 대기방으로');
  let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
  $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
  $('endRoundBtn').disabled=!running;
@@ -832,8 +838,8 @@ async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');s
 function wireCloud(obj){
  obj.on('meta',v=>{
   if(!v)return;meta=v;currentMode=v.mode;
-  if(obj.role==='teacher'){if(v.phase==='playing'||v.phase==='ended'){refreshLobby();$('startBtn').textContent='다음 판 시작하기 🍳';if(v.phase==='ended')toast('게임이 끝났어요. 새 라운드를 시작할 수 있습니다.')}else refreshLobby();}
-  else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&sentPhase==='playing'){sentPhase='lobby';roundStarted=false;show('lobbyOverlay');}
+  if(obj.role==='teacher'){if(v.startedAt)$('startBtn').textContent='다음 판 시작하기 🍳';if(v.phase==='ended')toast('게임이 끝났어요. 잠시 뒤 모두 대기방으로 돌아가요.');if(v.phase==='playing'){clearTimeout(lobbyTimer);lobbyTimer=null}refreshLobby();updateTeacherMonitor();}
+  else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&(sentPhase==='playing'||sentPhase==='ended')){backToLobby()}
  });
  obj.on('members',v=>{members=v||{};refreshLobby();if(roundStarted)updateUI()});
  obj.on('net',ok=>{$('netBanner').classList.toggle('hidden',ok)});
