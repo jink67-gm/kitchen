@@ -12,7 +12,9 @@ const FONT = 'Galmuri11,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",san
 
 export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, models = new Map() }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });   // WebGL 불가면 여기서 예외 → game.js가 2D로 전환
-  let pixelCap = 1.5, quality = 'normal', cw = 0, ch = 0;
+  // 웨일북·크롬북·보급형 태블릿(코어 4개 이하 또는 메모리 4GB 이하)은 처음부터 해상도를 낮게: 느려지면 아래 성능 측정이 그림자까지 끔
+  const weakDevice = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+  let pixelCap = weakDevice ? 1 : 1.5, quality = weakDevice ? 'light' : 'normal', cw = 0, ch = 0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
