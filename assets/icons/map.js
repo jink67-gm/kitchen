@@ -17,6 +17,8 @@ export const ICONS = {
  "🧁": "assets/icons/cupcake.svg",
  "🥧": "assets/icons/pie.svg",
  "🫕": "assets/icons/fondue.svg",
+ "🍲": "assets/icons/pot-of-food.svg",
+ "🥘": "assets/icons/shallow-pan-of-food.svg",
  "🥞": "assets/icons/pancakes.svg",
  "🍰": "assets/icons/shortcake.svg",
  "🍕": "assets/icons/pizza.svg",

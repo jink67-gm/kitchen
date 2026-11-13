@@ -12,7 +12,7 @@ export const MODEL_FILES = {
   cheese: 'cheese', 'cheese:ready': 'cheese-cut',
   bread: 'loaf', 'bread:ready': 'bread',
   milk: 'carton', 'dough:ready': 'loaf-round',
-  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich', 'dish:🌮': 'taco', 'dish:🥞': 'pancakes', 'dish:🥪': 'sub', 'dish:🧇': 'waffle', 'dish:🧁': 'cupcake', 'dish:🥧': 'pie', 'dish:🫕': 'pot-stew',
+  'dish:🥗': 'salad', 'dish:🍔': 'burger', 'dish:🍰': 'cake', 'dish:🍕': 'pizza', 'dish:🥤': 'frappe', 'dish:🥙': 'sandwich', 'dish:🌮': 'taco', 'dish:🥞': 'pancakes', 'dish:🥪': 'sub', 'dish:🧇': 'waffle', 'dish:🧁': 'cupcake', 'dish:🥧': 'pie', 'dish:🫕': 'bowl-broth', 'dish:🍲': 'bowl-soup', 'dish:🥘': 'pan-stew', tsoup: 'bowl-soup', csoup: 'bowl-broth',
 };
 
 // 크기가 제각각인 모델을 "가장 긴 변 = 1, 바닥이 y=0, 가운데 정렬"로 맞춤 → 쓰는 쪽에서 원하는 크기를 곱하기만 하면 됨
@@ -27,7 +27,7 @@ function normalize(obj) {
 }
 
 // 주방 설비 (Kenney Furniture Kit) — 크기는 쓰는 쪽에서 설비 칸에 맞춤
-export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'sushi-oven', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan', 'station:wall': 'wall', 'station:wallWindow': 'wallWindow' };
+export const FURNITURE_FILES = { 'station:cabinet': 'kitchenCabinet', 'station:stove': 'sushi-oven', 'station:sink': 'kitchenSink', 'station:blender': 'kitchenBlender', 'station:trash': 'trashcan', 'station:pot': 'pot', 'station:wall': 'wall', 'station:wallWindow': 'wallWindow' };
 // 주방 바깥 식당 홀 꾸미기 (Kenney Furniture Kit). 같은 이름의 재질은 하나로 합쳐 색을 식당 분위기에 맞춤
 export const DECOR_FILES = ['tableCloth', 'tableCrossCloth', 'tableRound', 'chairCushion', 'chairRounded', 'pottedPlant', 'plantSmall1', 'plantSmall3', 'rugRound', 'rugRectangle', 'lampRoundFloor', 'benchCushion', 'bookcaseOpen', 'stoolBar', 'loungeSofa', 'coatRackStanding'];
 const DECOR_COLORS = { wood: 0xb9824f, woodDark: 0x7a5233, carpet: 0xc9432f, carpetDarker: 0x8f2c1e, plant: 0x4f9a55, metal: 0x4a4038, lamp: 0xffe2a0 };
