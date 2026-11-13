@@ -66,29 +66,38 @@ export function createIntro3D(c) {
   }
   function makeBook() {
     const g = new THREE.Group();
-    const t = tex(512, 352, (k, w, h) => {
+    // 책 속 종이: 제목 → 음식 그림과 세로 분수 문제 → 안내 글. 아래쪽 띠 자리(종이 아래 1/6)는 비워 둠
+    const draw = (k, w, h) => {
+      k.clearRect(0, 0, w, h);
       k.fillStyle = '#fff6e0'; k.fillRect(0, 0, w, h); k.strokeStyle = '#a93321'; k.lineWidth = 10; k.strokeRect(8, 8, w - 16, h - 16);
-      k.fillStyle = '#a93321'; k.font = `bold 44px ${c.FONT}`; k.textAlign = 'center'; k.textBaseline = 'middle'; k.fillText('비밀 레시피', w / 2, 50);
-      k.fillStyle = '#2e2520'; const y = 150; vfrac(k, 230, y, '3', '4', 50); k.font = `bold 50px ${c.FONT}`; k.fillText('÷', 290, y); vfrac(k, 350, y, '1', '2', 50); k.font = `bold 50px ${c.FONT}`; k.fillText('= ?', 432, y);
-      k.fillStyle = '#c9b89a'; for (let i = 0; i < 3; i++) k.fillRect(60, 232 + i * 20, 390 - i * 70, 9);
-      k.fillStyle = '#a93321'; k.font = `bold 22px ${c.FONT}`; k.fillText('정답을 맞혀야 열려요!', w / 2, 322);
-    });
-    iconOnto(t, '🍔', 40, 92, 110);
+      k.textAlign = 'center'; k.textBaseline = 'middle';
+      k.fillStyle = '#a93321'; k.font = `bold 46px ${c.FONT}`; k.fillText('비밀 레시피', w / 2, 52);
+      k.fillStyle = '#d6b98f'; k.fillRect(70, 86, w - 140, 4);
+      k.fillStyle = '#2e2520'; const y = 162;
+      vfrac(k, 236, y, '3', '4', 48);
+      k.font = 'bold 46px "Noto Sans KR","Malgun Gothic",sans-serif'; k.fillText('÷', 292, y + 2);   // 기호는 어느 기기에나 있는 글꼴로
+      vfrac(k, 348, y, '1', '2', 48);
+      k.fillText('=', 404, y + 2); k.fillStyle = '#d6452f'; k.font = `bold 52px ${c.FONT}`; k.fillText('?', 446, y + 2);
+      k.fillStyle = '#a93321'; k.font = `bold 26px ${c.FONT}`; k.fillText('정답을 맞혀야 열려요!', w / 2, 262);
+    };
+    const t = tex(512, 352, draw);
+    iconOnto(t, '🍔', 44, 108, 104);
+    // 글꼴(갈무리11)을 늦게 받는 기기: 준비되면 다시 그림
+    try { document.fonts.load(`bold 46px ${c.FONT}`).then(() => { draw(t.image.getContext('2d'), 512, 352); t.needsUpdate = true; iconOnto(t, '🍔', 44, 108, 104); }).catch(() => {}); } catch {}
     const cover = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.35, 0.12), new THREE.MeshStandardMaterial({ color: 0xa93321, roughness: 0.7 }));
     const page = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.22), new THREE.MeshBasicMaterial({ map: t }));
     page.position.z = 0.065; g.add(cover, page);
+    // 책 아래쪽을 감은 쇠띠 + 큰 자물쇠 (글자를 가리지 않음)
+    const iron = new THREE.MeshStandardMaterial({ color: 0x4a4550, metalness: 0.75, roughness: 0.35 });
+    const band = new THREE.Mesh(new THREE.BoxGeometry(2.03, 0.13, 0.17), iron); band.position.set(0, -0.5, 0.02); g.add(band);
+    for (const x of [-0.92, -0.6, 0.6, 0.92]) { const r = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), iron); r.position.set(x, -0.5, 0.11); g.add(r); }
     const metal = new THREE.MeshStandardMaterial({ color: 0x8d8f99, metalness: 0.7, roughness: 0.35 });
-    const link = new THREE.TorusGeometry(0.045, 0.014, 6, 12);
-    for (let i = 0; i < 26; i++) {                 // 쇠사슬: 책 아래쪽을 가로질러 감음
-      const m = new THREE.Mesh(link, metal);
-      m.position.set(lerp(-1.02, 1.02, i / 25), -0.3 + Math.sin(i / 25 * Math.PI) * -0.04, 0.1); m.rotation.set(0, i % 2 ? Math.PI / 2 : 0, Math.PI / 2);
-      g.add(m);
-    }
     const lock = new THREE.Group(), gold = new THREE.MeshStandardMaterial({ color: 0xf0b429, metalness: 0.6, roughness: 0.3, emissive: 0x6b4a00, emissiveIntensity: 0.3 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.28, 0.12), gold); lock.add(body);
-    const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.035, 8, 18, Math.PI), metal); shackle.position.y = 0.13; lock.add(shackle);
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.04, 12), new THREE.MeshBasicMaterial({ color: 0x2e2520 })); hole.position.set(0, -0.02, 0.061); lock.add(hole);
-    lock.position.set(0, -0.36, 0.17); g.add(lock);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.3, 0.13), gold); lock.add(body);
+    const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.038, 8, 18, Math.PI), metal); shackle.position.y = 0.15; lock.add(shackle);
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.045, 14), new THREE.MeshBasicMaterial({ color: 0x2e2520 })); hole.position.set(0, 0.01, 0.066); lock.add(hole);
+    const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.025, 0.08), new THREE.MeshBasicMaterial({ color: 0x2e2520 })); slot.position.set(0, -0.05, 0.066); lock.add(slot);
+    lock.position.set(0, -0.62, 0.14); g.add(lock);
     g.userData.lock = lock; g.userData.gold = gold;
     return g;
   }
@@ -332,8 +341,8 @@ export function createIntro3D(c) {
     ...[['주문이요!', 15500], ['여기요!', 16300], ['햄버거 세 개!', 17200], ['케이크도요!', 18200], ['빨리요~!', 19000], ['피자 아직이에요?', 19800]].map(([w, at], i) => [at, () => { const g = rushers[(i * 5) % Math.max(1, rushers.length)]; if (g) c.shout(w, g.root.position.x - 0.75, 1.95, g.root.position.z); }]),
     [20900, () => c.burst(head.root.position.x, 0.5, head.root.position.z, 0xe9d8c0, 10, 1)],
     [24650, () => { c.burst(0, 1.3, wz(1) + 0.9, 0xe9d8c0, 14, 1.2); c.ring(0, TOP + 0.05, wz(1) + 1.1, 0xffffff, 1.4); }],
-    [26050, () => c.burst(0, 1.95, wz(1) + 1.0, 0xffd66b, 8, 0.9)],
-    [28250, () => c.burst(0, 1.95, wz(1) + 1.0, 0xffd66b, 8, 0.9)],
+    [26050, () => c.burst(0, 1.35, wz(1) + 1.05, 0xffd66b, 10, 0.9)],
+    [28250, () => c.burst(0, 1.35, wz(1) + 1.05, 0xffd66b, 10, 0.9)],
     [45050, () => c.shout('아니요!', 0 - 0.75, 2.3, wz(8.6), '#fffdf5', '#2e2520', 0.7)],
     [46350, () => { c.shout('뭐어어어?!', -0.75, 2.05, -0.9, '#d6452f', '#ffffff', 0.5); c.ring(0, 0.06, -1.6, 0xd6452f, 1.8); }],
     [47700, () => c.burst(0, 0.2, -1.6, 0xe9d8c0, 12, 1.2)],

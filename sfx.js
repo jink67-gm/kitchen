@@ -104,53 +104,82 @@ export function play(name) {
 }
 // ── 배경음악 (인트로용, 직접 작곡해 브라우저에서 합성) ──
 // 음표는 MIDI 번호(60 = 가운데 도), null = 쉼표. 한 칸 = 8분음표
+// 한 칸 = 16분음표. lead·bass는 8분음표 단위 배열, chords는 한 마디마다 [뿌리음, 단조?], drums는 한 마디 16칸
+//   드럼 글자: k 킥 · s 스네어 · h 하이햇 · x 킥+하이햇 · t 시계 째깍 · . 쉼
+const bar = (r, o = 12) => [r, r, r + o, r, r, r + o, r, r + o];   // 달리는 베이스 한 마디
 const SONGS = {
-  calm: { bpm: 116, wave: 'triangle', vol: 0.045, drums: false,
+  // 인트로 시작: 밝고 통통 튀게
+  calm: { bpm: 132, wave: 'square', vol: 0.05,
     lead: [72, null, 76, 79, 77, 76, 74, null, 72, 74, 76, 72, 71, null, 67, null, 69, null, 72, 76, 74, 72, 71, null, 72, 76, 79, 84, 79, null, null, null],
-    bass: [48, null, 55, null, 57, null, 55, null, 53, null, 55, null, 48, null, 43, null] },
-  rush: { bpm: 168, wave: 'square', vol: 0.03, drums: true,
-    lead: [69, 72, 76, 72, 69, 72, 76, 79, 77, 76, 74, 72, 74, 76, null, 76, 69, 72, 76, 72, 81, 79, 77, 76, 74, 72, 71, 72, 69, null, 69, null],
-    bass: [45, 57, 45, 57, 41, 53, 41, 53, 43, 55, 43, 55, 40, 52, 40, 52] },
-  tense: { bpm: 92, wave: 'sine', vol: 0.05, drums: false,
-    lead: [null, null, null, null, 76, null, 75, null, null, null, null, null, 76, null, 77, null],
-    bass: [40, null, 40, null, 41, null, 40, null] },
-  // 게임 중: 요리(경쾌하게), 대기실·메뉴(잔잔하게), 결과(느긋하게). 러시타임에는 rush를 씀
-  cook: { bpm: 126, wave: 'triangle', vol: 0.026, drums: true,
-    lead: [76, null, 79, 76, 72, null, 74, 76, 77, null, 76, 74, 72, null, 67, null, 69, null, 72, 69, 67, null, 69, 72, 74, 76, 74, 72, 74, null, null, null, 76, null, 79, 76, 72, null, 74, 76, 77, 79, 81, 79, 77, null, 76, null, 74, null, 77, 74, 71, null, 74, 77, 76, 74, 72, 71, 72, null, null, null],
-    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 50, null, 55, null, 48, null, 55, null, 53, null, 57, null, 50, null, 55, null, 48, null, 55, null] },
-  lobby: { bpm: 96, wave: 'sine', vol: 0.03, drums: false,
-    lead: [72, null, null, 76, null, null, 79, null, 77, null, null, 76, null, null, 74, null, 72, null, null, 74, null, null, 76, null, 74, null, null, 71, null, null, 67, null],
-    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 43, null, 50, null] },
-  result: { bpm: 104, wave: 'triangle', vol: 0.03, drums: false,
-    lead: [79, null, 76, null, 72, null, 76, null, 77, null, 74, null, 71, null, 74, null, 76, null, 72, null, 69, null, 72, null, 74, 72, 71, 69, 67, null, null, null],
-    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 43, null, 48, null] },
-  hero: { bpm: 132, wave: 'square', vol: 0.028, drums: true,
+    bass: [...bar(48), ...bar(45), ...bar(41), ...bar(43)], chords: [[60, 0], [57, 1], [53, 0], [55, 0]], drums: 'k.h.s.h.k.h.s.hh' },
+  // 게임 중: 흥미진진하게 (가단조, 달리는 베이스, 드럼)
+  cook: { bpm: 148, wave: 'square', vol: 0.055,
+    lead: [76, null, 76, 79, 81, null, 79, 76, 77, null, 77, 76, 74, null, 72, 74, 76, null, 76, 79, 84, null, 83, 81, 79, null, 77, 76, 74, 76, 74, 71,
+           69, null, 72, 76, 74, null, 72, 69, 77, null, 76, 74, 72, null, 71, 72, 74, null, 76, 77, 79, null, 81, 79, 76, null, 74, null, 71, null, 69, null],
+    bass: [...bar(45), ...bar(41), ...bar(48), ...bar(43)], chords: [[57, 1], [53, 0], [60, 0], [55, 0]], drums: 'x.h.s.h.x.x.s.hh' },
+  // 러시타임·주문 폭주: 더 빠르고 급하게 (마단조)
+  rush: { bpm: 172, wave: 'sawtooth', vol: 0.045,
+    lead: [76, 76, null, 76, 79, null, 76, 74, 72, 72, null, 72, 76, null, 72, 71, 74, 74, null, 74, 78, null, 74, 72, 71, null, 75, null, 78, null, 83, null],
+    bass: [...bar(40), ...bar(36), ...bar(38), ...bar(35)], chords: [[64, 1], [60, 0], [62, 0], [59, 0]], drums: 'x.hsx.hsx.hsxsss' },
+  // 잠긴 레시피: 째깍째깍 시계 + 낮게 쿵쿵, 불안한 음
+  tense: { bpm: 104, wave: 'triangle', vol: 0.08,
+    lead: [null, null, null, null, 76, null, 75, null, null, null, null, null, 76, null, 77, null, null, null, null, null, 79, null, 78, null, null, null, 77, null, 76, null, 75, null],
+    bass: [40, null, 40, null, 41, null, 40, null, 40, null, 40, null, 41, null, 43, null], chords: null, drums: 'k.t.t.t.k.t.t.t.' },
+  // 학생 요리사 등장: 씩씩한 행진
+  hero: { bpm: 140, wave: 'square', vol: 0.05,
     lead: [67, null, 72, null, 72, 74, 76, null, 74, null, 72, null, 76, null, 79, null, 79, 77, 76, 74, 76, null, 72, null, 74, 76, 74, 72, 72, null, null, null],
-    bass: [48, null, 55, null, 48, null, 55, null, 53, null, 55, null, 48, null, 55, null] },
+    bass: [...bar(48), ...bar(43), ...bar(45), ...bar(41)], chords: [[60, 0], [55, 0], [57, 1], [53, 0]], drums: 'x.h.s.h.x.hhs.sh' },
+  // 메뉴·대기실: 가볍게 들썩이게 (기다리는 동안 지루하지 않게)
+  lobby: { bpm: 116, wave: 'triangle', vol: 0.07,
+    lead: [72, null, null, 76, null, null, 79, null, 77, null, null, 76, null, null, 74, null, 72, null, null, 74, null, null, 76, null, 74, null, null, 71, null, null, 67, null],
+    bass: [48, null, 55, null, 48, 55, 53, null, 45, null, 52, null, 45, 52, 43, null], chords: [[60, 0], [57, 1], [53, 0], [55, 0]], drums: 'k...h...s...h.h.' },
+  // 결과 화면
+  result: { bpm: 108, wave: 'triangle', vol: 0.07,
+    lead: [79, null, 76, null, 72, null, 76, null, 77, null, 74, null, 71, null, 74, null, 76, null, 72, null, 69, null, 72, null, 74, 72, 71, 69, 67, null, null, null],
+    bass: [48, null, 55, null, 53, null, 55, null, 45, null, 52, null, 43, null, 48, null], chords: null, drums: 'k...h...s...h...' },
 };
 let song = null, songTimer = null, songGain = null, songStep = 0, songNext = 0;
 const hz = n => 440 * Math.pow(2, (n - 69) / 12);
 function note(type, f, at, dur, gain) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type; o.frequency.value = f;
-  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(gain, at + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(gain, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   o.connect(g).connect(songGain); o.start(at); o.stop(at + dur + 0.03);
 }
-function drum(at, hi) {
+function hit(at, kind) {
+  if (kind === 'k') {                                     // 킥: 낮게 떨어지는 음
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, at); o.frequency.exponentialRampToValueAtTime(42, at + 0.13);
+    g.gain.setValueAtTime(0.13, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.15);
+    o.connect(g).connect(songGain); o.start(at); o.stop(at + 0.18); return;
+  }
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-  s.buffer = noiseBuf; f.type = hi ? 'highpass' : 'lowpass'; f.frequency.value = hi ? 6000 : 180;
-  g.gain.setValueAtTime(hi ? 0.03 : 0.16, at); g.gain.exponentialRampToValueAtTime(0.0001, at + (hi ? 0.04 : 0.12));
-  s.connect(f).connect(g).connect(songGain); s.start(at, Math.random() * 0.5, 0.15);
-  if (!hi) { const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(140, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.12); og.gain.setValueAtTime(0.18, at); og.gain.exponentialRampToValueAtTime(0.0001, at + 0.14); o.connect(og).connect(songGain); o.start(at); o.stop(at + 0.16); }
+  s.buffer = noiseBuf;
+  const p = { s: ['bandpass', 1900, 0.07, 0.13], h: ['highpass', 7000, 0.02, 0.04], t: ['bandpass', 3200, 0.05, 0.025] }[kind];
+  f.type = p[0]; f.frequency.value = p[1]; if (kind === 't') f.Q.value = 8;
+  g.gain.setValueAtTime(p[2], at); g.gain.exponentialRampToValueAtTime(0.0001, at + p[3]);
+  s.connect(f).connect(g).connect(songGain); s.start(at, Math.random() * 0.5, p[3] + 0.02);
+  if (kind === 's') { const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(210, at); o.frequency.exponentialRampToValueAtTime(140, at + 0.06); og.gain.setValueAtTime(0.035, at); og.gain.exponentialRampToValueAtTime(0.0001, at + 0.08); o.connect(og).connect(songGain); o.start(at); o.stop(at + 0.1); }
 }
 function schedule() {
   if (!song || !ctx) return;
-  const sp = 30 / song.bpm;                              // 8분음표 길이(초)
+  const sp = 15 / song.bpm;                              // 16분음표 길이(초)
   while (songNext < ctx.currentTime + 0.15) {
-    const i = songStep, L = song.lead[i % song.lead.length], B = song.bass[Math.floor(i / 2) % song.bass.length];
-    if (L != null) note(song.wave, hz(L), songNext, sp * 0.9, song.vol);
-    if (i % 2 === 0 && B != null) note('triangle', hz(B), songNext, sp * 1.8, song.vol * 1.6);
-    if (song.drums) { if (i % 4 === 0) drum(songNext, false); if (i % 2 === 1) drum(songNext, true); }
+    const i = songStep, at = songNext;
+    if (i % 2 === 0) {                                    // 8분음표마다: 멜로디·베이스
+      const L = song.lead[(i / 2) % song.lead.length], B = song.bass[(i / 2) % song.bass.length];
+      if (L != null) note(song.wave, hz(L), at, sp * 1.8, song.vol);
+      if (B != null) note('triangle', hz(B), at, sp * 1.7, Math.min(0.12, song.vol * 1.8));
+    }
+    if (song.chords) {                                    // 16분음표 아르페지오 (화음을 빠르게 오르내림)
+      const [r, minor] = song.chords[Math.floor(i / 16) % song.chords.length], arp = [0, minor ? 3 : 4, 7, 12, 7, minor ? 3 : 4];
+      note('triangle', hz(r + 12 + arp[i % arp.length]), at, sp * 0.9, Math.min(0.05, song.vol * 0.7));
+    }
+    const d = song.drums[i % song.drums.length];
+    if (d === 'k' || d === 'x') hit(at, 'k');
+    if (d === 'h' || d === 'x') hit(at, 'h');
+    if (d === 's') hit(at, 's');
+    if (d === 't') hit(at, 't');
     songStep++; songNext += sp;
   }
 }
@@ -161,7 +190,7 @@ export function setMusic(name) {
   if (songGain) { const g = songGain; try { g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.08); setTimeout(() => g.disconnect(), 600); } catch {} songGain = null; }
   song = null; clearInterval(songTimer); songTimer = null;
   if (!next || !ready()) return;
-  song = next; songGain = ctx.createGain(); songGain.gain.value = 1; songGain.connect(master);
+  song = next; songGain = ctx.createGain(); songGain.gain.value = 1.4; songGain.connect(master);
   songStep = 0; songNext = ctx.currentTime + 0.05; schedule(); songTimer = setInterval(schedule, 40);
 }
 export const musicName = () => (song ? Object.keys(SONGS).find(k => SONGS[k] === song) : null);
