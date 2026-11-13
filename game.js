@@ -34,7 +34,7 @@ const RECIPES=[
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
 const LAYOUT=[
  '##################',
- '#==LT=KK=PPAHB=S=#',
+ '#==LT=KKPPPAHB=S=#',
  '#=..............=#',
  '#M..............I#',
  '#=..............=#',
@@ -786,7 +786,6 @@ function wireCloud(obj){
 }
 function boot(){
  $('demoBtn').onclick=()=>startDemo('coop');
- $('demoBattleBtn').onclick=()=>startDemo('duel');
  $('teacherBtn').onclick=()=>setupCloud(true);
  $('joinBtn').onclick=()=>setupCloud(false);
  // 모둠 수 × 모둠 인원 안내 (2대2 대결은 모둠마다 4명 고정)

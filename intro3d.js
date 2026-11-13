@@ -53,7 +53,9 @@ export function createIntro3D(c) {
   const hop = (ms, a, b, h) => (ms > a && ms < b ? Math.sin(Math.PI * (ms - a) / (b - a)) * h : 0);
 
   // ───────── 소품 ─────────
-  function tex(w, h, draw) { return c.canvasTex(w, h, draw); }
+  const OWN = new Set();   // 인트로가 직접 만든 그림 (끝날 때 이것만 정리)
+  function tex(w, h, draw) { const t = c.canvasTex(w, h, draw); OWN.add(t); return t; }
+  const ownSprite = sp => { if (sp.material && sp.material.map) OWN.add(sp.material.map); return sp; };
   function iconOnto(t, emoji, x, y, s) {           // 음식 그림(Fluent Emoji)을 그림판에 얹고 다시 칠함
     const src = c.icons[emoji]; if (!src) return;
     const img = new Image(); img.onload = () => { t.image.getContext('2d').drawImage(img, x, y, s, s); t.needsUpdate = true; }; img.src = src;
@@ -141,8 +143,8 @@ export function createIntro3D(c) {
     const hs = c.models.get('char:head') || c.models.get('char:0');
     head = actor(hs, 1.7, root);
     hat = makeHat(); root.add(hat);
-    headTag = c.textSprite('천재 셰프', '#f0b429', '#2e2520', 0.44, 256); headTag.position.y = 2.75; head.root.add(headTag);
-    bang = c.textSprite('!!', '#d6452f', '#ffffff', 0.62, 160); bang.position.y = 2.45; bang.visible = false; head.root.add(bang);
+    headTag = ownSprite(c.textSprite('천재 셰프', '#f0b429', '#2e2520', 0.44, 256)); headTag.position.y = 2.75; head.root.add(headTag);
+    bang = ownSprite(c.textSprite('!!', '#d6452f', '#ffffff', 0.62, 160)); bang.position.y = 2.45; bang.visible = false; head.root.add(bang);
     letter = makeLetter(); root.add(letter);
     // 1장면 소품: 조리대 위 프라이팬과 완성 요리
     pan = new THREE.Group();
@@ -164,7 +166,7 @@ export function createIntro3D(c) {
     team.forEach((m, i) => {
       const src = c.models.get('char:' + (m.seat % 5)); if (!src) return;
       const a = actor(src, 1.35, root); a.root.visible = false;
-      const tag = c.textSprite(m.name, m.me ? '#f0b429' : '#fffdf5', '#2e2520', 0.4, 256); tag.position.y = 1.95; a.root.add(tag);
+      const tag = ownSprite(c.textSprite(m.name, m.me ? '#f0b429' : '#fffdf5', '#2e2520', 0.4, 256)); tag.position.y = 1.95; a.root.add(tag);
       a.x = (i - (n - 1) / 2) * 1.5; a.start = 32000 + i * 450; a.seat = m.seat; a.landed = false;
       studs.push(a);
     });
@@ -369,7 +371,10 @@ export function createIntro3D(c) {
     for (const a of [head, ...studs]) if (a) a.mixer.stopAllAction();
     studs = []; cards = [];
     scene.remove(root);
-    root.traverse(o => { if (o.isMesh || o.isSprite) { o.geometry?.dispose?.(); if (o.material?.map && !o.material.map.userData?.shared) o.material.map.dispose(); o.material?.dispose?.(); } });
+    // 인트로만 쓴 그림(이름표·주문 카드·레시피 책·편지)만 정리. 복제한 캐릭터·음식의 그림·모양과 말풍선의 공용 모양은 게임과 함께 쓰므로 절대 지우지 않음
+    // (예전에는 함께 쓰는 것까지 지워서, 일부 기기에서 지운 자리에 인트로 이름표 그림이 끼어들어 조리대에 찍히는 문제가 있었음)
+    root.traverse(o => { if (o.isSprite && o.material) { const m = o.material.map; if (m && OWN.has(m)) m.dispose(); o.material.dispose(); } });
+    for (const tx of OWN) tx.dispose(); OWN.clear();
     root = null; head = null;
     for (const gu of hidden) gu.root.visible = true;
     hidden = [];
