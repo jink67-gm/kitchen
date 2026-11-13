@@ -36,3 +36,4 @@ UI Pack, Board Game Icons, Animal Pack Remastered — 지금 화면 구성에 �
 - Socket.io: 별도 서버가 필요. 이미 Firebase를 사용
 - Tripo API, Google AI, 표준국어대사전 API: API 키가 필요하고 지금 게임에 쓸 곳이 없음
 - Blender: 직접 모델을 만들 일이 생기면 사용
+| QR 코드 만들기 (`qr.js`) | 같은 선생님의 게임 SCHOOL(jink67-gm/SCHOOL)에서 가져옴 | 프로젝트 자체 | 대기실의 게임 주소 QR | `qr.js` |
