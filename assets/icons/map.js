@@ -1,5 +1,6 @@
 // 이모지 → Fluent Emoji Flat 그림 파일 (기기마다 이모지 모양이 달라지지 않게 함)
 export const ICONS = {
+ "♨️": "assets/icons/hot-springs.svg",
  "🥬": "assets/icons/leafy-green.svg",
  "🍅": "assets/icons/tomato.svg",
  "🥩": "assets/icons/cut-of-meat.svg",
