@@ -313,3 +313,11 @@ html,body{height:100%;overflow:hidden}
 .qr-link{font-size:12.5px;color:var(--ink-soft);word-break:break-all;margin:6px 0 12px}
 .room-from-link{margin-top:10px;background:var(--mustard);border:2px solid var(--ink);border-radius:9px;padding:8px 10px;font-size:13.5px;font-weight:800;color:var(--ink)}
 .pulse-btn{animation:rushPulse 1s ease-in-out infinite;outline:3px solid var(--mustard)}
+/* 교사 화면: 학생별 학습 결과는 처음에 접혀 있음 (전자칠판에 띄워도 학생 기록이 안 보이게) */
+.student-results{margin:10px 0 4px;border:2px solid var(--ink);border-radius:10px;background:#fff;padding:6px 10px}
+.student-results summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:14px;color:var(--ink);padding:4px 0}
+.student-results summary small{font-family:var(--text);font-weight:600;font-size:11.5px;color:var(--ink-soft)}
+.student-results[open] summary{margin-bottom:6px}
+.student-results summary::before{content:"🔒 "}
+.student-results[open] summary::before{content:"🔓 "}
+.student-results[open] summary{font-size:14px}
