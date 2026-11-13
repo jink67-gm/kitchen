@@ -240,7 +240,7 @@ const clamp=(a,min,max)=>Math.max(min,Math.min(max,a));
 const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const blankGroup=()=>({score:0,served:0,correct:0,wrong:0,orderSeq:0,orders:{}});
 const safeName=s=>String(s||'꼬마셰프').trim().slice(0,12)||'꼬마셰프';
-function toast(t){if(inIntro())return;setText('toast',t);$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
+function toast(t){if(inIntro())return;setText('toast',touchText(t));$('toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('toast').classList.remove('show'),2600)}
 function sound(type){sfx.play(type)}
 // 2대2 대결에서 다른 학생의 편: 같은 모둠 안에서 자리 번호 순으로 앞의 두 명이 A편
 function sideOf(uid,seatNo){if(currentMode!=='duel')return null;if(mode==='demo')return seatNo<2?'A':'B';const list=Object.entries(members).filter(([,m])=>Number(m.team)===team).sort((a,b)=>a[1].seat-b[1].seat);return list.findIndex(([id])=>id===uid)<2?'A':'B'}
@@ -291,6 +291,30 @@ function drawOrderCards(){
  for(const c of holder.children){const o=list.find(v=>v.id===c.dataset.id);if(!o)continue;const f=patience(o,now),b=c.querySelector('.oc-bar b');b.style.width=(f*100).toFixed(1)+'%';b.className=patienceColor(f);c.classList.toggle('locked',!o.accepted);{const nq=questionsFor(RECIPES[o.recipeId]),lb=c.querySelector('.oc-lock'),tx=nq>1?`문제 ${nq}개 풀고 주문 받기 (${o.solved||0}/${nq}) · 보너스 +${acceptBonus(nq)}`:'문제 풀고 주문 받기';if(lb.dataset.tx!==tx){lb.dataset.tx=tx;lb.innerHTML=tx+' <kbd>Q</kbd>'}}c.classList.toggle('hurry',f>0&&f<=.25);c.classList.toggle('late',f<=0);for(const n of c.querySelectorAll('.oc-need'))n.classList.toggle('done',plated.has(n.dataset.kind))}
 }
 
+// ── 태블릿·터치 화면: 조이스틱, 큰 버튼, 안내 문구의 키 이름을 버튼 이름으로 ──
+const joy={on:false,x:0,y:0,id:null};
+let touchMode=false;
+function setTouchMode(on){if(touchMode===on)return;touchMode=on;document.body.classList.toggle('touch',on);updateUI?.()}
+function touchText(t){if(!touchMode||!t)return t;return String(t).replace('"문제 풀고 주문 받기"를 누르거나 Q를 눌러요','"문제 풀고 주문 받기"나 오른쪽 아래 주문 받기 버튼을 눌러요').replace(/E나 Space를/g,'사용하기를').replace(/빈손으로 E를 눌러/g,'빈손으로 사용하기를 눌러').replace(/E를 눌러/g,'사용하기를 눌러').replace(/E로/g,'사용하기로').replace(/Q를 눌러/g,'주문 받기를 눌러').replace(/ \(Q\)/g,'').replace(/Esc/g,'✕')}
+function setupTouch(){
+ const coarse=matchMedia('(pointer:coarse)').matches;if(coarse)setTouchMode(true);
+ addEventListener('pointerdown',e=>{if(e.pointerType==='touch')setTouchMode(true)},{passive:true});
+ addEventListener('keydown',e=>{if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key.length===1?e.key.toLowerCase():e.key))setTouchMode(false)});   // 키보드로 움직이면 조이스틱 숨김 (터치 노트북)
+ const pad=$('joystick'),knob=$('joyKnob');
+ const move=e=>{const r=pad.getBoundingClientRect(),R=r.width/2;let x=(e.clientX-r.left-R)/R,y=(e.clientY-r.top-R)/R;const m=Math.hypot(x,y);if(m>1){x/=m;y/=m}joy.x=x;joy.y=y;knob.style.transform=`translate(${x*R*.55}px,${y*R*.55}px)`};
+ const end=e=>{if(e.pointerId!==joy.id)return;joy.on=false;joy.x=joy.y=0;joy.id=null;knob.style.transform='';pad.classList.remove('on')};
+ pad.addEventListener('pointerdown',e=>{e.preventDefault();joy.on=true;joy.id=e.pointerId;pad.setPointerCapture(e.pointerId);pad.classList.add('on');move(e)});
+ pad.addEventListener('pointermove',e=>{if(e.pointerId===joy.id)move(e)});
+ pad.addEventListener('pointerup',end);pad.addEventListener('pointercancel',end);pad.addEventListener('lostpointercapture',end);
+ // 길게 누르기 메뉴·두 번 눌러 확대 막기 (게임 화면만)
+ $('stageWrap').addEventListener('contextmenu',e=>e.preventDefault());
+ // 전체 화면 (주소창 없이 크게)
+ const fs=$('fullBtn'),root=document.documentElement,canFs=!!(root.requestFullscreen||root.webkitRequestFullscreen);
+ fs.classList.toggle('hidden',!canFs);
+ const fsLabel=()=>{fs.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'전체 화면 끄기':'전체 화면'};
+ fs.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document);else{const r=(root.requestFullscreen||root.webkitRequestFullscreen).call(root);r?.then?.(()=>screen.orientation?.lock?.('landscape').catch(()=>{})).catch(()=>toast('이 기기에서는 전체 화면을 쓸 수 없어요.'))}}catch{toast('이 기기에서는 전체 화면을 쓸 수 없어요.')}};
+ document.addEventListener('fullscreenchange',fsLabel);document.addEventListener('webkitfullscreenchange',fsLabel);
+}
 function getName(){return safeName($('nicknameInput').value)}
 function setRoomStatus(){setText('connectionLabel',mode==='demo'?'혼자 체험하기':cloud?.code?'학급방 '+cloud.code:'학급방');$('connectionDot').classList.toggle('online',mode!=='demo')}
 function playerColor(n){return COLOR[n%COLOR.length]}
@@ -319,7 +343,7 @@ function updateUI(){
  else $('teamRanking').textContent='함께 만들면 점수가 올라가요!';
  const hi=p.item;setText('heldLabel',!hi?'빈손':isPlate(hi)?`접시 · ${contentsOf(hi).length?contentsOf(hi).map(k=>FOOD[k].name).join('+')+(plateMatch(contentsOf(hi),liveRecipes())?' 완성!':' 미완성'):'비어 있음'}`:`${FOOD[hi.kind].name} · ${hi.state==='raw'?'손질 전':hi.state==='burnt'?'탄 것':'준비 완료'}`);
  let station=nearestStation();
- const ns=nextStep();let h=ns?ns.text:station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',h);setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
+ const ns=nextStep();let h=ns?ns.text:station?getStationHint(station):'재료 상자로 이동해서 E를 눌러 보세요!';setText('statusHint',touchText(h));setText('missionText',`현재 주문: ${rec.title} · ${rec.items.map(k=>FOOD[k].name).join(' + ')}. 친구들과 나누어 준비해 보세요!`);
  setModeUI();
 }
 // 받침에 따라 을/를
@@ -760,11 +784,12 @@ async function init3D(){
   else{fallback2D=true;set3D(false);toast('3D 화면을 켤 수 없어 간단한 화면으로 보여요. 브라우저를 다시 열어 보세요.')}}
 }
 window.__game={get music(){return sfx.musicName()},introSeek(ms){if(mode==='demo'&&meta){meta.startedAt=srvNow()+INTRO_MS-ms;introLast=ms}},introHold(ms){if(mode==='demo'){introFreeze=ms;if(ms==null&&meta)meta.startedAt=Math.min(meta.startedAt,Date.now())}},get intro(){return {on:inIntro(),pos:Math.round(introPos()),skipped:introSkipped,ui:introUI,startAt:meta?.startedAt||0,offset:cloud?.serverOffset||0}},get p(){return p},get group(){return getGroup()},get use3D(){return use3D},get question(){return activeQuestion},get storage(){return storageList(getStorage())},get boards(){return boardViews()},get plates(){return getPlates()},get orderIndex(){return getGroup().served||0},get orders(){return liveOrders().map(o=>({id:o.id,accepted:!!o.accepted,recipe:RECIPES[o.recipeId].title,left:(o.expiresAt-srvNow())/1000}))},get rush(){return rushNow},get settings(){return S()},get mathPass(){return mathPass},get stats(){return myStats},get mode(){return mode},get cloud(){return cloud},get players(){return players},get room(){return cloud?{code:cloud.code,role:cloud.role,team:cloud.team,seat:cloud.seat,uid:cloud.uid}:null},get teams(){return allTeams},get started(){return roundStarted},get volume(){return sfx.getVolume()},get samples(){return sfx.sampleCount()},get combo(){return getGroup().combo||0},get meta(){return meta},get chopNeed(){return chopNeed},get pickerOpen(){return pickerOpen}}; // 자동 테스트·디버깅용 읽기 창구
-function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
+function animate(t){if(document.body.classList.contains('in-game')!==roundStarted)document.body.classList.toggle('in-game',roundStarted);fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<1700);if(roundStarted)cookAlerts();let dt=Math.min(.05,(t-last)/1000);last=t;clock+=dt;
  if(roundStarted&&!ended&&inIntro())introTick();
  else if(roundStarted&&!ended){if(introUI)introDone();
-  if(!activeQuestion&&!pickerOpen){let dx=0,dy=0;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
-   if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2*(rushNow?S().rushSpeed:1);let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}
+  if(!activeQuestion&&!pickerOpen){let dx=0,dy=0,mag=1;if(keys.has('ArrowLeft')||keys.has('a'))dx--;if(keys.has('ArrowRight')||keys.has('d'))dx++;if(keys.has('ArrowUp')||keys.has('w'))dy--;if(keys.has('ArrowDown')||keys.has('s'))dy++;
+   if(!dx&&!dy&&joy.on){const m=Math.hypot(joy.x,joy.y);if(m>.22){dx=joy.x;dy=joy.y;mag=Math.min(1,.45+m*.7)}}   // 터치 조이스틱: 살짝 밀면 천천히
+   if(dx||dy){let len=Math.hypot(dx,dy);dx/=len;dy/=len;let s=dt*5.2*mag*(rushNow?S().rushSpeed:1);let nx=p.x+dx*s,ny=p.y+dy*s;if(walkable(nx,p.y))p.x=nx;if(walkable(p.x,ny))p.y=ny;p.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');p.updatedAt=Date.now();if(mode!=='demo'&&cloud)cloud.syncPlayer(p).catch(()=>{});}
   }
   if(mode==='demo')for(let b of bots){let dist=Math.hypot(b.tx-b.x,b.ty-b.y);if(dist<.2||Math.random()<dt*.2){b.tx=rnd(4,13)+.5;b.ty=rnd(3,9)+.5}let vx=(b.tx-b.x)/(dist||1),vy=(b.ty-b.y)/(dist||1);let nx=b.x+vx*dt*.9,ny=b.y+vy*dt*.9;if(walkable(nx,b.y))b.x=nx;if(walkable(b.x,ny))b.y=ny;}
   let started=mode==='demo'?meta.startedAt:meta?.startedAt||Date.now();nowTime=Math.max(0,(meta?.duration||180)-(Date.now()+(cloud?.serverOffset||0)-started)/1000);
@@ -834,7 +859,7 @@ function refreshLobby(){
  let count=Object.keys(all).length;setText('lobbyNotice',count===(m.max||m.count)?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
  $('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('shareRow').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
 }
-async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');setText('joinRoomBtn','입장하기');teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모드와 모둠 구성을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
+async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');setText('joinRoomBtn','입장하기');teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모둠 구성과 게임 시간을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
 function wireCloud(obj){
  obj.on('meta',v=>{
   if(!v)return;meta=v;currentMode=v.mode;
@@ -912,7 +937,7 @@ function boot(){
  document.querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',()=>hide(x.dataset.close)));
  $('soundBtn').onclick=()=>{const i=sfx.VOLUME_STEPS.findIndex(v=>Math.abs(v-sfx.getVolume())<.01);sfx.setVolume(sfx.VOLUME_STEPS[(i+1)%sfx.VOLUME_STEPS.length]);muted=sfx.getVolume()<=0;setText('soundBtn',sfx.volumeIcon());sfx.play('pickup')};
  setText('soundBtn',sfx.volumeIcon());$('soundBtn').title='소리: 크게 → 작게 → 끔';
- $('interactBtn').onclick=interact;
+ $('interactBtn').onclick=interact;$('orderBtn').onclick=()=>{document.activeElement?.blur?.();askOrder()};setupTouch();
  $('viewBtn').onclick=()=>set3D(!use3D);init3D();
  $('storageCloseBtn').onclick=closePicker;
  $('presetSelect').onchange=fillPreset;fillPreset();

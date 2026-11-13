@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#141c33" />
   <title>우당탕! 수학 레스토랑 — 쿠킹 파티</title>
   <link rel="stylesheet" href="style.css" />
@@ -33,9 +34,11 @@
           </div>
           <div class="canvas-holder"><div id="loading3d" class="loading3d"><b>🍳 3D 주방을 준비하고 있어요…</b><small id="loading3dSub">처음에는 조금 걸릴 수 있어요</small></div><canvas id="gameCanvas" class="hidden" width="1000" height="640" aria-label="수학 레스토랑 주방 게임 화면"></canvas><canvas id="game3d" class="hidden" aria-label="수학 레스토랑 3D 주방 화면"></canvas></div>
           <div class="game-toast" id="toast" aria-live="polite"></div>
+          <div id="joystick" class="joystick" aria-label="이동 조이스틱"><div class="joy-ring"></div><div id="joyKnob" class="joy-knob"></div></div>
+          <div id="rotateHint" class="rotate-hint"><b>📱↻</b><span>화면을 가로로 돌려 주세요</span><small>가로 화면에서 주방이 크게 보여요</small></div>
           <div class="under-stage">
             <div class="quick-note"><span>다음 할 일</span><span id="statusHint">재료 상자로 이동해서 E를 눌러 보세요!</span></div>
-            <div class="bottom-controls"><button id="viewBtn" class="subtle-btn hidden">2D로 보기</button><button id="roomInfoBtn" class="subtle-btn">게임방 정보</button><button id="leaveBtn" class="subtle-btn">처음으로</button><button id="interactBtn" class="touch-btn">사용하기</button></div>
+            <div class="bottom-controls"><button id="viewBtn" class="subtle-btn hidden">2D로 보기</button><button id="roomInfoBtn" class="subtle-btn">게임방 정보</button><button id="fullBtn" class="subtle-btn hidden">전체 화면</button><button id="leaveBtn" class="subtle-btn">처음으로</button><button id="orderBtn" class="touch-btn order-btn">주문 받기</button><button id="interactBtn" class="touch-btn">사용하기</button></div>
           </div>
         </div>
       </section>
