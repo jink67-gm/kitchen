@@ -233,6 +233,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     return wrap;
   }
   function buildStation(s) {
+    if (s.follower) return;   // 같은 재료 상자 2칸은 앞 칸이 긴 상자 하나로 그림
+    if (s.type === 'bin' && s.pair) return buildWideBin(s);
     const g = new THREE.Group();
     g.position.set(wx(s.x + 0.5), 0, wz(s.y + 0.5));
     world.add(g);
@@ -327,6 +329,22 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
         add(g, cyl(0.3, 0.3, 0.02, 20), mat(0x1d1b2e), 0, 0.835, 0, false);
       }
     }
+  }
+  // 재료 상자 2칸짜리: 두 칸 가운데에 길이 2칸 상자, 재료 더미 2배
+  function buildWideBin(s) {
+    const g = new THREE.Group(), hz = !!s.pair.dx, y = TOP;
+    g.position.set(wx(s.x + 0.5 + s.pair.dx / 2), 0, wz(s.y + 0.5 + s.pair.dy / 2));
+    if (!hz) g.rotation.y = Math.PI / 2;   // 세로 짝(벽 쪽)은 돌려서 같은 모양
+    world.add(g);
+    add(g, rbox(1.96, 0.8, 0.96, 0.06), BODY.bin || M.lav, 0, 0.4);
+    add(g, rbox(2, 0.09, 1, 0.035), M.wood, 0, TOP - 0.045);
+    for (const [bx, bz, bw, bd] of [[0, -0.42, 1.92, 0.08], [0, 0.42, 1.92, 0.08], [-0.92, 0, 0.08, 0.84], [0.92, 0, 0.08, 0.84]]) add(g, rbox(bw, 0.2, bd, 0.02), M.woodDark, bx, y + 0.1, bz);
+    [[-0.72, -0.18], [-0.36, -0.18], [-0.72, 0.18], [-0.36, 0.18], [-0.54, 0], [0.36, -0.18], [0.72, -0.18], [0.36, 0.18], [0.72, 0.18], [0.54, 0]].forEach(([fx, fz], i) => {
+      const f = food(s.food), holder = new THREE.Group(); holder.add(f);
+      const top = i % 5 === 4, b = new THREE.Box3().setFromObject(f), sz = b.getSize(new THREE.Vector3());
+      holder.scale.setScalar(Math.min(1, (top ? 0.36 : 0.32) / Math.max(sz.x, sz.z, 1e-6), 0.34 / Math.max(sz.y, 1e-6)));
+      holder.position.set(fx, y + (top ? 0.13 : 0.01), fz); holder.rotation.y = i * 0.9; g.add(holder);
+    });
   }
   stations.forEach(buildStation);
   let beltTex = null, serveOut = null;

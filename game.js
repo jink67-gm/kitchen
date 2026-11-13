@@ -36,14 +36,14 @@ const RECIPES=[
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
 const LAYOUT=[
  '##################',
- '#==LT=KKPPPAHB=S=#',
- '#=..............=#',
+ '#=LLTTKKPPPABB=S=#',
  '#M..............I#',
- '#=..............=#',
- '#F...NNRR=......D#',
+ '#M..............I#',
+ '#F..............D#',
+ '#F....RR=NN.....D#',
  '#=.......====...=#',
- '#Y..............=#',
- '#=..............=#',
+ '#Y..............H#',
+ '#Y..............H#',
  '#=..............X#',
  '#..=OO==VV==ZZ=..#',
  '##################'
@@ -52,6 +52,10 @@ const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'
  L:['bin','양상추 상자','lettuce'],T:['bin','토마토 상자','tomato'],H:['bin','치즈 상자','cheese'],B:['bin','빵 상자','bread'],M:['bin','고기 상자','meat'],F:['bin','밀가루 상자','flour'],Y:['bin','딸기 상자','berry'],I:['bin','우유 상자','milk'],D:['bin','반죽 상자','dough']};
 const STATIONS=[];
 LAYOUT.forEach((row,y)=>[...row].forEach((ch,x)=>{const k=KIND[ch];if(k)STATIONS.push({x,y,type:k[0],label:k[1],...(k[2]?{food:k[2]}:{})})}));
+// 같은 재료 상자 2칸은 한 상자로 봄: 앞 칸(lead)에 짝 방향(pair)을, 뒤 칸에 follower 표시. 3D·이름표·화살표는 두 칸 가운데에 하나만
+for(const s of STATIONS)if(s.type==='bin'&&!s.follower){const o=STATIONS.find(v=>v!==s&&v.type==='bin'&&v.food===s.food&&Math.abs(v.x-s.x)+Math.abs(v.y-s.y)===1);if(o){s.pair={dx:o.x-s.x,dy:o.y-s.y};o.follower=true;o.lead=s}}
+const spotOf=s=>s.pair?{x:s.x+s.pair.dx/2,y:s.y+s.pair.dy/2}:{x:s.x,y:s.y};
+const leadOf=s=>s.lead||s;
 const PASSIVE=new Set(['counter']); // 아직 E로 쓸 수 없는 설비
 const blocked=new Set(STATIONS.map(s=>s.x+','+s.y));
 let mode='demo',cloud=null,meta=null,players={},members={},allTeams={},teamData=null,localState=null,myUid='demo',seat=0,team=0,roundStarted=false,ended=false,last=performance.now(),totalTime=180,nowTime=180,activeQuestion=null,unit='all',muted=false,toastTimeout=null,teacher=false,currentMode='coop',sentPhase='',helpBefore=false;
@@ -354,11 +358,11 @@ function nextStep(){
 const tagSince=new Map();
 function nearTags(t){
  const out=[],focus=nearestStation();
- for(const s of STATIONS){if(PASSIVE.has(s.type))continue;const k=s.x+','+s.y,near=Math.hypot(s.x+.5-p.x,s.y+.5-p.y)<1.9;
+ for(const s of STATIONS){if(PASSIVE.has(s.type)||s.follower)continue;const k=s.x+','+s.y,o=s.pair?STATIONS.find(v=>v.lead===s):null,near=Math.hypot(s.x+.5-p.x,s.y+.5-p.y)<1.9||(o&&Math.hypot(o.x+.5-p.x,o.y+.5-p.y)<1.9);
   if(!near){tagSince.delete(k);continue}
   if(!tagSince.has(k))tagSince.set(k,t);
-  if(t-tagSince.get(k)>=4500)continue;const main=s===focus;
-  out.push({x:s.x,y:s.y,main,text:s.type!=='bin'?s.label:main?`${FOOD[s.food].name} · ${PREP_PLACE[FOOD[s.food].prep][0]}에서 ${PREP_PLACE[FOOD[s.food].prep][1]}`:FOOD[s.food].name});}
+  if(t-tagSince.get(k)>=4500)continue;const main=leadOf(focus||{})===s,sp=spotOf(s);
+  out.push({x:sp.x,y:sp.y,main,text:s.type!=='bin'?s.label:main?`${FOOD[s.food].name} · ${PREP_PLACE[FOOD[s.food].prep][0]}에서 ${PREP_PLACE[FOOD[s.food].prep][1]}`:FOOD[s.food].name});}
  return out;
 }
 function getStationHint(st){
@@ -624,7 +628,7 @@ function drawStation(st,t){
  else if(st.type==='serve'){fillRounded(x+6,y+6,35,19,4,'#ece2bc');drawEmoji('🔔',cx,y+14,23)}
  else {const em={sink:'🚰',trash:'🗑️',storage:'🗄️'}[st.type];if(em)drawEmoji(em,cx,y+14,22);if(st.type==='storage'){g.font='800 10px Nunito,sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(storageList(getStorage()).length+'/'+STORAGE_MAX,cx,y+32)}}
  if(st.type==='counter')return;
- g.font='700 10px Nunito, sans-serif';g.textAlign='center';g.fillStyle='#ffe3b6';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(st.type==='bin'?FOOD[st.food].name:st.label,cx,y+45);g.shadowBlur=0;
+ g.font='700 10px Nunito, sans-serif';g.textAlign='center';g.fillStyle='#ffe3b6';g.shadowColor='#182135';g.shadowBlur=4;if(!st.follower)g.fillText(st.type==='bin'?FOOD[st.food].name:st.label,cx+(st.pair?st.pair.dx*T/2:0),y+45+(st.pair?st.pair.dy*T/2:0));g.shadowBlur=0;
 }
 function drawChef(ch,isMine,t){
  let [x,y]=canvasPos(ch.x,ch.y);let col=playerColor(ch.seat||0);let bounce=Math.sin(t/125+(ch.seat||0))*.9;
@@ -686,7 +690,7 @@ function drawGame(t){
    const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b,side:sideOf('bot'+i,b.seat)})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch,side:sideOf(id)}));
    if(roundStarted)chefs.push({id:'me',...p,mine:true,side:currentMode==='duel'?getSide():null});
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
-   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?ns.targets.map(s=>({x:s.x,y:s.y})):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
+   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?[...new Set(ns.targets.map(leadOf))].map(spotOf):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
    return;
   }catch(e){console.warn('3D 그리기 오류',e);gl3dErrors=gl3dErrors.filter(t=>performance.now()-t<5000);gl3dErrors.push(performance.now());if(gl3dErrors.length>=5)rebuild3D('그리기 오류가 반복됨');return}   // 한두 번은 넘어가고, 반복되면 3D를 새로 켬 (2D로 바꾸지 않음)
  }
