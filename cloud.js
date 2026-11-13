@@ -244,6 +244,7 @@ export class CloudRoom{
     if(at<this.meta.startedAt)await this.ops.update(this.path('meta'),{startedAt:at});
   }
   async finish(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'ended'})}
+  async toLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby'})}   // 판이 끝난 뒤 모두 대기방으로
   async reLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby',startedAt:0})}
   async spawn(pos){
     if(this.role!=='student')return;

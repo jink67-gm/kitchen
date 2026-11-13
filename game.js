@@ -36,14 +36,14 @@ const RECIPES=[
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
 const LAYOUT=[
  '##################',
- '#==LT=KKPPPAHB=S=#',
- '#=..............=#',
+ '#=LLTTKKPPPABB=S=#',
  '#M..............I#',
- '#=..............=#',
- '#F...NNRR=......D#',
+ '#M..............I#',
+ '#F..............D#',
+ '#F....RR=NN.....D#',
  '#=.......====...=#',
- '#Y..............=#',
- '#=..............=#',
+ '#Y..............H#',
+ '#Y..............H#',
  '#=..............X#',
  '#..=OO==VV==ZZ=..#',
  '##################'
@@ -52,6 +52,10 @@ const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'
  L:['bin','양상추 상자','lettuce'],T:['bin','토마토 상자','tomato'],H:['bin','치즈 상자','cheese'],B:['bin','빵 상자','bread'],M:['bin','고기 상자','meat'],F:['bin','밀가루 상자','flour'],Y:['bin','딸기 상자','berry'],I:['bin','우유 상자','milk'],D:['bin','반죽 상자','dough']};
 const STATIONS=[];
 LAYOUT.forEach((row,y)=>[...row].forEach((ch,x)=>{const k=KIND[ch];if(k)STATIONS.push({x,y,type:k[0],label:k[1],...(k[2]?{food:k[2]}:{})})}));
+// 같은 재료 상자 2칸은 한 상자로 봄: 앞 칸(lead)에 짝 방향(pair)을, 뒤 칸에 follower 표시. 3D·이름표·화살표는 두 칸 가운데에 하나만
+for(const s of STATIONS)if(s.type==='bin'&&!s.follower){const o=STATIONS.find(v=>v!==s&&v.type==='bin'&&v.food===s.food&&Math.abs(v.x-s.x)+Math.abs(v.y-s.y)===1);if(o){s.pair={dx:o.x-s.x,dy:o.y-s.y};o.follower=true;o.lead=s}}
+const spotOf=s=>s.pair?{x:s.x+s.pair.dx/2,y:s.y+s.pair.dy/2}:{x:s.x,y:s.y};
+const leadOf=s=>s.lead||s;
 const PASSIVE=new Set(['counter']); // 아직 E로 쓸 수 없는 설비
 const blocked=new Set(STATIONS.map(s=>s.x+','+s.y));
 let mode='demo',cloud=null,meta=null,players={},members={},allTeams={},teamData=null,localState=null,myUid='demo',seat=0,team=0,roundStarted=false,ended=false,last=performance.now(),totalTime=180,nowTime=180,activeQuestion=null,unit='all',muted=false,toastTimeout=null,teacher=false,currentMode='coop',sentPhase='',helpBefore=false;
@@ -354,11 +358,11 @@ function nextStep(){
 const tagSince=new Map();
 function nearTags(t){
  const out=[],focus=nearestStation();
- for(const s of STATIONS){if(PASSIVE.has(s.type))continue;const k=s.x+','+s.y,near=Math.hypot(s.x+.5-p.x,s.y+.5-p.y)<1.9;
+ for(const s of STATIONS){if(PASSIVE.has(s.type)||s.follower)continue;const k=s.x+','+s.y,o=s.pair?STATIONS.find(v=>v.lead===s):null,near=Math.hypot(s.x+.5-p.x,s.y+.5-p.y)<1.9||(o&&Math.hypot(o.x+.5-p.x,o.y+.5-p.y)<1.9);
   if(!near){tagSince.delete(k);continue}
   if(!tagSince.has(k))tagSince.set(k,t);
-  if(t-tagSince.get(k)>=4500)continue;const main=s===focus;
-  out.push({x:s.x,y:s.y,main,text:s.type!=='bin'?s.label:main?`${FOOD[s.food].name} · ${PREP_PLACE[FOOD[s.food].prep][0]}에서 ${PREP_PLACE[FOOD[s.food].prep][1]}`:FOOD[s.food].name});}
+  if(t-tagSince.get(k)>=4500)continue;const main=leadOf(focus||{})===s,sp=spotOf(s);
+  out.push({x:sp.x,y:sp.y,main,text:s.type!=='bin'?s.label:main?`${FOOD[s.food].name} · ${PREP_PLACE[FOOD[s.food].prep][0]}에서 ${PREP_PLACE[FOOD[s.food].prep][1]}`:FOOD[s.food].name});}
  return out;
 }
 function getStationHint(st){
@@ -624,7 +628,7 @@ function drawStation(st,t){
  else if(st.type==='serve'){fillRounded(x+6,y+6,35,19,4,'#ece2bc');drawEmoji('🔔',cx,y+14,23)}
  else {const em={sink:'🚰',trash:'🗑️',storage:'🗄️'}[st.type];if(em)drawEmoji(em,cx,y+14,22);if(st.type==='storage'){g.font='800 10px Nunito,sans-serif';g.textAlign='center';g.fillStyle='#fff';g.fillText(storageList(getStorage()).length+'/'+STORAGE_MAX,cx,y+32)}}
  if(st.type==='counter')return;
- g.font='700 10px Nunito, sans-serif';g.textAlign='center';g.fillStyle='#ffe3b6';g.shadowColor='#182135';g.shadowBlur=4;g.fillText(st.type==='bin'?FOOD[st.food].name:st.label,cx,y+45);g.shadowBlur=0;
+ g.font='700 10px Nunito, sans-serif';g.textAlign='center';g.fillStyle='#ffe3b6';g.shadowColor='#182135';g.shadowBlur=4;if(!st.follower)g.fillText(st.type==='bin'?FOOD[st.food].name:st.label,cx+(st.pair?st.pair.dx*T/2:0),y+45+(st.pair?st.pair.dy*T/2:0));g.shadowBlur=0;
 }
 function drawChef(ch,isMine,t){
  let [x,y]=canvasPos(ch.x,ch.y);let col=playerColor(ch.seat||0);let bounce=Math.sin(t/125+(ch.seat||0))*.9;
@@ -686,7 +690,7 @@ function drawGame(t){
    const chefs=mode==='demo'?bots.map((b,i)=>({id:'bot'+i,...b,side:sideOf('bot'+i,b.seat)})):Object.entries(players).filter(([id])=>id!==myUid).map(([id,ch])=>({id,...ch,side:sideOf(id)}));
    if(roundStarted)chefs.push({id:'me',...p,mine:true,side:currentMode==='duel'?getSide():null});
    const foc=roundStarted&&!activeQuestion&&!pickerOpen?nearestStation():null;
-   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?ns.targets.map(s=>({x:s.x,y:s.y})):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
+   view3d.render({chefs,focus:foc,focusLabel:foc?actionLabel(foc):'',boards:boardViews(),storage:storageList(getStorage()),fx,popups,orders:roundStarted?liveRecipes().map(r=>({items:r.items,emoji:r.emoji})):[],rush:rushNow,tags:roundStarted?nearTags(t):[],guide:(()=>{const ns=nextStep();return ns&&((getGroup().served||0)<2||S().freePass>=2)?[...new Set(ns.targets.map(leadOf))].map(spotOf):[]})(),guests:roundStarted?liveOrders().map(o=>({id:o.id,emoji:RECIPES[o.recipeId].emoji,f:patience(o,srvNow()),locked:!o.accepted})):[],order:roundStarted?{items:order().items,emoji:order().emoji}:null,particles:particles.map(pt=>({x:(pt.x-OX)/T,y:(pt.y-OY)/T,life:pt.life,color:pt.color})),dim:!roundStarted},t);
    return;
   }catch(e){console.warn('3D 그리기 오류',e);gl3dErrors=gl3dErrors.filter(t=>performance.now()-t<5000);gl3dErrors.push(performance.now());if(gl3dErrors.length>=5)rebuild3D('그리기 오류가 반복됨');return}   // 한두 번은 넘어가고, 반복되면 3D를 새로 켬 (2D로 바꾸지 않음)
  }
@@ -777,7 +781,7 @@ function animate(t){fx=fx.filter(f=>t-f.t<450);popups=popups.filter(f=>t-f.t<170
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
 function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
- let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg);show('endOverlay');sound('success');}
+ let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg+(cloud&&mode!=='demo'?' · 잠시 뒤 대기방으로 돌아가요.':''));show('endOverlay');sound('success');}
 function beginOnline(){
  if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
  let startPoints=[[7.5,7.5],[10.5,7.5],[6.5,8.5],[11.5,8.5],[9.5,8.5]];
@@ -786,12 +790,18 @@ function beginOnline(){
  cloud.spawn(p).catch(e=>toast('입장 오류: '+e.message));
  hide('menuOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('endOverlay');hide('questionOverlay');roundStarted=true;ended=false;pending=false;activeQuestion=null;elapsed=0;sentPhase='playing';setRoomStatus();setModeUI();updateUI();toast(meta?.startedAt&&srvNow()-meta.startedAt>3000?'다시 들어왔어요! 같은 모둠 친구들과 이어서 요리해요.':'🎉 게임 시작! 친구들과 요리를 완성하세요.');
 }
+// 판이 끝나면 모두 대기방으로: 학생은 결과 화면을 RESULT_MS 동안 본 뒤 대기방(모둠 이동 가능), 교사는 지난 판 점수를 계속 봄
+const RESULT_MS=12000;let lobbyTimer=null;
+function backToLobby(){sentPhase='lobby';roundStarted=false;ended=false;activeQuestion=null;closePicker();hide('questionOverlay');hide('endOverlay');show('lobbyOverlay');refreshLobby();toast('대기방으로 돌아왔어요! 선생님이 다음 판을 시작할 때까지 기다려요.')}
+function scheduleLobby(){if(!cloud||cloud.role!=='teacher'||lobbyTimer)return;lobbyTimer=setTimeout(()=>{lobbyTimer=null;if(cloud?.role==='teacher'&&cloud.meta&&cloud.meta.phase!=='lobby')cloud.toLobby().then(()=>{refreshLobby();toast('모두 대기방으로 돌아왔어요. 모둠을 바꾸거나 다음 판을 시작할 수 있어요.')}).catch(e=>toast(e.message))},RESULT_MS)}
 function updateTeacherMonitor(){
  if(!cloud||cloud.role!=='teacher')return;
- let running=cloud.meta?.phase==='playing';$('teacherMonitor').classList.toggle('hidden',!running&&cloud.meta?.phase!=='ended');
+ if(cloud.meta?.phase==='playing'&&cloud.meta.startedAt&&Date.now()+(cloud.serverOffset||0)>cloud.meta.startedAt+cloud.meta.duration*1000+1500)scheduleLobby();   // 시간이 다 됨
+ if(cloud.meta?.phase==='ended')scheduleLobby();
+ let running=cloud.meta?.phase==='playing';$('teacherMonitor').classList.toggle('hidden',!running&&!cloud.meta?.startedAt);
  if(!cloud.meta)return;
  let remaining=Math.max(0,cloud.meta.duration-Math.floor((Date.now()+(cloud.serverOffset||0)-cloud.meta.startedAt)/1000));
- setText('teacherTime','남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'));
+ setText('teacherTime',running?'남은 시간 '+String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0'):cloud.meta.phase==='lobby'?'지난 판 결과':'영업 끝! 곧 대기방으로');
  let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
  $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
  $('endRoundBtn').disabled=!running;
@@ -828,8 +838,8 @@ async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');s
 function wireCloud(obj){
  obj.on('meta',v=>{
   if(!v)return;meta=v;currentMode=v.mode;
-  if(obj.role==='teacher'){if(v.phase==='playing'||v.phase==='ended'){refreshLobby();$('startBtn').textContent='다음 판 시작하기 🍳';if(v.phase==='ended')toast('게임이 끝났어요. 새 라운드를 시작할 수 있습니다.')}else refreshLobby();}
-  else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&sentPhase==='playing'){sentPhase='lobby';roundStarted=false;show('lobbyOverlay');}
+  if(obj.role==='teacher'){if(v.startedAt)$('startBtn').textContent='다음 판 시작하기 🍳';if(v.phase==='ended')toast('게임이 끝났어요. 잠시 뒤 모두 대기방으로 돌아가요.');if(v.phase==='playing'){clearTimeout(lobbyTimer);lobbyTimer=null}refreshLobby();updateTeacherMonitor();}
+  else if(v.phase==='playing'&&sentPhase!=='playing')beginOnline();else if(v.phase==='ended'&&roundStarted)finishRound();else if(v.phase==='lobby'&&(sentPhase==='playing'||sentPhase==='ended')){backToLobby()}
  });
  obj.on('members',v=>{members=v||{};refreshLobby();if(roundStarted)updateUI()});
  obj.on('net',ok=>{$('netBanner').classList.toggle('hidden',ok)});
