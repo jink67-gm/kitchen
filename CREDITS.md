@@ -8,9 +8,9 @@
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | 칼질, 접시 놓기, 버리기, 서빙 벨 | `assets/sounds/impact*.ogg` |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | 집기, 반환, 보관, 정답, 오류 | `assets/sounds/drop_*, error_*, confirmation_*` 등 |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | 콤보, 러시 시작, 판 종료, 인트로의 초대장·MISSION START | `assets/sounds/jingles_*.ogg` |
-| [Fluent Emoji Flat](https://github.com/microsoft/fluentui-emoji) | Microsoft | MIT | 주문 카드·주문 현황의 음식 그림, 3D 완성 요리 그림 | `assets/icons/` |
+| [Fluent Emoji Flat](https://github.com/microsoft/fluentui-emoji) | Microsoft | MIT | 주문 카드·주문 현황의 음식 그림(수프 pot-of-food·shallow-pan-of-food 포함), 3D 완성 요리 그림 | `assets/icons/` |
 | [갈무리 Galmuri11](https://galmuri.quiple.dev) | Lee Minseo (quiple) | SIL OFL 1.1 | 주문 카드·타이머·알림·3D 글자 | `assets/fonts/` (라이선스 전문 `Galmuri-OFL.md`) |
-| [Food Kit](https://kenney.nl/assets/food-kit) | Kenney | CC0 | 3D 재료 9종 중 8종과 완성 요리 6종 모델 | `assets/models/` (라이선스 `Kenney-FoodKit-License.txt`) |
+| [Food Kit](https://kenney.nl/assets/food-kit) | Kenney | CC0 | 3D 재료 9종 중 8종, 완성 요리·수프 그릇(bowl-soup·bowl-broth·pan-stew), 냄비(pot-stew) 모델 | `assets/models/` (라이선스 `Kenney-FoodKit-License.txt`) |
 | [Sushi Restaurant Kit](https://quaternius.com/packs/sushirestaurantkit.html) | Quaternius | CC0 | 토끼·판다 요리사 5종과 동작(대기, 걷기, 달리기, 들고 걷기, 칼질, 작업, 환호, 아니요, 손 흔들기, 놀람, 점프), 인트로의 천재 셰프(회색 토끼, Rabbit_Grey), 빨간 오븐 | `assets/models/chefs/`, `assets/models/furniture/sushi-oven.glb` (원본 .gltf를 .glb로 바꾸고 쓰지 않는 동작을 뺌) |
 | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 | 조리대 수납장, 싱크대, 믹서기, 쓰레기통, 뒷벽 패널과 창문 / 주방 바깥 식당 홀의 식탁·의자·화분·러그·조명·책장·소파 (색은 게임에 맞게 바꿈) | `assets/models/furniture/`, `assets/models/decor/` |
 | [Mini Characters](https://kenney.nl/assets/mini-characters) | Kenney | CC0 | 서빙 창구 앞에 줄 서는 손님 6종과 동작 | `assets/models/guests/` |

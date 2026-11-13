@@ -89,6 +89,37 @@ export function cookTake(s, now) {
   if (ph === 'burnt') return { next: null, item: { ...s.item, state: 'burnt', loc: 'held' } };
   return null;
 }
+// ── 냄비: 손질한 재료 2가지를 하나씩 넣으면 저절로 끓기 시작 → 다 끓음 → 곧 넘침 → 넘침(탄 것처럼 버려야 함) ──
+// 화덕과 같은 시간 규칙(cookPhase)을 그대로 씀. 재료를 '모아 넣는' 것만 새로움
+export const POT_RECIPES = { tsoup: ['tomato', 'milk'], csoup: ['cheese', 'milk'] };   // 토마토 수프, 치즈 수프
+export const POT_TIMES = { cook: 7000, grace: 5000 };
+// 이 냄비(s)에 이 재료를 넣을 수 있나: 비어 있거나 한 가지만 들어 있고, 함께 넣으면 어떤 수프가 되는 재료일 때
+export function potCanAdd(s, kind) {
+  if (s && s.state !== 'filling') return false;
+  const have = (s && s.items) || [];
+  if (have.includes(kind)) return false;
+  return Object.values(POT_RECIPES).some(r => r.includes(kind) && have.every(h => r.includes(h)));
+}
+// 다른 재료로 무엇을 넣으면 되는지 (안내용)
+export function potPartners(kind) { return [...new Set(Object.values(POT_RECIPES).filter(r => r.includes(kind)).flatMap(r => r.filter(k => k !== kind)))]; }
+export function potAdd(s, item, owner, name, now, times) {
+  if (!item || item.state !== 'prepared' || !potCanAdd(s, item.kind)) return null;
+  const items = [...((s && s.items) || []), item.kind];
+  const out = Object.keys(POT_RECIPES).find(k => POT_RECIPES[k].length === items.length && POT_RECIPES[k].every(x => items.includes(x)));
+  const base = { items, owner, name: name || '', at: now, item: { ...item, loc: 'station' } };
+  if (!out) return { next: { ...base, state: 'filling' } };
+  const t = times || POT_TIMES;
+  return { next: { ...base, state: 'cooking', out, startAt: now, cookMs: t.cook, graceMs: t.grace, item: { ...item, kind: out, loc: 'station' } }, out };
+}
+// 꺼내기: 한 가지만 넣은 상태면 그 재료를 다시 꺼냄, 다 끓었으면 수프, 넘쳤으면 넘친 수프(버려야 함). 끓는 중에는 못 꺼냄
+export function potTake(s, now) {
+  if (!s) return null;
+  if (s.state === 'filling') return { next: null, item: { ...s.item, kind: s.items[0], state: 'prepared', loc: 'held' } };
+  const ph = cookPhase(s, now);
+  if (ph === 'ready' || ph === 'warning') return { next: null, item: { ...s.item, kind: s.out, state: 'prepared', loc: 'held' } };
+  if (ph === 'burnt') return { next: null, item: { ...s.item, kind: s.out, state: 'burnt', loc: 'held' } };
+  return null;
+}
 // 싱크대: 재료 없이 작업만 점유
 export function washStart(s, owner, name, need, now) {
   if (s) return null;

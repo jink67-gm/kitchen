@@ -1,5 +1,5 @@
 import { CloudRoom, cloudConfigured, planTeams } from './cloud.js';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js';
 import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js';
 import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js';
 import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js';
@@ -14,7 +14,7 @@ const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
 const W=18,H=12,T=48,OX=68,OY=47;
 const COLOR=['#e77e95','#56c5dd','#fac268','#9d88e9','#63c49b'];
-const FOOD={lettuce:{emoji:'🥬',name:'양상추',prep:'cut'},tomato:{emoji:'🍅',name:'토마토',prep:'cut'},meat:{emoji:'🥩',name:'고기',prep:'cook'},flour:{emoji:'🥣',name:'밀가루',prep:'mix'},berry:{emoji:'🍓',name:'딸기',prep:'cut'},cheese:{emoji:'🧀',name:'치즈',prep:'cut'},bread:{emoji:'🍞',name:'빵',prep:'cook'},milk:{emoji:'🥛',name:'우유',prep:'mix'},dough:{emoji:'🫓',name:'반죽',prep:'cook'}};
+const FOOD={lettuce:{emoji:'🥬',name:'양상추',prep:'cut'},tomato:{emoji:'🍅',name:'토마토',prep:'cut'},meat:{emoji:'🥩',name:'고기',prep:'cook'},flour:{emoji:'🥣',name:'밀가루',prep:'mix'},berry:{emoji:'🍓',name:'딸기',prep:'cut'},cheese:{emoji:'🧀',name:'치즈',prep:'cut'},bread:{emoji:'🍞',name:'빵',prep:'cook'},milk:{emoji:'🥛',name:'우유',prep:'mix'},dough:{emoji:'🫓',name:'반죽',prep:'cook'},tsoup:{emoji:'🍲',name:'토마토 수프',prep:'pot'},csoup:{emoji:'🥘',name:'치즈 수프',prep:'pot'}};   // 수프: 냄비에서만 만듦 (상자 없음)
 const RECIPES=[
  {emoji:'🥗',title:'무지개 샐러드',desc:'양상추와 토마토를 손질해요',items:['lettuce','tomato']},
  {emoji:'🍔',title:'왕왕 햄버거',desc:'빵과 고기를 굽고 양상추를 손질해요',items:['bread','meat','lettuce']},
@@ -28,7 +28,9 @@ const RECIPES=[
  {emoji:'🧇',title:'바삭 와플',desc:'밀가루와 우유를 섞어요',items:['flour','milk']},
  {emoji:'🧁',title:'크림치즈 컵케이크',desc:'밀가루를 섞고 치즈와 딸기를 손질해요',items:['flour','cheese','berry']},
  {emoji:'🥧',title:'새콤 딸기 파이',desc:'반죽을 굽고 딸기를 손질해요',items:['dough','berry']},
- {emoji:'🫕',title:'퐁당 치즈 퐁듀',desc:'빵을 굽고 치즈를 손질하고 우유를 섞어요',items:['bread','cheese','milk']}
+ {emoji:'🫕',title:'퐁당 치즈 퐁듀',desc:'빵을 굽고 치즈를 손질하고 우유를 섞어요',items:['bread','cheese','milk']},
+ {emoji:'🍲',title:'토마토 수프 정식',desc:'토마토와 우유를 냄비에 끓이고 빵을 구워요',items:['tsoup','bread']},
+ {emoji:'🥘',title:'든든 크림 스튜',desc:'치즈와 우유를 냄비에 끓이고 고기를 구워요',items:['csoup','meat']}
 ];   // 판마다 무작위 순서로 나옴 (orders.js pickRecipe)
 // 주방 배치 (2.0 새 구조): 벽을 따라 이어진 조리대 + 가운데 Z자 섬. 이 글자 지도만 고치면 2D·3D 양쪽 배치가 함께 바뀝니다.
 // # 벽  . 바닥  = 빈 조리대  대문자 = 설비 (KIND 참고). 보관대·싱크대·쓰레기통은 2~4단계에서 기능이 붙습니다.
@@ -38,7 +40,7 @@ const LAYOUT=[
  '#=..............=#',
  '#M..............I#',
  '#=..............=#',
- '#F...==RR=......D#',
+ '#F...NNRR=......D#',
  '#=.......====...=#',
  '#Y..............=#',
  '#=..............=#',
@@ -46,7 +48,7 @@ const LAYOUT=[
  '#..=OO==VV==ZZ=..#',
  '##################'
 ];
-const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'],P:['plate','플레이팅대'],O:['cook','화덕'],V:['serve','서빙 벨'],Z:['mix','믹서'],A:['rack','접시대'],R:['storage','보관대'],X:['trash','쓰레기통'],
+const KIND={'=':['counter','조리대'],S:['sink','싱크대'],K:['cut','도마'],P:['plate','플레이팅대'],O:['cook','화덕'],V:['serve','서빙 벨'],Z:['mix','믹서'],N:['pot','냄비'],A:['rack','접시대'],R:['storage','보관대'],X:['trash','쓰레기통'],
  L:['bin','양상추 상자','lettuce'],T:['bin','토마토 상자','tomato'],H:['bin','치즈 상자','cheese'],B:['bin','빵 상자','bread'],M:['bin','고기 상자','meat'],F:['bin','밀가루 상자','flour'],Y:['bin','딸기 상자','berry'],I:['bin','우유 상자','milk'],D:['bin','반죽 상자','dough']};
 const STATIONS=[];
 LAYOUT.forEach((row,y)=>[...row].forEach((ch,x)=>{const k=KIND[ch];if(k)STATIONS.push({x,y,type:k[0],label:k[1],...(k[2]?{food:k[2]}:{})})}));
@@ -90,7 +92,7 @@ let mathPass=0,myStats={correct:0,wrong:0,hints:0,units:{}};
 function resetStats(){mathPass=0;myStats={correct:0,wrong:0,hints:0,units:{}};chopNeed=S().chops}
 let chopChain=Promise.resolve(),cookSeen={};
 // 화덕 상태가 바뀌는 순간 소리로 알림 (익음 → 경고 → 탐). 상태 자체는 시각으로 계산되므로 여기서는 알리기만 함
-function cookAlerts(){const now=srvNow();let hot=false;for(const st of STATIONS){if(st.type!=='cook')continue;const id=stationId(st),b=boardOf(st),ph=b?cookPhase(b,now):'idle';if(cookSeen[id]!==ph){const prev=cookSeen[id];cookSeen[id]=ph;if(prev===undefined)continue;if(ph==='ready')sound('cookDone');else if(ph==='warning')sound('warn');else if(ph==='burnt')sound('burnt')}if(ph==='cooking'||ph==='ready'||ph==='warning')hot=true}sfx.setSizzle(hot&&roundStarted&&!ended)}
+function cookAlerts(){const now=srvNow();let hot=false;for(const st of STATIONS){if(st.type!=='cook'&&st.type!=='pot')continue;const id=stationId(st),b=boardOf(st),ph=b?cookPhase(b,now):'idle';if(cookSeen[id]!==ph){const prev=cookSeen[id];cookSeen[id]=ph;if(prev===undefined)continue;if(ph==='ready')sound('cookDone');else if(ph==='warning')sound('warn');else if(ph==='burnt')sound('burnt')}if(ph==='cooking'||ph==='ready'||ph==='warning')hot=true}sfx.setSizzle(hot&&roundStarted&&!ended)}
 function chopSound(kind='chop'){sfx.play(kind)}
 async function useBoard(st){
  const b=boardOf(st),it=p.item,now=srvNow();
@@ -126,6 +128,38 @@ async function useBoard(st){
  }catch(e){toast('도마 사용에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
 }
 // ── 화덕: 올려두면 시간이 알아서 흐름. 익으면 직접 꺼내고, 늦으면 탐 ──
+// 냄비: 손질한 재료 2가지를 넣으면 끓기 시작 (규칙은 stations.js potAdd/potTake)
+async function usePot(st){
+ const b=boardOf(st),it=p.item,now=srvNow();
+ if(b&&b.state!=='filling'){
+  const ph=cookPhase(b,now);
+  if(ph==='cooking'){toast(it?'이 냄비는 끓는 중이에요. 다른 냄비를 써요.':'아직 끓는 중이에요. 넘치기 전에 꺼내요!');return}
+  if(it){toast('손이 비어 있어야 꺼낼 수 있어요.');sound('error');return}
+ }
+ if(!it){
+  if(!b){toast('손질한 재료를 들고 와서 넣어요! (토마토+우유 → 토마토 수프, 치즈+우유 → 치즈 수프)');return}
+  pending=true;
+  try{const r=await stationOp(st,s=>potTake(s,srvNow()));
+   if(r){setHeld(r.item);await updatePlayer(true);const nm=FOOD[r.item.kind].name;
+    if(r.item.state==='burnt'){toast('♨️ '+nm+'이(가) 넘쳐 버렸어요. 🗑️ 쓰레기통에 버려요.');sound('error')}
+    else if(POT_RECIPES[r.item.kind]){toast('🍲 '+nm+' 완성! 🍽️ 접시로 가져가요.');sound('success');celebrate(st.x+.5,st.y+.3,10)}
+    else toast(nm+'을(를) 다시 꺼냈어요.')}
+   else toast('다른 친구가 먼저 꺼냈어요!');
+  }catch(e){toast('꺼내기에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+  return;
+ }
+ if(isPlate(it)){toast('접시는 냄비에 넣을 수 없어요.');sound('error');return}
+ if(it.state==='raw'){toast('먼저 손질한 재료만 넣을 수 있어요. 도마·믹서에서 준비해요!');sound('error');return}
+ if(it.state==='burnt'){toast('탄 재료는 🗑️ 쓰레기통에 버려야 해요.');sound('error');return}
+ if(!potCanAdd(b,it.kind)){toast(b?`이 냄비에는 ${potPartners(b.items[0]).map(k=>FOOD[k].name).join('나 ')}만 넣을 수 있어요.`:'이 재료는 냄비 요리에 쓰지 않아요. (토마토·치즈·우유)');sound('error');return}
+ pending=true;
+ try{const r=await stationOp(st,s=>potAdd(s,p.item,myUid,p.name,srvNow(),cookTimes(POT_TIMES,S())));
+  if(r){flyFx(p.held,p,st);setHeld(null);await updatePlayer(true);
+   if(r.out){sound('panStart');toast(`♨️ ${FOOD[r.out].name} 끓이기 시작! 넘치기 전에 꺼내요.`)}
+   else{sound('store');toast(`${FOOD[it.kind].name} 넣음! ${potPartners(it.kind).map(k=>FOOD[k].name).join('나 ')}를 넣으면 끓기 시작해요.`)}}
+  else toast('다른 친구가 먼저 넣었어요!');
+ }catch(e){toast('냄비 사용에 실패했어요: '+e.message)}finally{pending=false;updateUI()}
+}
 async function useCooker(st){
  const b=boardOf(st),it=p.item,now=srvNow();
  if(b&&b.state==='reserved'&&b.owner===myUid&&!isStale(b,now)){askMath(b.item.kind,'cook',st);return}
@@ -211,8 +245,10 @@ function getGroup(side=getSide()){return teamData?.groups?.[side]||blankGroup()}
 // ── 6단계: 주문 대기열. 규칙은 orders.js, 여기서는 설정값과 저장 위치만 정함 ──
 // 이모지 대신 그림 파일(Fluent Emoji Flat)을 넣음. 그림이 없는 이모지는 글자 그대로 둠
 function putIcon(el,emoji){const src=ICONS[emoji];if(!src){el.textContent=emoji;return}if(el.dataset.emoji===emoji)return;el.dataset.emoji=emoji;const img=document.createElement('img');img.src=src;img.alt=emoji;img.className='emo';img.draggable=false;el.replaceChildren(img)}
+// 주문 재료 판단용: 수프가 들어간 요리는 수프의 재료(토마토·치즈·우유)도 그 요리의 재료로 봄
+const RECIPES_EXP=RECIPES.map(r=>({...r,items:[...r.items,...r.items.flatMap(k=>POT_RECIPES[k]||[])]}));
 const NO_ORDER={emoji:'⏳',title:'주문을 기다리는 중',desc:'곧 새 주문이 들어와요',items:[]};
-const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣'};
+const PREP_ICON={cut:'🔪',cook:'🔥',mix:'🥣',pot:'🍳'};
 const curEvent=()=>FIXED_ORDERS?null:roundEvent(meta?.startedAt||0,RECIPES.length);   // 오늘의 이벤트 (판마다 다름)
 const orderCfg=()=>({startedAt:meta?.startedAt||0,durationMs:(meta?.duration||180)*1000,orderTimeMs:Math.round(S().orderTimeMs*(curEvent()?.id==='relaxed'?1.3:1)),rushIntervalMs:S().rushIntervalMs,recipeCount:RECIPES.length,recipeSizes:RECIPES.map(r=>r.items.length),seed:FIXED_ORDERS?undefined:meta?.startedAt||0,minOrders:FIXED_ORDERS?1:(teamSize()>=3?2:1)+(curEvent()?.id==='group'?1:0)});
 const FIXED_ORDERS=new URLSearchParams(location.search).get('fixedOrders')==='1';   // 테스트용: 예전처럼 차례대로 1개씩
@@ -277,7 +313,7 @@ function updateUI(){
 }
 // 받침에 따라 을/를
 const eul=w=>w+(((w.charCodeAt(w.length-1)-0xAC00)%28)?'을':'를');
-const PREP_PLACE={cut:['도마','썰기'],cook:['화덕','굽기'],mix:['믹서','섞기']};
+const PREP_PLACE={cut:['도마','썰기'],cook:['화덕','굽기'],mix:['믹서','섞기'],pot:['냄비','끓이기']};
 // 다음 할 일: 지금 상태에서 무엇을 하면 되는지 한 줄 + 가야 할 설비 (화면에 화살표로 표시)
 function nextStep(){
  if(!roundStarted||ended)return null;
@@ -285,6 +321,7 @@ function nextStep(){
  if(it&&!isPlate(it)&&it.state==='burnt')return{text:'탄 음식은 쓰레기통에 버려요.',targets:T('trash')};
  if(it&&isPlate(it)){const c=contentsOf(it);if(plateMatch(c,liveRecipes()))return{text:'요리 완성! 서빙 벨로 가져가서 E를 누르고 마지막 문제를 풀어요.',targets:T('serve')};return{text:c.length?'재료가 아직 모자라요. 접시를 플레이팅대에 다시 놓아요.':'빈 접시를 플레이팅대에 놓아요.',targets:T('plate').filter(s=>!boardOf(s))}}
  if(it&&it.state==='raw'){const pr=FOOD[it.kind].prep,free=T(pr).filter(s=>!boardOf(s));return{text:`${eul(FOOD[it.kind].name)} ${PREP_PLACE[pr][0]}에 올리고 E를 눌러요.`,targets:free.length?free:T(pr)}}
+ if(it&&!isPlate(it)){const needAll=os.flatMap(o=>RECIPES[o.recipeId].items),soup=Object.keys(POT_RECIPES).find(k=>POT_RECIPES[k].includes(it.kind)&&needAll.includes(k)&&!needAll.includes(it.kind));if(soup&&it.state==='prepared'){const pots=T('pot').filter(s=>potCanAdd(boardOf(s),it.kind));return{text:`준비한 ${eul(FOOD[it.kind].name)} 냄비에 넣어 ${eul(FOOD[soup].name)} 끓여요.`,targets:pots.length?pots:T('pot')}}}
  if(it){const tables=T('plate').filter(s=>boardOf(s)?.state==='plate');if(tables.length)return{text:`준비한 ${eul(FOOD[it.kind].name)} 플레이팅대의 접시에 올려요.`,targets:tables};return{text:'접시가 아직 없어요. 재료를 보관대에 두고 접시대에서 접시를 꺼내요.',targets:T('storage')}}
  if(!os.length)return{text:'새 주문을 기다려요.',targets:[]};
  const views=boardViews(),at=v=>STATIONS.filter(s=>s.x===v.x&&s.y===v.y);
@@ -295,12 +332,15 @@ function nextStep(){
  const burnt=views.find(v=>v.type==='cook'&&v.state==='burnt');if(burnt)return{text:'탄 음식을 꺼내 쓰레기통에 버려요.',targets:at(burnt)};
  if(!T('plate').some(s=>boardOf(s)?.state==='plate'))return getPlates().clean>0?{text:'접시대에서 접시를 꺼내 플레이팅대에 놓아요.',targets:T('rack')}:{text:'깨끗한 접시가 없어요. 싱크대에서 설거지해요.',targets:T('sink')};
  const plated=platedKinds(),missing=[...new Set(acc.flatMap(o=>RECIPES[o.recipeId].items))].filter(k=>!plated.has(k));
- const ready=views.find(v=>['cut','mix','cook'].includes(v.type)&&missing.includes(v.kind)&&(v.type==='cook'?v.ready:v.look==='ready'));
+ const ready=views.find(v=>['cut','mix','cook','pot'].includes(v.type)&&missing.includes(v.kind)&&(v.type==='cook'||v.type==='pot'?v.ready:v.look==='ready'));
  if(ready)return{text:`다 된 ${eul(FOOD[ready.kind].name)} 빈손으로 꺼내요.`,targets:at(ready)};
  const stored=storageList(getStorage()).find(r=>missing.includes(r.kind)&&r.state!=='raw');if(stored)return{text:`보관대에서 ${eul(FOOD[stored.kind].name)} 꺼내요.`,targets:T('storage')};
  const todo=missing.filter(k=>!views.some(v=>v.kind===k));
- if(todo.length){const k=todo[0];return{text:`${FOOD[k].name} 상자에서 재료를 집어요. (${PREP_PLACE[FOOD[k].prep][0]}에서 ${PREP_PLACE[FOOD[k].prep][1]})`,targets:STATIONS.filter(s=>s.type==='bin'&&s.food===k)}}
- const cooking=views.filter(v=>v.type==='cook'&&v.state==='cooking');if(cooking.length)return{text:'익을 때까지 기다려요. 타기 전에 꺼내요!',targets:cooking.flatMap(at)};
+ if(todo.length){const k=todo[0];
+  if(FOOD[k].prep==='pot'){const need=POT_RECIPES[k],fill=T('pot').find(s=>boardOf(s)?.state==='filling'&&need.includes(boardOf(s).items[0])),lack=need.filter(x=>!(fill&&boardOf(fill).items.includes(x))),x=lack[0];
+   return{text:`${FOOD[k].name}: ${need.map(n=>FOOD[n].name).join('와 ')}를 손질해 냄비에 넣어 끓여요. 먼저 ${FOOD[x].name} (${PREP_PLACE[FOOD[x].prep][0]}에서 ${PREP_PLACE[FOOD[x].prep][1]})`,targets:STATIONS.filter(s=>s.type==='bin'&&s.food===x)}}
+  return{text:`${FOOD[k].name} 상자에서 재료를 집어요. (${PREP_PLACE[FOOD[k].prep][0]}에서 ${PREP_PLACE[FOOD[k].prep][1]})`,targets:STATIONS.filter(s=>s.type==='bin'&&s.food===k)}}
+ const cooking=views.filter(v=>(v.type==='cook'||v.type==='pot')&&v.state==='cooking');if(cooking.length)return{text:'익을 때까지 기다려요. 타거나 넘치기 전에 꺼내요!',targets:cooking.flatMap(at)};
  return{text:os.some(o=>!o.accepted)?'다음 주문도 받아 둘까요? Q를 눌러요.':'친구가 준비하고 있어요. 접시와 다음 재료를 챙겨요.',targets:[]};
 }
 // 가까이 가면 잠깐(3.5초) 뜨는 이름표: 재료 상자는 "토마토 · 도마에서 썰기"
@@ -319,6 +359,7 @@ function getStationHint(st){
  if(st.type==='storage')return p.item?'🗄️ 보관대: 손질한 재료를 E로 보관 (최대 5칸)':'🗄️ 보관대: E를 눌러 꺼낼 재료 고르기';
  if(st.type==='trash')return `🗑️ 쓰레기통: 손질한 재료를 E로 버리기 (-${TRASH_PENALTY}점)`;
  if(st.type==='cut'){const b=boardOf(st);if(!b)return '🔪 도마: 손질할 재료를 들고 E';if(b.state==='ready')return '🔪 도마: 완성! 빈손으로 E를 눌러 집기';if(isStale(b,srvNow()))return '🔪 도마: 주인 없는 재료예요. 빈손으로 E를 눌러 회수';if(b.owner===myUid)return b.state==='working'?`🔪 도마: E나 Space를 연타! (${b.progress}/${b.need})`:'🔪 도마: E를 눌러 수학 문제 풀기';return `🔪 도마: ${b.name||'친구'}님이 사용 중`}if(st.type==='cook'){const b=boardOf(st);if(!b)return '🔥 화덕: 구울 재료를 들고 E. 올려두고 다른 일을 해도 돼요';const ph=cookPhase(b,srvNow());return ph==='cooking'?'🔥 화덕: 굽는 중. 다 익으면 꺼내요':ph==='burnt'?'🔥 화덕: 타 버렸어요. 빈손으로 꺼내서 쓰레기통에 버려요':ph==='reserved'?'🔥 화덕: 수학 문제를 풀면 굽기 시작':'🔥 화덕: 다 익었어요! 빈손으로 E를 눌러 꺼내기'}
+ if(st.type==='pot'){const b=boardOf(st);if(!b)return '🍲 냄비: 손질한 재료를 넣어요 (토마토+우유 → 토마토 수프, 치즈+우유 → 치즈 수프)';if(b.state==='filling')return `🍲 냄비: ${FOOD[b.items[0]].name} 들어 있음 · ${potPartners(b.items[0]).map(k=>FOOD[k].name).join('나 ')}를 넣으면 끓어요 (빈손 E: 다시 꺼내기)`;const ph=cookPhase(b,srvNow());return ph==='cooking'?'🍲 냄비: 끓는 중. 넘치기 전에 꺼내요':ph==='burnt'?'🍲 냄비: 넘쳤어요. 꺼내서 쓰레기통에 버려요':'🍲 냄비: 다 끓었어요! 빈손으로 E를 눌러 꺼내기'}
  if(st.type==='mix')return boardOf(st)?'🥣 믹서: 사용 중 (E나 Space로 젓기 / 완성되면 빈손으로 집기)':'🥣 믹서: 섞을 재료를 들고 E';
  if(st.type==='sink')return '🚰 싱크대: 빈손으로 E를 눌러 더러운 접시 씻기';if(st.type==='plate')return boardOf(st)?'🍽️ 플레이팅대: 준비된 재료를 E로 하나씩 올려요. 빈손이면 접시를 들어요':'🍽️ 플레이팅대: 먼저 접시대에서 접시를 가져와 놓아요';if(st.type==='serve')return '🔔 서빙 벨: 완성한 접시를 직접 들고 와서 E';if(st.type==='rack')return '🍽️ 접시대: 빈손으로 E를 눌러 깨끗한 접시 꺼내기';return '중앙 조리대';}
 function nearestStation(){let best=null,dist=1.55;for(let s of STATIONS){if(PASSIVE.has(s.type))continue;let d=Math.hypot((s.x+.5)-p.x,(s.y+.5)-p.y);if(d<dist){dist=d;best=s}}return best}
@@ -340,6 +381,7 @@ async function interact(){if(inIntro())return;
  }
  if(st.type==='cut'||st.type==='mix')return useBoard(st);
  if(st.type==='cook')return useCooker(st);
+ if(st.type==='pot')return usePot(st);
  if(st.type==='sink')return useSink(st);
  if(st.type==='storage')return useStorage(st);
  if(st.type==='trash')return useTrash(st);
@@ -473,6 +515,7 @@ function actionLabel(st){
  if(st.type==='rack')return !it?(getPlates().clean>0?'접시 꺼내기':'✕'):isPlate(it)&&!contentsOf(it).length?'접시 놓기':'✕';
  if(st.type==='plate'){const b=boardOf(st);if(isPlate(it))return b?'✕':'접시 놓기';if(!it)return b?'접시 들기':'✕';return tableAddCheck(b,it,liveRecipes()).ok?'담기':'✕'}
  if(st.type==='serve')return isPlate(it)&&plateMatch(contentsOf(it),liveRecipes())?'서빙!':'✕';
+ if(st.type==='pot'){const b=boardOf(st);if(!b)return it&&!isPlate(it)&&it.state==='prepared'&&potCanAdd(null,it.kind)?'넣기':it?'✕':'E';if(b.state==='filling')return it?(!isPlate(it)&&it.state==='prepared'&&potCanAdd(b,it.kind)?'넣기':'✕'):'꺼내기';return it?'✕':'E'}
  if(st.type==='cook'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep==='cook'?'굽기':it?'✕':'E';return 'E'}
  if(st.type==='cut'||st.type==='mix'){const b=boardOf(st);if(!b)return it&&it.state==='raw'&&FOOD[it.kind].prep===st.type?(st.type==='mix'?'섞기':'손질'):it?'✕':'E';if(b.state==='ready'||isStale(b,srvNow()))return it?'✕':'집기';return b.owner===myUid?(b.state==='working'?'연타!':'문제 풀기'):'✕'}
  return 'E';
@@ -513,7 +556,7 @@ async function startWork(kind,st){
 }
 // 방금 정답을 맞혔다면 문제 없이 바로 시작, 아니면 문제를 냄
 async function beginOrAsk(kind,type,st){
- const need=orderForKind(getGroup(),kind,RECIPES,srvNow());
+ const need=orderForKind(getGroup(),kind,RECIPES_EXP,srvNow());
  if(need==='free'){const msg=await startWork(type,st);toast(msg?'받은 주문이라 문제 없이 바로! '+msg:'다시 사용해 주세요.');return}
  if(need){askMath(kind,type,st,need);return}
  if(mathPass>0){mathPass--;const msg=await startWork(type,st);toast(msg?'문제 없이 바로! '+msg:'다시 사용해 주세요.');return}
@@ -567,6 +610,7 @@ function drawStation(st,t){
  g.fillStyle='#e6ba8a';g.fillRect(x+6,y+4,34,2);
  if(st.type==='bin'){fillRounded(x+6,y+7,35,18,4,'#625045');drawEmoji(FOOD[st.food].emoji,cx,y+14,23)}
  else if(st.type==='cut'){fillRounded(x+7,y+7,34,16,3,'#d3b480');drawEmoji('🔪',cx+3,y+15,22)}
+ else if(st.type==='pot'){fillRounded(x+6,y+4,35,25,6,'#4a4550');drawEmoji('🍲',cx,y+14,22)}
  else if(st.type==='cook'){fillRounded(x+6,y+4,35,25,6,'#283443');fillRounded(x+13,y+9,22,15,7,'#ea6a48');drawEmoji('🔥',cx,y+14,22);if(Math.sin(t/300+st.x)>0){glow(cx,y+17,38,'#ff7d4a44')}}
  else if(st.type==='mix'){fillRounded(x+7,y+6,33,19,4,'#457185');drawEmoji('🥣',cx,y+16,26)}
  else if(st.type==='plate'){fillRounded(x+6,y+6,35,18,4,'#ddd8c5')}
@@ -658,6 +702,12 @@ function boardViews(){
   if(st.type==='sink'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'sink',kind:null,look:'raw',state:b?b.state:'idle',progress:b?b.progress/b.need:0,count:b?b.progress:0,need:b?b.need:0,owner:b&&b.owner===myUid?'me':b?.owner,dirty:pl.dirty,clean:pl.clean,label:b&&b.state==='working'?`${b.name||'친구'} 설거지 ${b.progress}/${b.need}`:pl.dirty>0?`더러운 접시 ${pl.dirty}장 · E로 설거지`:''});continue}
   if(st.type==='rack'){const pl=getPlates();out.push({x:st.x,y:st.y,type:'rack',kind:null,look:'raw',state:'idle',progress:0,count:0,need:0,clean:pl.clean,label:pl.clean?'':'깨끗한 접시 없음'});continue}
   if(st.type==='plate'){if(b&&b.state==='plate'){const c=contentsOf(b.plate),recs=liveRecipes(),done=plateMatch(c,recs),miss=missingOf(c,recs);out.push({x:st.x,y:st.y,type:'plate',kind:null,look:'raw',state:done?'complete':'plate',progress:0,count:0,need:0,contents:c,complete:!!done,emoji:done?done.emoji:'',label:done?'✨ 완성! E로 들기':!c.length?'빈 접시 · 재료를 올려요':miss.length?'남은 재료: '+miss.map(k=>FOOD[k].name).join(', '):'지난 주문 접시 · 쓰레기통에 비워요'})}continue}
+  if(st.type==='pot'){if(!b)continue;
+   if(b.state==='filling'){out.push({x:st.x,y:st.y,type:'pot',kind:b.items[0],look:'ready',ready:false,state:'filling',progress:0.5,count:0,need:0,owner:b.owner===myUid?'me':b.owner,label:`${FOOD[b.items[0]].name} 넣음 · ${potPartners(b.items[0]).map(k=>FOOD[k].name).join('나 ')} 넣으면 끓어요`});continue}
+   const ph=cookPhase(b,now),left=Math.max(0,(b.startAt+b.cookMs+b.graceMs-now)/1000);
+   out.push({x:st.x,y:st.y,type:'pot',kind:b.out,look:ph==='burnt'?'burnt':ph==='ready'||ph==='warning'?'ready':'raw',ready:ph==='ready'||ph==='warning',state:ph,progress:ph==='cooking'?cookProgress(b,now):1,count:0,need:0,owner:b.owner===myUid?'me':b.owner,
+    label:ph==='cooking'?`${FOOD[b.out].name} 보글보글…`:ph==='ready'?'다 끓었어요! E로 꺼내기':ph==='warning'?`♨️ 넘친다! 빨리 꺼내요 ${left.toFixed(0)}초`:'넘쳤어요 · 꺼내서 버리기'});
+   continue}
   if(!b||!['cut','mix','cook'].includes(st.type))continue;
   const stale=isStale(b,now),who=b.name||'친구';
   if(st.type==='cook'){
