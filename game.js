@@ -840,7 +840,7 @@ function updateTeacherMonitor(){
 // 대기실의 학생 한 줄: 교사에게는 '모둠 바꾸기'와 '내보내기'가 붙음
 function memberRow(uid,u,k,m){
  const li=document.createElement('div');li.className='lobby-member';
- const nm=document.createElement('span');nm.textContent=(m.mode==='duel'?(k<2?'🌸 A편 ':'🌊 B편 '):'👨‍🍳 ')+u.name+(cloud.role==='student'&&uid===cloud.uid?' (나)':'')+(u.online===false?' · 연결 끊김':'');if(u.online===false)li.classList.add('offline');li.appendChild(nm);
+ const nm=document.createElement('span');nm.textContent=(m.mode==='duel'?(k<2?'🌸 A편 ':'🌊 B편 '):'👨‍🍳 ')+u.name+(cloud.role==='student'&&uid===cloud.uid?' (나)':'')+(u.online===false?' · 연결 끊김':cloud.host&&u.link?(u.link==='p2p'?' · 📶':' · ☁️'):'');if(u.online===false)li.classList.add('offline');li.appendChild(nm);
  if(cloud.role==='teacher'){
   const sel=document.createElement('select');sel.className='lobby-sel';sel.title='모둠 바꾸기';sel.disabled=m.phase==='playing';
   m.sizes.forEach((_,j)=>{const o=document.createElement('option');o.value=j;o.textContent=(j+1)+'모둠';if(j===Number(u.team))o.selected=true;sel.appendChild(o)});
@@ -853,10 +853,15 @@ function memberRow(uid,u,k,m){
  }
  return li;
 }
+// 데이터 절약 모드 선생님 기기: 화면이 꺼지면(절전) 학생 연결이 끊기므로 화면 켜짐 유지
+let wakeLock=null;
+async function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}else if(!on&&wakeLock){await wakeLock.release();wakeLock=null}}catch{}}
+window.addEventListener('beforeunload',e=>{if(cloud?.host){e.preventDefault();e.returnValue=''}});   // 선생님 창을 실수로 닫지 않게
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&cloud?.host)keepAwake(true)});
 function refreshLobby(){
  if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);{const on=Object.values(all).filter(u=>u.online!==false).length,n=Object.keys(all).length;setText('lobbyCount',`${n}/${m.max||m.count}명 입장`+(on<n?` · 접속 ${on}명`:''))}setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`);
  let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}모둠 · ${num}명`+(m.mode==='duel'?' (🌸 A편 2 · 🌊 B편 2)':'');div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);mates.forEach(([uid,u],k)=>div.appendChild(memberRow(uid,u,k,m)));if(cloud.role==='student'&&Number(cloud.team)!==i&&m.phase!=='playing'&&!m.teamLock){const b=document.createElement('button');b.className='subtle-btn lobby-move';const full=mates.length>=num;b.textContent=full?'자리 없음 (선생님께 바꿔 달라고 해요)':'이 모둠으로 이동';b.disabled=full;b.onclick=()=>cloud.moveSelf(i).then(()=>toast(`${i+1}모둠으로 옮겼어요!`)).catch(e=>toast(e.message));div.appendChild(b)}if(cloud.role==='student'&&Number(cloud.team)===i)div.classList.add('mine');if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
- let count=Object.keys(all).length;setText('lobbyNotice',cloud.role==='student'&&m.teamLock?'🔒 선생님이 모둠 이동을 잠갔어요. 지금 모둠에서 기다려요.':count===(m.max||m.count)?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
+ let count=Object.keys(all).length;setText('lobbyNotice',cloud.role==='student'&&m.teamLock?'🔒 선생님이 모둠 이동을 잠갔어요. 지금 모둠에서 기다려요.':count===(m.max||m.count)?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?(cloud.host?'📶 데이터 절약 모드: 이 창이 게임 서버예요. 게임이 끝날 때까지 닫지 마세요. (학생 옆 📶 직접 연결 · ☁️ 인터넷 우편함) ':'')+'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
  {const lb=$('teamLockBtn');lb.textContent=m.teamLock?'🔒 학생 모둠 이동: 잠김':'🔓 학생 모둠 이동: 허용';lb.classList.toggle('on',!!m.teamLock);lb.title=m.teamLock?'누르면 학생이 스스로 모둠을 옮길 수 있어요':'누르면 학생이 스스로 모둠을 옮기지 못해요 (선생님은 계속 옮길 수 있음)'}$('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('shareRow').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
 }
 async function setupCloud(isTeacher){$('joinProgress').classList.add('hidden');setText('joinRoomBtn','입장하기');teacher=isTeacher;setText('setupTitle',isTeacher?'👩‍🏫 학급방 만들기':'🧑‍🎓 게임방 입장');setText('setupIntro',isTeacher?'모둠 구성과 게임 시간을 고르면 학생용 코드가 만들어져요.':'선생님께 받은 6자리 코드를 입력해 주세요.');$('createForm').classList.toggle('hidden',!isTeacher);$('joinForm').classList.toggle('hidden',isTeacher);setText('setupError','');show('setupOverlay');}
@@ -899,7 +904,7 @@ function boot(){
   let btn=$('createRoomBtn');if(btn.disabled)return;btn.disabled=true;setText('setupError','');startProgress();try{
    const m=$('createMode').value,gN=Number($('groupCount').value),gS=m==='duel'?4:Number($('groupSize').value),n=gN*gS;
    if(n>25)throw new Error('한 방에는 25명까지 들어올 수 있어요. 모둠 수나 인원을 줄여 주세요.');
-   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim()});$('teacherPinInput').value='';
+   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim(),p2p:$('p2pCheck').checked});keepAwake(cloud.host?true:false);if(cloud.p2pFallback)setTimeout(()=>toast('데이터 절약 모드를 쓰려면 Firebase에 새 보안 규칙을 게시해야 해요. 이번 방은 예전 방식으로 만들었어요.'),1200);$('teacherPinInput').value='';
    stopProgress();mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
   }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message})}finally{btn.disabled=false}
  };
@@ -970,7 +975,7 @@ function boot(){
  if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');}
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
-async function goHome(){introClear();$('netBanner').classList.add('hidden');
+async function goHome(){if(cloud?.host&&!confirm('선생님 화면이 게임 서버예요. 나가면 학급방이 닫히고 학생들의 게임도 끝나요. 나갈까요?'))return;introClear();keepAwake(false);$('netBanner').classList.add('hidden');
  closePicker();setHeld(null);sfx.setSizzle(false);
  if(cloud)await cloud.disconnect();cloud=null;mode='demo';teacher=false;roundStarted=false;ended=false;activeQuestion=null;sentPhase='';keys.clear();hide('endOverlay');hide('setupOverlay');hide('lobbyOverlay');hide('questionOverlay');show('menuOverlay');setRoomStatus();
 }

@@ -69,6 +69,47 @@
             ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
             ".validate": "newData.isBoolean()"
           }
+        },
+        "hostOn": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
+          ".validate": "newData.isBoolean()"
+        },
+        "sig": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && root.child('rooms').child($room).child('meta').exists() && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".validate": "!newData.exists() || (newData.hasChildren(['n']) && (!newData.child('offer').exists() || newData.child('offer').val().length < 20000) && (!newData.child('answer').exists() || newData.child('answer').val().length < 20000))"
+          },
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid && !newData.exists()"
+        },
+        "relay": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && root.child('rooms').child($room).child('meta').exists() && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            "up": {
+              "$msg": {
+                ".validate": "newData.child('m').isString() && newData.child('m').val().length < 60000"
+              }
+            },
+            "down": {
+              "$msg": {
+                ".validate": "newData.child('m').isString() && newData.child('m').val().length < 300000"
+              }
+            }
+          },
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid && !newData.exists()"
+        },
+        "relayCtl": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && root.child('rooms').child($room).child('meta').exists() && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".validate": "!newData.exists() || newData.hasChildren(['n'])"
+          },
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid && !newData.exists()"
         }
       }
     }
