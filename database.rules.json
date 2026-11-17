@@ -17,7 +17,7 @@
         "members": {
           ".read": "auth != null",
           "$uid": {
-            ".write": "auth != null && ((auth.uid === $uid && root.child('rooms').child($room).child('meta').exists() && root.child('rooms').child($room).child('banned').child(auth.uid).val() !== true && (!data.exists() || (data.child('seat').val() === newData.child('seat').val() && (data.child('team').val() === newData.child('team').val() || root.child('rooms').child($room).child('meta').child('phase').val() === 'lobby')))) || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('rooms').child($room).child('meta').exists() && root.child('rooms').child($room).child('banned').child(auth.uid).val() !== true && (!data.exists() || (data.child('seat').val() === newData.child('seat').val() && (data.child('team').val() === newData.child('team').val() || (root.child('rooms').child($room).child('meta').child('phase').val() === 'lobby' && root.child('rooms').child($room).child('meta').child('teamLock').val() !== true))))) || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
             ".validate": "newData.hasChildren(['name','seat','team']) && newData.child('name').isString() && newData.child('name').val().length <= 12 && newData.child('team').isString() && newData.child('team').val().length <= 2 && newData.child('seat').isNumber() && newData.child('seat').val() >= 0 && newData.child('seat').val() < root.child('rooms').child($room).child('meta').child('count').val()"
           }
         },
