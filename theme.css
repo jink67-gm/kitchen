@@ -376,3 +376,6 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 #teacherTime{font-family:var(--display);font-size:clamp(28px,4.2vw,44px);font-weight:700;line-height:1.1;letter-spacing:1px;color:var(--ink);background:var(--mustard);border:2.5px solid var(--ink);border-radius:12px;box-shadow:0 4px 0 var(--ink);padding:6px 16px}
 #teacherTime.calm{font-size:20px;background:var(--paper)}
 .team-lock.on{background:var(--ink);color:var(--paper)}
+.p2p-opt{display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px;font-size:14px;line-height:1.35;text-align:left}
+.p2p-opt input{margin-top:3px}
+.p2p-opt small{display:block;font-size:12px;opacity:.75;margin-top:2px}

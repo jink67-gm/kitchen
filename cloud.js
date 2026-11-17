@@ -2,6 +2,8 @@ import { firebaseConfig } from './firebase-config.js';
 import { storePut, storeTake, applyPenalty } from './items.js';
 import { plateWashed } from './stations.js';
 import { serveOrder } from './orders.js';
+import { MemDB, localOps, remoteOps } from './p2pdb.js';
+import { startHost, connectStudent } from './p2pnet.js';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -9,8 +11,8 @@ const digits=()=>String(100000+Math.floor(Math.random()*900000));
 // ── 입장 단계 진단 ─────────────────────────────────────────────
 // 각 단계에 시간 제한을 두고, 진행 상황(progress)과 소요 시간을 기록합니다.
 // 콘솔 기록([입장 진단])에는 학생 이름·계정 번호·토큰을 남기지 않습니다.
-export const STEP_LABEL={sdk:'Firebase 불러오는 중',app:'Firebase 준비 중',authRestore:'로그인 확인 중',authNew:'로그인 확인 중',connect:'Firebase 연결 중',meta:'게임방 확인 중',member:'게임방 확인 중',seat:'학생 자리 배정 중',register:'학생 자리 배정 중',lobby:'입장 완료'};
-const LIMIT={sdk:20000,app:5000,authRestore:8000,authNew:15000,connect:12000,meta:10000,member:10000,seat:15000,register:10000};
+export const STEP_LABEL={sdk:'Firebase 불러오는 중',app:'Firebase 준비 중',authRestore:'로그인 확인 중',authNew:'로그인 확인 중',connect:'Firebase 연결 중',meta:'게임방 확인 중',member:'게임방 확인 중',seat:'학생 자리 배정 중',register:'학생 자리 배정 중',lobby:'입장 완료',p2p:'선생님 기기와 연결 중'};
+const LIMIT={sdk:20000,app:5000,authRestore:8000,authNew:15000,connect:12000,meta:10000,member:10000,seat:15000,register:10000,p2p:40000};
 export class JoinError extends Error{constructor(kind,step,message){super(message);this.kind=kind;this.step=step}}
 export const NET_MSG='게임 서버와 연결되지 않았어요. 인터넷 연결을 확인하거나 선생님께 알려주세요.';
 const DIAG=[];try{window.__joinDiag=DIAG}catch{}
@@ -66,7 +68,7 @@ export class CloudRoom{
       return {a,b,d,app,db,offset,emuUid};
     })().catch(e=>{SHARED=null;throw e});   // 실패하면 다음 시도에서 처음부터
     const s=await SHARED;
-    this.ops=s.d;this.db=s.db;this.offsetRef=s.offset;
+    this.ops=s.d;this.db=s.db;this.offsetRef=s.offset;this.fb=s.d;this.fdb=s.db;
     this.ops.goOnline(this.db);   // 방에서 나갈 때 끊었던 연결을 다시 엶
     // 실제로 서버와 연결됐는지 확인 (연결이 안 되면 get·트랜잭션이 끝없이 기다리므로 먼저 확인)
     await this.step('connect',()=>new Promise(res=>{let off=null;off=this.ops.onValue(this.ops.ref(this.db,'.info/connected'),snap=>{if(snap.val()===true){res();setTimeout(()=>off&&off(),0)}})}));
@@ -85,14 +87,15 @@ export class CloudRoom{
   // 입장 뒤 연결 감시: 3초 넘게 끊기면 'net'(false) 알림, 다시 연결되면 'net'(true)
   watchConnection(){
     let timer=null,was=true;
-    const u=this.ops.onValue(this.ops.ref(this.db,'.info/connected'),s=>{
+    const o=this.host?this.fb:this.ops,d=this.host?this.fdb:this.db;   // 데이터 절약 모드 선생님: 학생 입장을 받는 Firebase 연결을 지켜봄
+    const u=o.onValue(o.ref(d,'.info/connected'),s=>{
       if(s.val()===true){clearTimeout(timer);timer=null;if(!was){was=true;diag('connect','다시 연결됨');this.fire('net',true)}if(this.role==='student'&&this.allMembers?.[this.uid])this.ops.update(this.path('members',this.uid),{online:true}).catch(()=>{})}
       else if(!timer)timer=setTimeout(()=>{was=false;diag('connect','연결 끊김');this.fire('net',false)},3000);
     });
     this.unsubs.push(()=>{u();clearTimeout(timer)});
   }
   path(...path){return this.ops.ref(this.db,['rooms',this.code,...path].join('/'))}
-  async create({name,count,mode,unit,duration,orderTime,pin,settings,sizes:given}){
+  async create({name,count,mode,unit,duration,orderTime,pin,settings,sizes:given,p2p=false}){
     await this.init();this.name=name;this.role='teacher';
     for(let i=0;i<10;i++){
       this.code=digits();let snap=await this.step('meta',()=>this.ops.get(this.path('meta')));
@@ -100,8 +103,18 @@ export class CloudRoom{
       let sizes=Array.isArray(given)&&given.length?given.map(Number):planTeams(count);
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
       const max=sizes.reduce((a,b)=>a+b,0)||Number(count),spare=Math.min(25,max+4);   // max: 실제 정원 / count: 연결 끊김 등으로 버려지는 자리 번호를 위한 여유 (최대 25)
-      try{await this.ops.update(this.path(),{meta:{hostUid:this.uid,phase:'lobby',count:spare,max,sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0},pin:String(pin||'')})}
+      const meta={hostUid:this.uid,phase:'lobby',count:spare,max,sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0};
+      try{await this.ops.update(this.path(),{meta,pin:String(pin||'')})}
       catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
+      // 데이터 절약 모드: Firebase에는 방 찾기용 정보만 두고, 게임 데이터는 이 기기 메모리에서 처리 (학생은 이 기기에 직접 연결)
+      // 새 보안 규칙(데이터 절약 모드용)이 게시돼 있는지 먼저 확인. 없으면 예전 방식으로 (학생 입장이 막히지 않게)
+      if(p2p){try{await this.fb.set(this.fb.ref(this.fdb,'rooms/'+this.code+'/hostOn'),true);await this.fb.update(this.fb.ref(this.fdb,'rooms/'+this.code+'/meta'),{p2p:true});meta.p2p=true}
+        catch(e){p2p=false;this.p2pFallback=true;diag('p2p','새 보안 규칙이 없어 예전 방식(Firebase)으로 방을 만듦')}}
+      if(p2p){
+        this.mem=new MemDB({rooms:{[this.code]:{meta:{...meta,createdAt:now()}}}});
+        this.ops=localOps(this.mem);this.db=null;this.offsetRef={v:0};
+        this.host=startHost({fb:this.fb,db:this.fdb,code:this.code,mem:this.mem,onChange:p=>{this.links=p;this.fire('links',p)}});
+      }
       this.connected=true;this.subscribeBase();this.watchConnection();this.cleanupOldRooms().catch(()=>{});return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
@@ -114,7 +127,13 @@ export class CloudRoom{
     await this.init();
     const snap=await this.step('meta',()=>this.ops.get(this.path('meta')));
     if(!snap.exists())throw new JoinError('code','meta','방을 찾지 못했어요. 방 코드를 다시 확인해 주세요.');
-    const meta=snap.val();
+    let meta=snap.val();
+    if(meta.p2p){                              // 데이터 절약 모드: 선생님 기기와 연결한 뒤, 게임 데이터는 선생님 기기에서 읽음
+      await this.linkP2P();
+      const m2=await this.step('meta',()=>this.ops.get(this.path('meta')));
+      if(!m2.exists())throw new JoinError('code','meta','선생님 화면에서 방이 닫혔어요. 선생님께 새 방 코드를 받아 주세요.');
+      meta=m2.val();
+    }
     if(meta.phase==='ended')throw new JoinError('code','meta','이미 끝난 게임방이에요. 선생님께 새 방 코드를 받아 주세요.');
     const [ban,mine,allSnap]=await this.step('member',()=>Promise.all([this.ops.get(this.path('banned',this.uid)).catch(()=>null),this.ops.get(this.path('members',this.uid)),this.ops.get(this.path('members'))]));
     if(ban&&ban.val())throw new JoinError('code','member','선생님이 이 방에서 내보냈어요. 선생님께 여쭤 보세요.');
@@ -137,10 +156,33 @@ export class CloudRoom{
     this.connected=true;this.subscribeBase();this.watchConnection();
     // 비정상 종료(창 닫힘·인터넷 끊김) 때 서버가 '접속 끊김'으로 표시 → 교사 대기실에서 보임. 다시 들어오면 자리 그대로
     this.ops.onDisconnect(this.path('members',this.uid,'online')).set(false).catch(()=>{});
-    this.ops.update(this.path('members',this.uid),{online:true}).catch(()=>{});
+    this.ops.update(this.path('members',this.uid),{online:true,...(this.p2p?{link:this.p2p.kind}:{})}).catch(()=>{});
     this.ops.update(this.path('results',this.uid),{name:this.name,team:this.team,seat:this.seat}).catch(()=>{});
     diag('lobby','완료',performance.now()-t0);this.fire('progress',{step:'lobby',label:STEP_LABEL.lobby});
     return this.code;
+  }
+  // 데이터 절약 모드(학생): 선생님 기기와 연결. 직접 연결이 되면 Firebase 연결을 끊어 동시 접속 수를 아낌
+  async linkP2P(){
+    const mode=(['relay','block'].includes(QS.get('p2p'))?QS.get('p2p'):'auto');   // 테스트 전용(localhost): ?p2p=relay 우편함만
+    let link;
+    try{link=await this.step('p2p',()=>connectStudent({fb:this.fb,db:this.fdb,code:this.code,uid:this.uid,mode,log:m=>diag('p2p',m)}))}
+    catch(e){if(e.kind==='host'||/선생님/.test(e.message||''))throw new JoinError('code','p2p',e.message);throw e}
+    const ops=this.p2pOps||remoteOps();this.p2pOps=ops;this.p2p={kind:link.kind};
+    ops.setLink(link);ops.onLost=()=>this.relinkP2P();
+    this.ops=ops;this.db=null;this.offsetRef=ops.offset;
+    if(link.kind==='p2p')try{this.fb.goOffline(this.fdb)}catch{}
+  }
+  // 연결이 끊기면 계속 다시 연결 (화면 위 '연결 끊김' 안내는 watchConnection이 띄움)
+  async relinkP2P(){
+    if(this.relinking||!this.connected)return;this.relinking=true;
+    for(let i=0;this.connected;i++){
+      try{this.fb.goOnline(this.fdb);const link=await connectStudent({fb:this.fb,db:this.fdb,code:this.code,uid:this.uid,mode:(['relay','block'].includes(QS.get('p2p'))?QS.get('p2p'):'auto'),log:m=>diag('p2p',m)});
+        if(!this.connected){link.close();break}
+        this.p2p={kind:link.kind};this.p2pOps.setLink(link);if(link.kind==='p2p')try{this.fb.goOffline(this.fdb)}catch{}
+        this.ops.update(this.path('members',this.uid),{online:true,link:link.kind}).catch(()=>{});break}
+      catch(e){diag('p2p','다시 연결 실패: '+(e.message||e));await new Promise(r=>setTimeout(r,Math.min(8000,1000*2**i)))}
+    }
+    this.relinking=false;
   }
   seatKey(){return 'mathcook-seat-'+this.code+'-'+this.uid}
   // 자리 번호 받기. 중복 배정 방지:
@@ -226,6 +268,7 @@ export class CloudRoom{
     try{await this.ops.set(this.path('banned',uid),true);await this.ops.remove(this.path('members',uid))}catch(e){throw this.friendly(e)}
     await this.ops.remove(this.path('results',uid)).catch(()=>{});
     await this.ops.remove(this.path('teams',String(m.team),'players',uid)).catch(()=>{});
+    this.host?.kick(uid);
     if((this.meta?.count||0)<25)await this.ops.update(this.path('meta'),{count:this.meta.count+1}).catch(()=>{});   // 자리 번호 여유 하나 더 (실제 정원 max는 그대로)
   }
   // introMs: 인트로 길이. 시작 시각을 그만큼 뒤로 잡아 모든 학생이 인트로를 보고 같은 순간에 시작
@@ -361,12 +404,15 @@ export class CloudRoom{
     this.ops.update(this.path('scores',String(this.team),side),v).catch(()=>{});
   }
   // 방에서 나가면 구독을 끊고 Firebase 연결도 닫음 (무료 요금제의 동시 접속 100개 한도를 아끼기 위해)
-  async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;try{if(this.role==='student'&&this.uid)await this.ops.remove(this.path('teams',String(this.team),'players',this.uid))}catch{}try{this.ops.goOffline(this.db)}catch{}}
+  async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;try{if(this.role==='student'&&this.uid)await this.ops.remove(this.path('teams',String(this.team),'players',this.uid))}catch{}
+    if(this.p2pOps){this.p2pOps.onLost=null;this.p2pOps.close()}
+    if(this.host){await this.host.stop();try{this.fb.goOnline(this.fdb);await this.fb.remove(this.fb.ref(this.fdb,'rooms/'+this.code))}catch{}}   // 선생님이 나가면 방도 닫음
+    try{this.fb.goOffline(this.fdb)}catch{}}
   // 이 컴퓨터에서 예전에 만든 방 지우기 (새 방을 만들 때). 규칙이 아직 없으면 조용히 건너뜀
   async cleanupOldRooms(){
     let list=[];try{list=JSON.parse(localStorage.getItem('mathcook-myrooms')||'[]')}catch{}
     const keep=[];
-    for(const code of list.filter(c=>c!==this.code).slice(-10)){try{const m=(await this.ops.get(this.ops.ref(this.db,'rooms/'+code+'/meta'))).val();if(m&&now()-(m.createdAt||0)<6*3600*1000){keep.push(code);continue}await this.ops.remove(this.ops.ref(this.db,'rooms/'+code))}catch{keep.push(code)}}
+    for(const code of list.filter(c=>c!==this.code).slice(-10)){try{const m=(await this.fb.get(this.fb.ref(this.fdb,'rooms/'+code+'/meta'))).val();if(m&&now()-(m.createdAt||0)<6*3600*1000){keep.push(code);continue}await this.fb.remove(this.fb.ref(this.fdb,'rooms/'+code))}catch{keep.push(code)}}
     try{localStorage.setItem('mathcook-myrooms',JSON.stringify([...keep.slice(-10),this.code]))}catch{}
   }
 }
