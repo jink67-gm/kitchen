@@ -376,6 +376,13 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 #teacherTime{font-family:var(--display);font-size:clamp(28px,4.2vw,44px);font-weight:700;line-height:1.1;letter-spacing:1px;color:var(--ink);background:var(--mustard);border:2.5px solid var(--ink);border-radius:12px;box-shadow:0 4px 0 var(--ink);padding:6px 16px}
 #teacherTime.calm{font-size:20px;background:var(--paper)}
 .team-lock.on{background:var(--ink);color:var(--paper)}
-.p2p-opt{display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px;font-size:14px;line-height:1.35;text-align:left}
-.p2p-opt input{margin-top:3px}
-.p2p-opt small{display:block;font-size:12px;opacity:.75;margin-top:2px}
+
+/* 방 만들기: 선생님 환경 안내 (읽기 전용) */
+.host-tip{margin:14px 0 4px;padding:10px 12px;background:#fff6d6;border:1.5px solid #e9cf86;border-radius:10px;font-size:13px;line-height:1.5;color:var(--ink);text-align:left}
+.host-tip b{display:block;font-weight:800;font-size:13.5px}
+.host-tip span{display:block;opacity:.8;font-size:12.5px;margin-top:2px}
+/* 대기실: 선생님만 보는 연결 상태 배지 */
+.lobby-title h2{display:inline}
+.link-badge{display:inline-block;margin-left:10px;vertical-align:middle;padding:2px 9px;font-size:11.5px;font-weight:700;line-height:18px;border-radius:999px;background:#eef1f5;color:#4a5568;border:1px solid #cfd6df;white-space:nowrap}
+.link-badge.p2p{background:#e5f6ea;color:#2f6b45;border-color:#a9d9b8}
+.link-badge.hidden{display:none}

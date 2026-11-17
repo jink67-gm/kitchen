@@ -176,7 +176,8 @@ export class CloudRoom{
   async relinkP2P(){
     if(this.relinking||!this.connected)return;this.relinking=true;
     for(let i=0;this.connected;i++){
-      try{this.fb.goOnline(this.fdb);const link=await connectStudent({fb:this.fb,db:this.fdb,code:this.code,uid:this.uid,mode:(['relay','block'].includes(QS.get('p2p'))?QS.get('p2p'):'auto'),log:m=>diag('p2p',m)});
+      // 게임 도중 직접 연결이 끊기면 다시 5초를 기다리지 않고 바로 Firebase(우편함)로 이어 감. 그것도 안 되면 처음부터 다시
+      try{this.fb.goOnline(this.fdb);const link=await connectStudent({fb:this.fb,db:this.fdb,code:this.code,uid:this.uid,mode:i%2===0?'relay':(['relay','block'].includes(QS.get('p2p'))?QS.get('p2p'):'auto'),log:m=>diag('p2p',m)});
         if(!this.connected){link.close();break}
         this.p2p={kind:link.kind};this.p2pOps.setLink(link);if(link.kind==='p2p')try{this.fb.goOffline(this.fdb)}catch{}
         this.ops.update(this.path('members',this.uid),{online:true,link:link.kind}).catch(()=>{});break}

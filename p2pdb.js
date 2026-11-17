@@ -253,6 +253,7 @@ export function remoteOps() {
       // 4초마다 신호: 선생님 기기가 끊긴 연결을 빨리 알아채고 시계도 맞춤 (unref: 테스트용 Node가 끝날 수 있게)
       clearInterval(pingTimer); pingTimer = setInterval(ping, 4000); pingTimer?.unref?.();
     },
+    drop() { link?.close(); },   // 시험용: 연결이 갑자기 끊긴 것처럼 (다시 연결 과정을 탐)
     close() { const l = link; link = null; clearInterval(pingTimer); if (l) try { l.close(); } catch {} setConnected(false); },
     ref: refOf,
     get: async r => snap(ok(await request({ t: 'get', p: r.path })).v),
