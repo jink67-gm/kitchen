@@ -150,8 +150,8 @@ export function createIntro3D(c) {
     pan = new THREE.Group();
     const panM = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.07, 20), new THREE.MeshStandardMaterial({ color: 0x2e2a33, metalness: 0.5, roughness: 0.4 }));
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0x5a3b26 })); handle.position.set(0.48, 0.02, 0);
-    pan.add(panM, handle); pan.position.copy(tp(10.5, 6.45, TOP + 0.04)); root.add(pan);
-    [['🍔', 9.4], ['🥗', 11.6], ['🍰', 12.5]].forEach(([e, x]) => { const src = c.models.get('dish:' + e); if (src) { const m = src.clone(); m.scale.setScalar(0.5); m.position.copy(tp(x, 6.45, TOP)); pan.userData.dishes = (pan.userData.dishes || []).concat(m); root.add(m); } });
+    pan.add(panM, handle); pan.position.copy(tp(12.2, 6.45, TOP + 0.04)); root.add(pan);
+    [['🍔', 9.5], ['🥗', 10.5], ['🍰', 11.3]].forEach(([e, x]) => { const src = c.models.get('dish:' + e); if (src) { const m = src.clone(); m.scale.setScalar(0.5); m.position.copy(tp(x, 6.45, TOP)); pan.userData.dishes = (pan.userData.dishes || []).concat(m); root.add(m); } });
     // 홀에 앉아 먹는 손님 (게임 화면의 식탁 자리)
     const KX = c.W / 2;
     const seats = [[-1, KX + 3.6, -2.6, -0.3, 0], [-1, KX + 3.6, -2.6, -0.3, 1], [1, KX + 3.6, -2.6, 0.3, 0], [1, KX + 3.6, -2.6, 0.3, 2], [-1, KX + 3.2, 2.6, -0.15, 1], [1, KX + 3.2, 2.6, 0.15, 3]];
@@ -181,15 +181,17 @@ export function createIntro3D(c) {
   }
 
   // ───────── 사람·물건 움직이기 ─────────
-  const P0 = [10.5, 5.35];                             // 천재 셰프가 요리하던 자리
-  const RUN_OUT = [[12300, 10.5, 5.35], [12900, 14.6, 5.6], [13500, 15.5, 9.3], [13900, 16.3, 10.3], [14400, 18.8, 10.6], [15000, 22.5, 10.8]];
-  const RUN_IN = [[20200, 22.5, 7.4], [20700, 18.7, 7.5], [21100, 15.2, 7.5], [21600, 11, 7.6]];
-  const CIRCLE = { x: 9.5, y: 7.6, r: 1.0, t0: 21600, t1: 24000 };
+  // 셰프 경로: 조리대·냄비·벽을 지나지 않게 (검사: 타일 좌표에서 몸 반지름 0.32, 벽·조리대는 점프로만 넘음)
+  const P0 = [12.2, 5.35];                             // 천재 셰프가 요리하던 자리 (가운데 냄비 오른쪽, 조리대 뒤)
+  const RUN_OUT = [[12300, 12.2, 5.35], [12800, 14.6, 5.6], [13400, 15.3, 9.4], [13800, 15.55, 10.4], [14400, 18.9, 10.6], [15000, 22.5, 10.8]];
+  const RUN_IN = [[20200, 22.5, 7.5], [20700, 18.9, 7.5], [21100, 15.0, 7.5], [21600, 13.4, 8.5]];
+  const CIRCLE = { x: 12.5, y: 8.5, r: 0.9, t0: 21600, t1: 23000 };   // 가운데 조리대 아래 빈 바닥에서 빙글빙글
   const circleAt = ms => { const a = (ms - CIRCLE.t0) / 1000 * Math.PI * 2 * 0.85; return [CIRCLE.x + Math.cos(a) * CIRCLE.r, CIRCLE.y + Math.sin(a) * CIRCLE.r, a]; };
   const cEnd = circleAt(CIRCLE.t1);
-  const TO_BOOK = [[24000, cEnd[0], cEnd[1]], [24900, 7.0, 2.35]];
-  const TO_KIDS = [[36500, 7.0, 2.35], [38800, 9, 4.4]];
-  const FLEE = [[48300, 9, 4.4], [48900, 12.8, 4.7], [49500, 15.5, 6.6], [50000, 18.7, 6.9], [50800, 23, 7]];
+  const TO_BOOK = [[23000, cEnd[0], cEnd[1]], [23300, 13.9, 7.6], [23600, 14.2, 6.2], [23950, 14.2, 4.3], [24650, 7.0, 4.3], [24900, 7.0, 2.35]];   // 가운데 조리대를 오른쪽으로 돌아서
+  const KID_SPOT = [8.5, 4.25];                        // 요리사들에게 부탁하는 자리 (냄비 옆, 조리대 뒤)
+  const TO_KIDS = [[36500, 7.0, 2.35], [38800, KID_SPOT[0], KID_SPOT[1]]];
+  const FLEE = [[48300, KID_SPOT[0], KID_SPOT[1]], [48900, 12.8, 4.6], [49450, 14.8, 6.5], [50000, 18.9, 6.9], [50800, 23, 7]];
   function headChef(ms, dt, t) {
     const a = head, r = a.root;
     let pos, moving = false, dir = 0, faceTo = 0, anim = 'Idle', vis = true, y = 0;
@@ -197,10 +199,10 @@ export function createIntro3D(c) {
       pos = tp(P0[0], P0[1]);
       anim = ms < 7000 ? 'Pan_Loop' : ms < 7700 ? 'Idle' : ms < 8300 ? 'HitReact' : ms < 10000 ? 'Idle_Holding' : ms < 11300 ? 'Jump' : 'Yes';
       y = hop(ms, 10050, 10750, 0.55);
-    } else if (ms < 15000) { const q = path(RUN_OUT, ms); pos = q.p; moving = q.moving; dir = q.dir; anim = 'Run'; y = hop(ms, 13900, 14400, 1.15); vis = ms < 14900; }
+    } else if (ms < 15000) { const q = path(RUN_OUT, ms); pos = q.p; moving = q.moving; dir = q.dir; anim = 'Run'; y = hop(ms, 13800, 14400, 1.6); vis = ms < 14900; }
     else if (ms < 20200) { vis = false; pos = tp(22, 8); }
-    else if (ms < 21600) { const q = path(RUN_IN, ms); pos = q.p; moving = true; dir = q.dir; anim = 'Run'; y = hop(ms, 20700, 21100, 1.15); }
-    else if (ms < 24000) { const [x, z, ang] = circleAt(ms); pos = tp(x, z); moving = true; dir = Math.atan2(-Math.sin(ang), Math.cos(ang)); anim = 'Run'; }
+    else if (ms < 21600) { const q = path(RUN_IN, ms); pos = q.p; moving = true; dir = q.dir; anim = 'Run'; y = hop(ms, 20700, 21100, 1.6); }
+    else if (ms < CIRCLE.t1) { const [x, z, ang] = circleAt(ms); pos = tp(x, z); moving = true; dir = Math.atan2(-Math.sin(ang), Math.cos(ang)); anim = 'Run'; }
     else if (ms < 24900) { const q = path(TO_BOOK, ms); pos = q.p; moving = true; dir = q.dir; anim = 'Run'; }
     else if (ms < 32000) {
       pos = tp(7.0, 2.35); faceTo = ms < 30100 ? Math.PI : 0;
@@ -208,10 +210,10 @@ export function createIntro3D(c) {
     } else if (ms < 36500) { pos = tp(7.0, 2.35); faceTo = 0.35; anim = ms > 33500 && ms < 34400 ? 'HitReact' : ms > 35100 ? 'Yes' : 'Idle'; }
     else if (ms < 38800) { const q = path(TO_KIDS, ms); pos = q.p; moving = true; dir = q.dir; anim = 'Walk'; }
     else if (ms < 48300) {
-      pos = tp(9, 4.4); faceTo = 0;
+      pos = tp(KID_SPOT[0], KID_SPOT[1]); faceTo = 0;
       anim = ms < 39200 ? 'Idle' : ms < 41000 ? 'Wave' : ms < 42200 ? 'Yes' : ms < 46300 ? 'Idle' : ms < 47000 ? 'HitReact' : 'Jump';
       y = hop(ms, 46350, 46900, 0.45) + hop(ms, 47000, 47700, 0.9);
-    } else { const q = path(FLEE, ms); pos = q.p; moving = q.moving; dir = q.dir; anim = 'Run'; y = hop(ms, 49500, 50000, 1.15); vis = ms < 50700; }
+    } else { const q = path(FLEE, ms); pos = q.p; moving = q.moving; dir = q.dir; anim = 'Run'; y = hop(ms, 49450, 50000, 1.6); vis = ms < 50700; }
     r.visible = vis; r.position.set(pos.x, y, pos.z);
     turn(a, moving ? dir : faceTo, dt, moving ? 14 : 8);
     play(a, anim, anim === 'HitReact' || anim === 'Jump');
@@ -308,21 +310,21 @@ export function createIntro3D(c) {
     const mix = (p0, l0, p1, l1, k) => set(p0.map((v, i) => lerp(v, p1[i], k)), l0.map((v, i) => lerp(v, l1[i], k)));
     const chef = head.root.position;
     if (ms < 2800) mix([-15.5, 4.2, 5.2], [-12.4, 0.7, -2.2], [-10.2, 4.8, 5.6], [-12.4, 0.8, -2.0], seg(ms, 0, 2800));
-    else if (ms < 7000) mix([-10.2, 4.8, 5.6], [-12.4, 0.8, -2.0], [3.2, 4.4, 7.0], [1.5, 1.1, -0.6], seg(ms, 2800, 6400));
-    else if (ms < 12300) mix([2.7, F + 1.5, 3.7], [1.5, F + 0.3, -0.6], [2.1, F + 1.2, 2.5], [1.5, F + 0.3, -0.6], seg(ms, 7000, 12300));
-    else if (ms < 15000) { const lx = Math.min(chef.x, 8.5), lz = Math.min(chef.z, 4.6); mix([2.1, F + 1.2, 2.5], [1.5, F + 0.3, -0.6], [lx - 1.5, 4.6, lz + 7.4], [lx, 1.0, lz], seg(ms, 12300, 12900)); }
+    else if (ms < 7000) mix([-10.2, 4.8, 5.6], [-12.4, 0.8, -2.0], [4.9, 4.4, 7.0], [3.2, 1.1, -0.6], seg(ms, 2800, 6400));
+    else if (ms < 12300) mix([4.4, F + 1.5, 3.7], [3.2, F + 0.3, -0.6], [3.8, F + 1.2, 2.5], [3.2, F + 0.3, -0.6], seg(ms, 7000, 12300));
+    else if (ms < 15000) { const lx = Math.min(chef.x, 8.5), lz = Math.min(chef.z, 4.6); mix([3.8, F + 1.2, 2.5], [3.2, F + 0.3, -0.6], [lx - 1.5, 4.6, lz + 7.4], [lx, 1.0, lz], seg(ms, 12300, 12900)); }
     else if (ms < 20200) mix([0, 9.5, 17.5], [0, 0.4, 3.8], [0, 8.6, 15.5], [0, 0.5, 3.6], seg(ms, 15000, 20200));
-    else if (ms < 24000) mix([0, 8.6, 15.5], [0, 0.5, 3.6], [0.5, 4.6, 8.4], [0.5, 0.9, wz(7.6)], seg(ms, 20200, 21400));
-    else if (ms < 24900) mix([0.5, 4.6, 8.4], [0.5, 0.9, wz(7.6)], [-0.8, 3.2, 2.0], [-0.4, 1.7, -4.1], seg(ms, 24000, 24900));
+    else if (ms < 24000) mix([0, 8.6, 15.5], [0, 0.5, 3.6], [3.0, 4.6, 9.3], [3.5, 0.9, wz(8.5)], seg(ms, 20200, 21400));
+    else if (ms < 24900) mix([3.0, 4.6, 9.3], [3.5, 0.9, wz(8.5)], [-0.8, 3.2, 2.0], [-0.4, 1.7, -4.1], seg(ms, 24000, 24900));
     else if (ms < 30000) mix([-0.8, 3.2, 2.0], [-0.4, 1.7, -4.1], [-0.3, 2.4, -0.7], [0, 1.9, -4.15], seg(ms, 24900, 30000));
     else if (ms < 32000) mix([-0.3, 2.4, -0.7], [0, 1.9, -4.15], [-0.9, 2.8, 0.7], [-1.2, 1.5, -3.6], seg(ms, 30000, 31200));
     else if (ms < 35000) set([0, 1.9, 13.4], [0, 1.2, 3.4]);
     else if (ms < 39000) mix([0, 1.9, 13.4], [0, 1.2, 3.4], [0, 3.5, 7.8], [0, 0.85, wz(8.6)], seg(ms, 35000, 36800));
     else if (ms < 42200) set([7.4, 3.0, 0.7], [0, 1.1, 0.5]);
-    else if (ms < 45000) mix([1.0, F + 0.5, 1.4], [0, F, -1.6], [0.45, F + 0.25, 0.2], [0, F, -1.6], seg(ms, 42200, 45000));
+    else if (ms < 45000) mix([0.5, F + 0.5, 1.4], [-0.5, F, -1.75], [-0.05, F + 0.25, 0.2], [-0.5, F, -1.75], seg(ms, 42200, 45000));
     else if (ms < 46300) set([0, 1.9, -0.5], [0, 0.8, wz(8.6)]);
-    else if (ms < 48300) mix([0, F + 0.4, 1.4], [0, F, -1.6], [0, F + 0.3, 0.6], [0, F + 0.05, -1.6], seg(ms, 46300, 46650));
-    else { const g = c.gameCamPose(); mix([0, F + 0.3, 0.6], [0, F + 0.05, -1.6], g.pos.toArray(), g.look.toArray(), seg(ms, 48300, 50600)); }
+    else if (ms < 48300) mix([-0.5, F + 0.4, 1.4], [-0.5, F, -1.75], [-0.5, F + 0.3, 0.6], [-0.5, F + 0.05, -1.75], seg(ms, 46300, 46650));
+    else { const g = c.gameCamPose(); mix([-0.5, F + 0.3, 0.6], [-0.5, F + 0.05, -1.75], g.pos.toArray(), g.look.toArray(), seg(ms, 48300, 50600)); }
     // 화면 흔들림
     const amp = ms > 15000 && ms < 19500 ? 0.05 : ms > 20400 && ms < 24000 ? 0.08 : ms > 46300 && ms < 47800 ? 0.16 * (1 - (ms - 46300) / 1500) : 0;
     if (amp) camPos.add(V((Math.random() - 0.5) * amp, (Math.random() - 0.5) * amp, 0));

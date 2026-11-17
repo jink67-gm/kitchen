@@ -168,6 +168,9 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
       add(g, rbox(0.17, 0.26, 0.17, 0.02), mat(0xffffff, 0.4), 0, 0.13);
       add(g, rbox(0.175, 0.1, 0.175, 0.02), mat(0x6fb4ff, 0.4), 0, 0.12);
       add(g, geo('roof', () => new THREE.ConeGeometry(0.125, 0.09, 4)), mat(0xffffff, 0.4), 0, 0.3).rotation.y = Math.PI / 4;
+    } else if (kind === 'tsoup' || kind === 'csoup') {   // 모델을 못 읽었을 때의 수프 그릇
+      add(g, cyl(0.2, 0.13, 0.14, 18), mat(0xf4efe6, 0.5), 0, 0.07);
+      add(g, cyl(0.18, 0.18, 0.02, 18), mat(kind === 'tsoup' ? 0xe0533a : 0xf2c14e, 0.6), 0, 0.135);
     } else if (kind === 'dough') {
       add(g, sph(0.18), mat(cooked ? 0xe0a85a : 0xf5deb0, 0.85), 0, 0.09).scale.y = cooked ? 0.35 : 0.5;
     }
@@ -183,6 +186,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     if (state === 'burnt') { const src = done || raw; if (!src) return null; const m = one(src); m.traverse(o => { if (o.isMesh) o.material = burntM; }); return m; }
     if (state === 'ready') {
       if (done) return one(done);
+      if (raw && foods[kind]?.prep === 'pot') return one(raw);   // 수프: 냄비에서 꺼낸 그릇 모양 그대로
       if (raw && foods[kind]?.prep === 'cut') {          // 손질한 모습이 따로 없으면 작은 조각 두 개로
         const g = new THREE.Group();
         for (const s of [-1, 1]) { const h = one(raw, 0.62); h.position.set(s * 0.1, 0, s * 0.03); h.rotation.set(0, s * 0.6, s * 0.35); g.add(h); }
@@ -967,5 +971,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     }
   }
 
-  return { render, perf, renderer, get quality() { return quality; }, get modelCount() { return models.size; }, get plateKeys() { return [...boards.values()].filter(v => v.type === 'plate' && v.key).map(v => v.key); }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
+  // 점검용: 재료 모형의 크기 (0이면 화면에 안 보임)
+  const foodSize = (kind, state) => { const b = new THREE.Box3().setFromObject(food(kind, state)), v = b.getSize(new THREE.Vector3()); return b.isEmpty() ? 0 : Math.max(v.x, v.y, v.z); };
+  return { render, perf, renderer, foodSize, get quality() { return quality; }, get modelCount() { return models.size; }, get plateKeys() { return [...boards.values()].filter(v => v.type === 'plate' && v.key).map(v => v.key); }, get boardKeys() { return [...boards.values()].map(v => v.key + '|' + v.labelText).filter(k => k !== '|'); }, get storageKey() { return storageKey; }, get mark() { for (const [k, v] of marks) if (v.visible) return k; return ''; }, chefs };
 }

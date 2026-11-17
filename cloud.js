@@ -204,6 +204,7 @@ export class CloudRoom{
   async moveSelf(t){
     if(this.role!=='student')return;
     if(this.meta?.phase!=='lobby')throw new Error('게임이 시작되기 전에만 모둠을 바꿀 수 있어요.');
+    if(this.meta?.teamLock)throw new Error('🔒 선생님이 모둠 이동을 잠갔어요. 바꾸고 싶으면 선생님께 말해 주세요.');
     if(!(t>=0&&t<(this.meta.sizes||[]).length)||t===this.team)return;
     if(this.teamCount(t)>=this.meta.sizes[t])throw new Error(`${t+1}모둠은 자리가 다 찼어요. 선생님께 자리를 바꿔 달라고 해 주세요.`);
     try{await this.ops.update(this.path('members',this.uid),{team:String(t)})}catch(e){throw this.friendly(e)}
@@ -244,6 +245,7 @@ export class CloudRoom{
     if(at<this.meta.startedAt)await this.ops.update(this.path('meta'),{startedAt:at});
   }
   async finish(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'ended'})}
+  async setTeamLock(on){if(this.role==='teacher')await this.ops.update(this.path('meta'),{teamLock:!!on})}   // 학생 스스로 모둠 옮기기 잠금/허용 (교사는 언제나 옮길 수 있음)
   async toLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby'})}   // 판이 끝난 뒤 모두 대기방으로
   async reLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby',startedAt:0})}
   async spawn(pos){
