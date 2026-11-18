@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
 import { clone as cloneSkinned } from './vendor/three/jsm/utils/SkeletonUtils.js';
-import { createIntro3D } from './intro3d.js?v=202611180116';
+import { createIntro3D } from './intro3d.js?v=202611180129';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
@@ -815,7 +815,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
     // 러시타임: 주방 조명이 붉게 깜빡임
     const rk = state.rush ? 0.5 + Math.sin(t / 130) * 0.5 : 0;
     sun.color.setRGB(1, 0.94 - rk * 0.35, 0.84 - rk * 0.45); hemi.intensity = 1.25 - rk * 0.25;
-    if (state.intro) { if (!intro) intro = createIntro3D(introCtx()); intro.update(state.intro.ms, dt, t, state.intro); }
+    // 인트로: 학년(비밀 레시피 책의 문제)이 바뀌면 인트로를 새로 만듦
+    if (state.intro) { if (!intro || intro.bookKey !== (state.intro.book?.key || '')) { if (intro?.active) intro.end(); intro = createIntro3D({ ...introCtx(), book: state.intro.book }); intro.bookKey = state.intro.book?.key || ''; } intro.update(state.intro.ms, dt, t, state.intro); }
     else { if (intro && intro.active) { intro.end(); cw = 0; resize(); } updateGuests(state, dt, t); }
     showTags(state.tags || [], t); showGuide(state.dim ? [] : state.guide || [], t);
     const seen = new Set();

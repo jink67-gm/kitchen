@@ -1,7 +1,7 @@
 // 인트로 컷신 《사라진 천재 셰프》 3D 연출 — 캐릭터 동작, 카메라, 편지, 주문 카드, 잠긴 레시피 책
 // 자막·효과음·음악 시간표는 intro.js. 이 파일은 "지금이 인트로의 몇 ms인가"만 보고 화면을 정합니다.
 // 같은 ms면 누구 화면에서나 같은 장면이 되므로, 친구들과 같은 장면을 보고 같은 순간에 게임이 시작됩니다.
-import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180116';
+import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180129';
 
 const sm = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));          // 부드럽게 0→1
 const seg = (ms, a, b) => sm((ms - a) / (b - a));
@@ -76,10 +76,19 @@ export function createIntro3D(c) {
       k.fillStyle = '#a93321'; k.font = `bold 46px ${c.FONT}`; k.fillText('비밀 레시피', w / 2, 52);
       k.fillStyle = '#d6b98f'; k.fillRect(70, 86, w - 140, 4);
       k.fillStyle = '#2e2520'; const y = 162;
-      vfrac(k, 236, y, '3', '4', 48);
-      k.font = 'bold 46px "Noto Sans KR","Malgun Gothic",sans-serif'; k.fillText('÷', 292, y + 2);   // 기호는 어느 기기에나 있는 글꼴로
-      vfrac(k, 348, y, '1', '2', 48);
-      k.fillText('=', 404, y + 2); k.fillStyle = '#d6452f'; k.font = `bold 52px ${c.FONT}`; k.fillText('?', 446, y + 2);
+      // 자물쇠 문제: 고른 단원의 학년에 맞춤 (c.book.parts: 수 '36', 분수 '3/4', 기호 '÷'). 없으면 6학년 분수의 나눗셈
+      const parts = (c.book && c.book.parts) || ['3/4', '÷', '1/2'], SYM = 'bold 46px "Noto Sans KR","Malgun Gothic",sans-serif', NUM = `bold 48px ${c.FONT}`;
+      const items = [...parts, '=', '?'].map(p => ({ p, frac: /^\d+\/\d+$/.test(p), sym: /^[÷×+\-=]$/.test(p) }));
+      for (const it of items) { k.font = it.sym ? SYM : NUM; it.w = it.frac ? Math.max(...it.p.split('/').map(s => k.measureText(s).width)) + 14 : k.measureText(it.p).width; }
+      const gap = 16, total = items.reduce((a, it) => a + it.w, 0) + gap * (items.length - 1);
+      let x = Math.max(170, 340 - total / 2);
+      for (const it of items) {
+        const cx = x + it.w / 2;
+        if (it.frac) { const [t2, b2] = it.p.split('/'); k.fillStyle = '#2e2520'; vfrac(k, cx, y, t2, b2, 48); }
+        else if (it.p === '?') { k.fillStyle = '#d6452f'; k.font = `bold 52px ${c.FONT}`; k.fillText('?', cx, y + 2); }
+        else { k.fillStyle = '#2e2520'; k.font = it.sym ? SYM : NUM; k.fillText(it.p, cx, y + 2); }   // 기호는 어느 기기에나 있는 글꼴로
+        x += it.w + gap;
+      }
       k.fillStyle = '#a93321'; k.font = `bold 26px ${c.FONT}`; k.fillText('정답을 맞혀야 열려요!', w / 2, 262);
     };
     const t = tex(512, 352, draw);
