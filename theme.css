@@ -303,7 +303,7 @@ html,body{height:100%;overflow:hidden}
 .lobby-sel{flex:1 1 auto;min-width:0;max-width:calc(100% - 82px);font-size:12px;padding:3px 4px}
 .lobby-kick{flex:0 0 auto;white-space:nowrap}
 /* 게임 주소 복사 · QR */
-.share-row{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 10px}
+.share-row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
 .share-row .subtle-btn{font-size:13px;padding:7px 12px}
 .qr-card{max-width:440px;text-align:center}
 .qr-card h2{font-size:19px;margin:4px 30px 12px}
@@ -386,3 +386,7 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 .link-badge{display:inline-block;margin-left:10px;vertical-align:middle;padding:2px 9px;font-size:11.5px;font-weight:700;line-height:18px;border-radius:999px;background:#eef1f5;color:#4a5568;border:1px solid #cfd6df;white-space:nowrap}
 .link-badge.p2p{background:#e5f6ea;color:#2f6b45;border-color:#a9d9b8}
 .link-badge.hidden{display:none}
+/* 대기실 제목 줄: 방 코드가 아래 버튼 줄과 겹치지 않게, 좁으면 줄바꿈 */
+.lobby-title{flex-wrap:wrap;row-gap:10px;align-items:flex-start}
+.lobby-title>div{flex:1 1 260px;min-width:0}
+.copy-code{flex:0 0 auto}
