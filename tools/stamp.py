@@ -13,6 +13,8 @@ for f in ROOT.rglob('*.js'):
     if t != s: f.write_text(t, encoding='utf-8'); n += 1
 h = ROOT / 'index.html'; s = h.read_text(encoding='utf-8')
 t = re.sub(r'((?:src|href)=")((?:game|qr)\.js|(?:style|theme)\.css)(?:\?v=[\w.-]+)?"', lambda m: f'{m.group(1)}{m.group(2)}?v={V}"', s)
+t = re.sub(r"\}\)\('[\w.-]*'\);</script>", "})('" + V + "');</script>", t)   # 첫 화면의 버전 확인 번호
+(ROOT / 'version.json').write_text('{"v": "' + V + '"}\n', encoding='utf-8')
 if t != s: h.write_text(t, encoding='utf-8'); n += 1
 print(f'버전 {V} 표시: 파일 {n}개')
 # 올리기 전 문법 검사: 하나라도 틀리면 알려 주고 실패로 끝냄 (3D가 꺼지는 등의 사고 방지)

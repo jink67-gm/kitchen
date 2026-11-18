@@ -1,16 +1,16 @@
-import { CloudRoom, cloudConfigured, planTeams } from './cloud.js?v=202611180144';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611180144';
-import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611180144';
-import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611180144';
-import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611180144';
-import * as sfx from './sfx.js?v=202611180144';
-import { isCorrect } from './math.js?v=202611180144';
-import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611180144';
-import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611180144';
-import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611180144';
-import { participationBonus, PART_BONUS } from './orders.js?v=202611180144';
-import { ICONS } from './assets/icons/map.js?v=202611180144';
-import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611180144';
+import { CloudRoom, cloudConfigured, planTeams, resetSession } from './cloud.js?v=202611180214';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611180214';
+import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611180214';
+import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611180214';
+import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611180214';
+import * as sfx from './sfx.js?v=202611180214';
+import { isCorrect } from './math.js?v=202611180214';
+import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611180214';
+import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611180214';
+import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611180214';
+import { participationBonus, PART_BONUS } from './orders.js?v=202611180214';
+import { ICONS } from './assets/icons/map.js?v=202611180214';
+import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611180214';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
 const W=18,H=12,T=48,OX=68,OY=47;
@@ -806,8 +806,8 @@ let init3DTries=0;
 async function init3D(){
  init3DTries++;
  if(!hasWebGL()){fallback2D=true;view3d=null;set3D(false);setTimeout(()=>toast('이 기기는 3D를 지원하지 않아 간단한 화면으로 보여요.'),1500);return}
- try{const mod=await import('./render3d.js?v=202611180144');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
-  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611180144')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
+ try{const mod=await import('./render3d.js?v=202611180214');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
+  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611180214')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
   if(!init3D.models)init3D.models=models;
   const cv=$('game3d');cv.addEventListener('webglcontextlost',e=>{e.preventDefault();rebuild3D('그래픽 연결이 끊김')},{once:true});
   view3d=mod.createRenderer3D(cv,{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models:init3D.models});init3DTries=0;let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
@@ -862,7 +862,7 @@ function updateTeacherMonitor(){
  let scores=cloud.meta.sizes.map((size,i)=>{let gr=cloud.allTeams[i]?.data?.groups||{};let v=cloud.meta.mode==='duel'?((gr.A?.score||0)+' / '+(gr.B?.score||0)):(gr.ALL?.score||0);return {size,i,v}});
  $('teacherScores').replaceChildren(...scores.map(s=>{let n=document.createElement('div');n.className='teacher-score';n.innerHTML='<div>'+ (s.i+1)+'팀 · '+s.size+'명</div><b>'+s.v+'</b><div>요리 점수</div>';return n}));
  $('endRoundBtn').disabled=!running;
- {const left=cloud.meta.startedAt?Math.ceil((cloud.meta.startedAt-srvNow())/1000):0;if(running&&left>0)setText('teacherTime',`인트로 상영 중 · ${left}초 뒤 게임 시작`);$('skipIntroAllBtn').classList.toggle('hidden',!(running&&left>4))}setText('teacherScoreTitle',running?'실시간 팀 점수':'이번 라운드 최종 팀 점수');
+ {const left=cloud.meta.startedAt?Math.ceil((cloud.meta.startedAt-srvNow())/1000):0;$('teacherTime').classList.toggle('calm',!running||left>0);if(running&&left>0)setText('teacherTime',`인트로 상영 중 · ${left}초 뒤 게임 시작`);$('skipIntroAllBtn').classList.toggle('hidden',!(running&&left>4))}setText('teacherScoreTitle',running?'실시간 팀 점수':'이번 라운드 최종 팀 점수');
  const rows=Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat),tb=$('teacherStudents');
  tb.replaceChildren();
  if(rows.length){const t=document.createElement('table');t.className='student-table';t.innerHTML='<thead><tr><th>별명</th><th>팀</th><th>푼 문제</th><th>정답</th><th>정답률</th><th>힌트</th><th>서빙</th><th>다시 볼 단원</th></tr></thead>';const body=t.createTBody();
@@ -936,7 +936,10 @@ function boot(){
   let btn=$('createRoomBtn');if(btn.disabled)return;btn.disabled=true;setText('setupError','');startProgress();try{
    const m=$('createMode').value,gN=Number($('groupCount').value),gS=m==='duel'?4:Number($('groupSize').value),n=gN*gS;
    if(n>25)throw new Error('한 방에는 25명까지 들어올 수 있어요. 모둠 수나 인원을 줄여 주세요.');
-   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim(),p2p:true});keepAwake(cloud.host?true:false);$('teacherPinInput').value='';
+   // 막히면 남은 로그인 기록을 버리고 한 번 더 (핀 번호가 틀린 경우는 제외)
+   const tryCreate=async()=>{cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim(),p2p:true});};
+   try{await tryCreate()}catch(e){if(/핀 번호/.test(e.message||''))throw e;try{await cloud?.disconnect()}catch{}await resetSession();await tryCreate()}
+   keepAwake(cloud.host?true:false);$('teacherPinInput').value='';
    stopProgress();mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
   }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message})}finally{btn.disabled=false}
  };
@@ -945,7 +948,9 @@ function boot(){
  $('joinRoomBtn').onclick=async()=>{
   let btn=$('joinRoomBtn');if(joining)return;joining=true;btn.disabled=true;setText('joinRoomBtn','입장하는 중…');startProgress();try{
    if(cloud&&cloud.role==='student'&&!cloud.connected){try{await cloud.disconnect()}catch{}}
-   cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()});
+   // 막히면 남은 로그인 기록을 버리고 한 번 더
+   const tryJoin=async()=>{cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()})};
+   try{await tryJoin()}catch(e){if(!['auth','permission','network'].includes(e.kind)||['seat','register'].includes(e.step))throw e;try{await cloud?.disconnect()}catch{}await resetSession();await tryJoin()}
    stopProgress();mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');
    if(cloud.meta?.phase==='playing'){if(!roundStarted||sentPhase!=='playing')beginOnline()}   // 게임 중 다시 들어옴 (원래 이 방에 있던 학생만)
    else{show('lobbyOverlay');refreshLobby()}
