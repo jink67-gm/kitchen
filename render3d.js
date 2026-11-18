@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
 import { clone as cloneSkinned } from './vendor/three/jsm/utils/SkeletonUtils.js';
-import { createIntro3D } from './intro3d.js?v=202611180214';
+import { createIntro3D } from './intro3d.js?v=202611180503';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
@@ -628,6 +628,8 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   // 주문 하나마다 손님 한 명이 창구 앞에 서서 머리 위에 주문한 요리를 띄움. 기다리다 지치면 발을 구르고, 음식이 나가면 받아서 돌아감
   // 그 뒤로 구경·대기 손님이 서 있고, 러시타임에는 더 몰려와 폴짝폴짝 뜀
   const guestSrc = [0, 1, 2, 3, 4, 5].map(i => models.get('guest:' + i)).filter(Boolean);
+  // 의자에 앉은 손님: 몸(뿌리) 높이를 의자 앉는 면에 맞추고, 의자 가운데보다 조금 뒤로 (식탁 쪽으로 파고들지 않게)
+  const SIT_Y = Number(new URLSearchParams(location.search).get('sitY')) || 0.42, SIT_BACK = 0.08;
   const guestList = [], orderGuests = new Map(), crowd = [], walkers = [];
   const KZG = H / 2, SIDE_X = W / 2 + 6;
   const bubbleBg = canvasTex(128, 128, (g, w) => { g.fillStyle = '#fff'; g.strokeStyle = '#2e2520'; g.lineWidth = 8; g.beginPath(); g.arc(64, 60, 52, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(48, 104); g.lineTo(64, 126); g.lineTo(80, 104); g.fillStyle = '#2e2520'; g.fill(); });
@@ -675,7 +677,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
   // 홀 손님: 식탁에 앉아 먹는 사람, 서서 이야기하는 두 사람, 주방을 구경하며 손 흔드는 사람
   {
     const KXa = W / 2;
-    const seat = (s, x, z, rot, i, R) => { const a = rot + (i / 4) * Math.PI * 2 + Math.PI / 4, gu = makeGuest(s * x + Math.sin(a) * R, z + Math.cos(a) * R); if (!gu) return; gu.face = a + Math.PI; gu.root.rotation.y = gu.face; gu.root.position.y = 0.12; gu.rest = 'sit'; walkers.push({ gu, kind: 'sit' }); };
+    const seat = (s, x, z, rot, i, R) => { const a = rot + (i / 4) * Math.PI * 2 + Math.PI / 4, gu = makeGuest(s * x + Math.sin(a) * (R + SIT_BACK), z + Math.cos(a) * (R + SIT_BACK)); if (!gu) return; gu.face = a + Math.PI; gu.root.rotation.y = gu.face; gu.root.position.y = SIT_Y; gu.rest = 'sit'; walkers.push({ gu, kind: 'sit' }); };
     seat(-1, KXa + 3.6, -2.6, -0.3, 0, 1.05); seat(-1, KXa + 3.6, -2.6, -0.3, 2, 1.05); seat(1, KXa + 3.6, -2.6, 0.3, 1, 1.05); seat(1, KXa + 3.6, -2.6, 0.3, 3, 1.05);
     seat(-1, KXa + 3.2, 2.6, -0.15, 0, 1.15); seat(1, KXa + 3.2, 2.6, 0.15, 2, 1.15); seat(1, KXa + 3.2, 2.6, 0.15, 0, 1.15);
     const stand = (x, z, face, kind) => { const gu = makeGuest(x, z); if (!gu) return; gu.face = face; gu.root.rotation.y = face; walkers.push({ gu, kind }); };
@@ -733,7 +735,7 @@ export function createRenderer3D(canvas, { W, H, stations, foods, icons = {}, mo
 
   // 인트로 컷신 (intro3d.js): 필요할 때 처음 만들어짐
   let intro = null;
-  const introCtx = () => ({ THREE, scene, camera, models, cloneSkinned, textSprite, canvasTex, burst, ring, shout, makeGuest, gAnim, gStep, removeGuest, guestList, wx, wz, W, H, TOP, sun, hemi, icons, FONT, gameCamPose });
+  const introCtx = () => ({ SIT_Y, SIT_BACK, THREE, scene, camera, models, cloneSkinned, textSprite, canvasTex, burst, ring, shout, makeGuest, gAnim, gStep, removeGuest, guestList, wx, wz, W, H, TOP, sun, hemi, icons, FONT, gameCamPose });
 
   const lookOf = held => held.startsWith('ready:') ? 'ready' : held.startsWith('burnt:') ? 'burnt' : '';
   let curOrders = [];

@@ -1,7 +1,7 @@
 // 인트로 컷신 《사라진 천재 셰프》 3D 연출 — 캐릭터 동작, 카메라, 편지, 주문 카드, 잠긴 레시피 책
 // 자막·효과음·음악 시간표는 intro.js. 이 파일은 "지금이 인트로의 몇 ms인가"만 보고 화면을 정합니다.
 // 같은 ms면 누구 화면에서나 같은 장면이 되므로, 친구들과 같은 장면을 보고 같은 순간에 게임이 시작됩니다.
-import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180214';
+import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180503';
 
 const sm = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));          // 부드럽게 0→1
 const seg = (ms, a, b) => sm((ms - a) / (b - a));
@@ -166,8 +166,8 @@ export function createIntro3D(c) {
     const seats = [[-1, KX + 3.6, -2.6, -0.3, 0], [-1, KX + 3.6, -2.6, -0.3, 2], [1, KX + 3.6, -2.6, 0.3, 0], [1, KX + 3.6, -2.6, 0.3, 2], [-1, KX + 3.2, 2.6, -0.15, 1], [1, KX + 3.2, 2.6, 0.15, 3]];
     for (const [s, x, z, rot, i] of seats) {
       const a = rot + (i / 4) * Math.PI * 2 + Math.PI / 4, R = x === KX + 3.6 ? 1.05 : 1.15;
-      const gu = c.makeGuest(s * x + Math.sin(a) * R, z + Math.cos(a) * R); if (!gu) continue;
-      gu.root.rotation.y = a + Math.PI; gu.face = a + Math.PI; gu.rest = 'sit'; gu.speed = 0; gu.tx = gu.root.position.x; gu.tz = gu.root.position.z; gu.root.position.y = 0.12;
+      const RR = R + (c.SIT_BACK || 0), gu = c.makeGuest(s * x + Math.sin(a) * RR, z + Math.cos(a) * RR); if (!gu) continue;   // 의자 위 (게임 화면의 홀 손님과 같은 자리·높이)
+      gu.root.rotation.y = a + Math.PI; gu.face = a + Math.PI; gu.rest = 'sit'; gu.speed = 0; gu.tx = gu.root.position.x; gu.tz = gu.root.position.z; gu.root.position.y = c.SIT_Y ?? 0.42;
       seated.push(gu);
     }
     // 학생 요리사 (우리 팀)
@@ -265,7 +265,7 @@ export function createIntro3D(c) {
   }
   function guests(ms, dt) {
     for (const gu of seated) {
-      if (ms < 15000) { gu.rest = 'sit'; gu.root.position.y = 0.12; }
+      if (ms < 15000) { gu.rest = 'sit'; gu.root.position.y = c.SIT_Y ?? 0.42; }
       else { gu.rest = (Math.floor(ms / 700 + gu.phase) % 3) ? 'jump' : 'emote-no'; gu.root.position.y = 0; }
       c.gAnim(gu, gu.rest); gu.mixer.update(dt);
     }
