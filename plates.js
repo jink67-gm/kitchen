@@ -5,7 +5,7 @@
 // 접시(손에 든 상태): { id, kind:'plate', state:'plate', contents:['lettuce','tomato'], loc }
 // 플레이팅대 기록:     { state:'plate', plate:{ id, contents }, at }
 // 접시 수:             { clean, dirty }  (clean = 접시대에 쌓인 수, dirty = 싱크대에서 설거지를 기다리는 수)
-import { defaultPlates } from './stations.js?v=202611180116';
+import { defaultPlates } from './stations.js?v=202611180129';
 
 let seq = 0;
 export const newPlate = owner => ({ id: `plate-${owner}-${Date.now().toString(36)}-${++seq}`, kind: 'plate', state: 'plate', contents: [], loc: 'held' });
