@@ -2,7 +2,7 @@
 //  ① 직접 연결(WebRTC): 같은 와이파이·학교망에서 기기끼리 바로 주고받음. 연결되면 학생은 Firebase 연결을 끊음
 //  ② 우편함 연결: 직접 연결이 막힌 학교망이면 Firebase를 우편함처럼 거쳐 선생님 기기와 주고받음 (게임은 그대로 됨)
 // Firebase에는 "연결 정보 한 번 교환(sig)"과 "우편함(relay)"만 씀. 게임 데이터는 선생님 기기 메모리에 있음
-import { serve } from './p2pdb.js?v=202611180129';
+import { serve } from './p2pdb.js?v=202611180144';
 
 const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] };
 // 주고받은 양 (점검용, 화면에는 안 보임): window.__p2pStats

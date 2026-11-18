@@ -1,9 +1,9 @@
-import { firebaseConfig } from './firebase-config.js?v=202611180129';
-import { storePut, storeTake, applyPenalty } from './items.js?v=202611180129';
-import { plateWashed } from './stations.js?v=202611180129';
-import { serveOrder } from './orders.js?v=202611180129';
-import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611180129';
-import { startHost, connectStudent } from './p2pnet.js?v=202611180129';
+import { firebaseConfig } from './firebase-config.js?v=202611180144';
+import { storePut, storeTake, applyPenalty } from './items.js?v=202611180144';
+import { plateWashed } from './stations.js?v=202611180144';
+import { serveOrder } from './orders.js?v=202611180144';
+import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611180144';
+import { startHost, connectStudent } from './p2pnet.js?v=202611180144';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -289,6 +289,7 @@ export class CloudRoom{
     if(at<this.meta.startedAt)await this.ops.update(this.path('meta'),{startedAt:at});
   }
   async finish(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'ended'})}
+  async setUnits(v){if(this.role==='teacher')await this.ops.update(this.path('meta'),{unit:String(v)})}   // 선생님: 방의 수학 단원 바꾸기 (다음 판부터)
   async setTeamLock(on){if(this.role==='teacher')await this.ops.update(this.path('meta'),{teamLock:!!on})}   // 학생 스스로 모둠 옮기기 잠금/허용 (교사는 언제나 옮길 수 있음)
   async toLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby'})}   // 판이 끝난 뒤 모두 대기방으로
   async reLobby(){if(this.role==='teacher')await this.ops.update(this.path('meta'),{phase:'lobby',startedAt:0})}

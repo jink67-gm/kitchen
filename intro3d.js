@@ -1,7 +1,7 @@
 // 인트로 컷신 《사라진 천재 셰프》 3D 연출 — 캐릭터 동작, 카메라, 편지, 주문 카드, 잠긴 레시피 책
 // 자막·효과음·음악 시간표는 intro.js. 이 파일은 "지금이 인트로의 몇 ms인가"만 보고 화면을 정합니다.
 // 같은 ms면 누구 화면에서나 같은 장면이 되므로, 친구들과 같은 장면을 보고 같은 순간에 게임이 시작됩니다.
-import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180129';
+import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180144';
 
 const sm = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));          // 부드럽게 0→1
 const seg = (ms, a, b) => sm((ms - a) / (b - a));
@@ -163,7 +163,7 @@ export function createIntro3D(c) {
     [['🍔', 9.5], ['🥗', 10.5], ['🍰', 11.3]].forEach(([e, x]) => { const src = c.models.get('dish:' + e); if (src) { const m = src.clone(); m.scale.setScalar(0.5); m.position.copy(tp(x, 6.45, TOP)); pan.userData.dishes = (pan.userData.dishes || []).concat(m); root.add(m); } });
     // 홀에 앉아 먹는 손님 (게임 화면의 식탁 자리)
     const KX = c.W / 2;
-    const seats = [[-1, KX + 3.6, -2.6, -0.3, 0], [-1, KX + 3.6, -2.6, -0.3, 1], [1, KX + 3.6, -2.6, 0.3, 0], [1, KX + 3.6, -2.6, 0.3, 2], [-1, KX + 3.2, 2.6, -0.15, 1], [1, KX + 3.2, 2.6, 0.15, 3]];
+    const seats = [[-1, KX + 3.6, -2.6, -0.3, 0], [-1, KX + 3.6, -2.6, -0.3, 2], [1, KX + 3.6, -2.6, 0.3, 0], [1, KX + 3.6, -2.6, 0.3, 2], [-1, KX + 3.2, 2.6, -0.15, 1], [1, KX + 3.2, 2.6, 0.15, 3]];
     for (const [s, x, z, rot, i] of seats) {
       const a = rot + (i / 4) * Math.PI * 2 + Math.PI / 4, R = x === KX + 3.6 ? 1.05 : 1.15;
       const gu = c.makeGuest(s * x + Math.sin(a) * R, z + Math.cos(a) * R); if (!gu) continue;
@@ -273,12 +273,13 @@ export function createIntro3D(c) {
       rushOn = true;
       for (let i = 0; i < 12; i++) {
         const s = i % 2 ? 1 : -1, gu = c.makeGuest(s * (19 + rnd(i) * 3), 7.5 + rnd(i + 7) * 3); if (!gu) continue;
-        gu.speed = 6; gu.tx = s * (1.8 + (Math.floor(i / 2) % 4) * 1.45 + rnd(i + 3) * 0.3); gu.tz = 6.9 + Math.floor(i / 8) * 1.2 + rnd(i + 11) * 0.9; gu.rest = 'jump';
+        gu.speed = 6; const k = Math.floor(i / 2), row = k < 4 ? 0 : 1;   // 쪽마다 앞줄 4명 + 뒷줄 2명, 서로 겹치지 않게 (간격 1.4 이상)
+        gu.tx = s * (1.8 + (row ? 0.7 + (k - 4) * 1.45 : k * 1.45) + rnd(i + 3) * 0.2); gu.tz = 6.9 + row * 1.4 + rnd(i + 11) * 0.25; gu.rest = 'jump';
         if (ms > 17500) { gu.root.position.set(gu.tx, 0, gu.tz); }      // 늦게 들어온 학생 화면: 이미 와 있는 것으로
         rushers.push(gu);
       }
     }
-    if (ms >= 32000 && !asideOn) { asideOn = true; rushers.forEach((gu, i) => { const s = gu.tx >= 0 ? 1 : -1; gu.tx = s * (7.6 + (i % 4) * 0.8); gu.speed = 5; }); }
+    if (ms >= 32000 && !asideOn) { asideOn = true; const cnt = { '-1': 0, '1': 0 }; rushers.forEach(gu => { const s = gu.tx >= 0 ? 1 : -1, k = cnt[s]++; gu.tx = s * (7.4 + (k % 3) * 1.0); gu.tz = 6.6 + Math.floor(k / 3) * 1.2; gu.speed = 5; }); }   // 요리사들이 들어오도록 양옆으로 비켜섬: 쪽마다 3명 × 2줄
     for (const gu of rushers) { gu.rest = ms < 32000 ? ((Math.floor(ms / 600 + gu.phase) % 4) ? 'jump' : 'emote-no') : ms > 46300 ? 'jump' : 'idle'; c.gStep(gu, dt); }
   }
   function cardsAt(ms) {
