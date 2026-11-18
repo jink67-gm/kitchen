@@ -91,3 +91,13 @@ test('온라인(가짜 DB): 두 학생이 동시에 같은 도마를 잡아도 �
   assert.equal([x, y].filter(Boolean).length, 1);
   assert.equal(db['teams/0/data/stations/cut_6_1'], undefined);
 });
+
+test('보너스 효과: 손질을 반만 눌러도 됨 (step 2)', async () => {
+  const { boardChop } = await import('../stations.js');
+  let s = { state: 'working', owner: 'A', progress: 0, need: 10, at: 0, item: { kind: 'tomato', state: 'raw' } };
+  let n = 0; for (let t = 1000; s.state === 'working'; t += 1000) { s = boardChop(s, 'A', t, 2).next; n++; }
+  assert.equal(n, 5); assert.equal(s.state, 'ready');
+  let s1 = { state: 'working', owner: 'A', progress: 0, need: 10, at: 0, item: null }, m = 0;
+  for (let t = 1000; s1.state === 'working'; t += 1000) { s1 = boardChop(s1, 'A', t).next; m++; }
+  assert.equal(m, 10);
+});
