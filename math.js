@@ -7,7 +7,7 @@
 export const UNIT_NAMES = ['', '분수의 나눗셈', '소수의 나눗셈', '공간과 입체', '비례식과 비례배분', '원의 둘레와 넓이', '원기둥, 원뿔, 구'];
 export const LEVEL_NAMES = ['편안함', '기본', '도전'];
 
-const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
+export const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
 // 기약분수로 고쳐 글자로: 자연수면 '3', 진분수면 '3/4', 가분수면 대분수 '1 1/8'
 export function fracText(n, d) {
   const g = gcd(n, d) || 1; n /= g; d /= g;
@@ -18,14 +18,14 @@ export function fracText(n, d) {
 // 100배 한 정수 → 소수 글자 (314 → '3.14', 1250 → '12.5')
 export const dec = h => String(Math.round(h) / 100);
 
-function tools(rng) {
+export function tools(rng) {
   const int = (a, b) => a + Math.floor(rng() * (b - a + 1));
   const pick = arr => arr[int(0, arr.length - 1)];
   const shuffle = arr => { const z = [...arr]; for (let i = z.length - 1; i > 0; i--) { const j = int(0, i); [z[i], z[j]] = [z[j], z[i]]; } return z; };
   return { int, pick, shuffle };
 }
 // 보기 4개 만들기: 정답 + 흔한 실수로 나오는 오답. 모자라면 정답 근처 수로 채움. 값이 같은 보기는 넣지 않음
-function withOptions(p, wrongs, T, near) {
+export function withOptions(p, wrongs, T, near) {
   const seen = new Set([p.answer]), opts = [p.answer];
   for (const w of wrongs) { const s = String(w); if (s && !seen.has(s) && !/-|NaN|Infinity/.test(s) && opts.length < 4) { seen.add(s); opts.push(s); } }
   let k = 0;
@@ -33,8 +33,8 @@ function withOptions(p, wrongs, T, near) {
   p.options = T.shuffle(opts);
   return p;
 }
-const nearInt = v => k => Math.max(0, v + (k % 2 ? 1 : -1) * Math.ceil(k / 2));
-const nearDec = (h, step) => k => dec(Math.max(0, h + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step));
+export const nearInt = v => k => Math.max(0, v + (k % 2 ? 1 : -1) * Math.ceil(k / 2));
+export const nearDec = (h, step) => k => dec(Math.max(0, h + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step));
 
 // ── 1단원: 분수의 나눗셈 ──
 function unit1(level, T) {

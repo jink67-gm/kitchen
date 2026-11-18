@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from './vendor/three/RoundedBoxGeometry.js';
 import { clone as cloneSkinned } from './vendor/three/jsm/utils/SkeletonUtils.js';
-import { createIntro3D } from './intro3d.js?v=202611180042';
+import { createIntro3D } from './intro3d.js?v=202611180116';
 
 const TOP = 0.88;                                   // 조리대 윗면 높이
 const SEAT_COLOR = [0xe77e95, 0x56c5dd, 0xfac268, 0x9d88e9, 0x63c49b];   // game.js의 COLOR와 같은 순서
