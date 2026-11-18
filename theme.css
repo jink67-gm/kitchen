@@ -400,3 +400,4 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 .lobby-units summary{cursor:pointer;font-size:13.5px}
 .lobby-units summary small{opacity:.65;font-weight:400}
 .lobby-units[open] summary{margin-bottom:6px}
+.ocard.joinable .oc-lock{display:block;background:var(--green);animation:none}

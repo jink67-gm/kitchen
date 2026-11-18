@@ -1,7 +1,7 @@
 // 인트로 컷신 《사라진 천재 셰프》 3D 연출 — 캐릭터 동작, 카메라, 편지, 주문 카드, 잠긴 레시피 책
 // 자막·효과음·음악 시간표는 intro.js. 이 파일은 "지금이 인트로의 몇 ms인가"만 보고 화면을 정합니다.
 // 같은 ms면 누구 화면에서나 같은 장면이 되므로, 친구들과 같은 장면을 보고 같은 순간에 게임이 시작됩니다.
-import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180503';
+import { INTRO_MS, TITLE_AT } from './intro.js?v=202611180548';
 
 const sm = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));          // 부드럽게 0→1
 const seg = (ms, a, b) => sm((ms - a) / (b - a));

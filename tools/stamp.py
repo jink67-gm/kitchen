@@ -8,7 +8,7 @@ IMP = re.compile(r"""((?:\bfrom|\bimport)\s*\(?\s*)(['"])(\.{1,2}/(?!vendor/)[^'
 n = 0
 for f in ROOT.rglob('*.js'):
     rel = f.relative_to(ROOT).as_posix()
-    if rel.startswith(('vendor/', 'tests/', 'node_modules/', 'tools/')): continue
+    if rel.startswith(('vendor/', 'tests/', 'node_modules/', 'tools/', 'prototype-3d/')) or '/vendor/' in rel: continue   # 외부 라이브러리·시험용 폴더는 건드리지 않음
     s = f.read_text(encoding='utf-8'); t = IMP.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}?v={V}{m.group(2)}", s)
     if t != s: f.write_text(t, encoding='utf-8'); n += 1
 h = ROOT / 'index.html'; s = h.read_text(encoding='utf-8')

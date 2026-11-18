@@ -36,14 +36,23 @@ export const questionsFor = recipe => Math.max(1, (((recipe || {}).items || []).
 export const acceptBonus = need => Math.max(0, need - 1) * ACCEPT_BONUS;
 // 주문 문제 하나를 맞혔을 때. need(필요한 문제 수)를 채우면 받은 주문이 되고 보너스 점수가 들어옴
 // 팀원이 나누어 풀어도 됨 (푼 수는 주문에 저장). 이미 받은 주문이면 null
-export function acceptOrder(g, id, now, pausedMs = 0, need = 1) {
+// 함께 풀기: 한 주문의 문제를 서로 다른 친구가 풀 때마다 모둠 보너스. 주문을 받은 뒤에도 JOIN_MS 동안 같은 문제를 풀어 참여할 수 있음
+export const TEAM_BONUS = 10, JOIN_MS = 20000;
+export const joinLeft = (o, now) => (o && o.accepted && o.acceptedAt ? Math.max(0, o.acceptedAt + JOIN_MS - now) : 0);
+export function joinOrder(g, id, now, solver) {
+  const o = g && g.orders && g.orders[id];
+  if (!o || !o.accepted || !solver || (o.solvers && o.solvers[solver]) || !joinLeft(o, now)) return null;
+  return { ...g, score: (g.score || 0) + TEAM_BONUS, orders: { ...g.orders, [id]: { ...o, solvers: { ...(o.solvers || {}), [solver]: true } } } };
+}
+export function acceptOrder(g, id, now, pausedMs = 0, need = 1, solver = '') {   // solver: 푼 학생 (서로 다른 친구가 풀면 모둠 보너스)
   const o = g && g.orders && g.orders[id];
   if (!o || o.accepted) return null;
   const add = Math.max(0, Math.min(ACCEPT_PAUSE_MAX_MS - (o.paused || 0), pausedMs || 0));
   const solved = (o.solved || 0) + 1, done = solved >= need;
-  const next = { ...o, solved, paused: (o.paused || 0) + add, createdAt: o.createdAt + add, expiresAt: o.expiresAt + add };
-  if (done) next.accepted = true;
-  return { ...g, score: (g.score || 0) + (done ? acceptBonus(need) : 0), orders: { ...g.orders, [id]: next } };
+  const had = o.solvers || {}, team = solver && !had[solver] && Object.keys(had).length ? TEAM_BONUS : 0;   // 두 번째 친구부터 +10
+  const next = { ...o, solved, paused: (o.paused || 0) + add, createdAt: o.createdAt + add, expiresAt: o.expiresAt + add, ...(solver ? { lastSolver: solver, lastAt: now, solvers: { ...had, [solver]: true } } : {}) };
+  if (done) { next.accepted = true; next.acceptedAt = now; }
+  return { ...g, score: (g.score || 0) + (done ? acceptBonus(need) : 0) + team, orders: { ...g.orders, [id]: next } };
 }
 // 이 재료를 쓸 수 있는지: 'free' 받은 주문에 필요 / 주문 id = 아직 안 받은 주문에 필요 / null = 어떤 주문에도 없음
 export function orderForKind(g, kind, recipes, now) {
