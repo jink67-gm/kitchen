@@ -2,7 +2,7 @@
 // 단원 번호: '학년-학기-단원' (예: '4-1-2' = 4학년 1학기 2단원 각도). 6학년 2학기는 math.js의 기존 문제를 그대로 씀.
 // 단원 이름은 널리 쓰인 교과서 단원 구성을 따름 (2022 개정 검정 교과서는 출판사마다 이름·순서가 조금 다를 수 있음).
 // 문제마다 spec(검산 정보)을 함께 돌려줌 → tests/curriculum.test.mjs가 따로 만든 계산기로 다시 계산해 확인.
-import { makeProblem as make62, UNIT_NAMES as NAMES62, tools, withOptions, nearInt, fracText, dec, gcd } from './math.js?v=202611180144';
+import { makeProblem as make62, UNIT_NAMES as NAMES62, tools, withOptions, nearInt, fracText, dec, gcd } from './math.js?v=202611180214';
 
 export const CURRICULUM = {
   3: { 1: ['덧셈과 뺄셈', '평면도형', '나눗셈', '곱셈', '길이와 시간', '분수와 소수'],

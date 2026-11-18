@@ -1,9 +1,9 @@
-import { firebaseConfig } from './firebase-config.js?v=202611180144';
-import { storePut, storeTake, applyPenalty } from './items.js?v=202611180144';
-import { plateWashed } from './stations.js?v=202611180144';
-import { serveOrder } from './orders.js?v=202611180144';
-import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611180144';
-import { startHost, connectStudent } from './p2pnet.js?v=202611180144';
+import { firebaseConfig } from './firebase-config.js?v=202611180214';
+import { storePut, storeTake, applyPenalty } from './items.js?v=202611180214';
+import { plateWashed } from './stations.js?v=202611180214';
+import { serveOrder } from './orders.js?v=202611180214';
+import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611180214';
+import { startHost, connectStudent } from './p2pnet.js?v=202611180214';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -20,7 +20,8 @@ function diag(step,state,ms,kind){const e={step,state,ms:ms==null?null:Math.roun
 // 테스트 전용 (localhost에서만): ?delay_단계=ms 로 늦추기, ?hang=단계 로 응답 없이 멈추기
 const QSX={get(k){try{return location.hostname==='localhost'?new URLSearchParams(location.search).get(k):null}catch{return null}}};const QS=QSX;
 const limitOf=step=>Number(QS.get('limit_'+step))||LIMIT[step];
-function testHook(step){if(QS.get('hang')===step)return new Promise(()=>{});const d=Number(QS.get('delay_'+step)||0);return d>0?new Promise(r=>setTimeout(r,d)):null}
+const FAILED=new Set();
+function testHook(step){if(QS.get('hang')===step)return new Promise(()=>{});if(QS.get('failOnce')===step&&!FAILED.has(step)){FAILED.add(step);return Promise.reject(Object.assign(new Error('PERMISSION_DENIED: 시험용 한 번 실패'),{code:'PERMISSION_DENIED'}))}const d=Number(QS.get('delay_'+step)||0);return d>0?new Promise(r=>setTimeout(r,d)):null}
 // 오류를 네 종류로 나눔: network(연결) / auth(로그인) / permission(권한) / code(방 코드·정원 등) / timeout(시간 초과)
 export function classify(e,step){
   if(e instanceof JoinError)return e;
@@ -37,6 +38,11 @@ function withTimeout(p,step){let id;return Promise.race([p,new Promise((_,rej)=>
 let SHARED=null,AUTH=null;
 // 자리 배정 트랜잭션: 응답이 늦어도 같은 요청을 다시 보내지 않고, 진행 중인 요청의 결과를 이어서 기다림
 const SEAT_JOBS=new Map();
+// 남은 로그인 기록을 버리고 새 익명 계정으로 (입장이 막혔을 때 자동으로 한 번)
+export async function resetSession(){
+  try{const s=await SHARED;if(s){const auth=s.b.getAuth(s.app);if(auth.currentUser)await s.b.signOut(auth).catch(()=>{})}}catch{}
+  AUTH=null;diag('authNew','새 로그인으로 다시 시도');
+}
 export function cloudConfigured(){return Boolean(firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId)}
 export function planTeams(n){
   n=Math.min(MAX,Math.max(1,Number(n)||4));
@@ -59,6 +65,8 @@ export class CloudRoom{
     if(!cloudConfigured())throw new JoinError('code','sdk','Firebase 연결 설정이 아직 없습니다. firebase-config.js를 입력해주세요.');
     const EMU=location.hostname==='localhost'&&QS.get('emu')==='1';   // 테스트 전용: 로컬 에뮬레이터
     // ① Firebase 연결 중: SDK → 앱 → 데이터베이스 연결(.info/connected)
+    // 이 기기에 남은 예전 기록 정리: Firebase가 기억해 둔 접속 서버 주소, 예전 버전의 로그인 저장소(브라우저를 꺼도 남던 것)
+    if(!SHARED){try{for(const k of Object.keys(localStorage))if(/^firebase:(host|authUser):/.test(k))localStorage.removeItem(k)}catch{}try{indexedDB.deleteDatabase('firebaseLocalStorageDb')}catch{}}
     if(!SHARED)SHARED=(async()=>{
       const [a,b,d]=await this.step('sdk',()=>Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]));
       const {app,db}=await this.step('app',()=>{const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);return {app,db:d.getDatabase(app)}});
@@ -75,7 +83,8 @@ export class CloudRoom{
     // ② 로그인 확인 중: 저장된 로그인 상태가 완전히 복원될 때까지 기다린 뒤 확인 → 이미 로그인한 학생은 같은 계정을 그대로 씀
     if(!AUTH)AUTH=(async()=>{
       if(EMU){await this.step('authRestore',()=>null);return s.emuUid}
-      const auth=s.b.getAuth(s.app);
+      // 로그인 기록은 이 탭에만 (새로 고침은 유지, 브라우저·탭을 닫으면 사라짐). 남은 기록 때문에 막히는 일을 줄임
+      let auth;try{auth=s.b.initializeAuth(s.app,{persistence:[s.b.browserSessionPersistence,s.b.inMemoryPersistence]})}catch{auth=s.b.getAuth(s.app)}
       await this.step('authRestore',()=>auth.authStateReady?auth.authStateReady():null);
       if(auth.currentUser){diag('authRestore','기존 계정 사용');return auth.currentUser.uid}
       return (await this.step('authNew',()=>s.b.signInAnonymously(auth))).user.uid;
@@ -141,16 +150,18 @@ export class CloudRoom{
       this.seat=mine.val().seat;this.team=Number(mine.val().team);diag('seat',meta.phase==='playing'?'게임 중 다시 들어옴':'기존 자리 사용');
     }else{
       // 게임 중에는 처음부터 이 방에 있던 학생(튕김·새로 고침·나갔다 온 학생)만 다시 들어올 수 있음
-      if(meta.phase==='playing')throw new JoinError('code','member','게임이 이미 진행 중이에요. 이 방에 처음부터 있던 학생만 다시 들어올 수 있어요. 다음 판을 기다려 주세요.');
       const all=allSnap.val()||{},cap=meta.max||meta.count;
-      if(Object.keys(all).length>=cap)throw new JoinError('code','member',`학급방 정원(${cap}명)이 가득 찼어요. 선생님께 알려 주세요.`);
+      const prev=meta.phase==='playing'?Object.entries(all).find(([id,m])=>m.name===name.slice(0,12)&&m.online===false&&!m.replacedBy):null;
+      if(meta.phase==='playing'&&!prev)throw new JoinError('code','member','게임이 이미 진행 중이에요. 이 방에 처음부터 있던 학생은 처음과 같은 이름으로 들어오면 이어서 할 수 있어요. 아니면 다음 판을 기다려 주세요.');
+      if(!prev&&Object.keys(all).length>=cap)throw new JoinError('code','member',`학급방 정원(${cap}명)이 가득 찼어요. 선생님께 알려 주세요.`);
       this.seat=await this.claimSeat(meta);
       // 모둠: 번갈아 배정, 그 모둠이 꽉 찼으면 가장 빈 모둠으로
       const sizes=meta.sizes||[cap];
       this.team=sizes.every(s=>s===sizes[0])?this.seat%sizes.length:(()=>{let acc=0;return sizes.findIndex(n=>{acc+=n;return this.seat<acc})})();
       const cnt=sizes.map((_,i)=>Object.values(all).filter(m=>Number(m.team)===i).length);
       if(!(this.team>=0)||cnt[this.team]>=sizes[this.team]){const free=cnt.map((c,i)=>[sizes[i]-c,i]).sort((a,b)=>b[0]-a[0]||a[1]-b[1])[0];this.team=free?free[1]:0}
-      await this.step('register',()=>this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now(),online:true}));
+      if(prev){this.team=Number(prev[1].team);diag('seat','같은 이름 학생 이어서 하기')}   // 원래 모둠으로
+      await this.step('register',()=>this.ops.set(this.path('members',this.uid),{name:name.slice(0,12),seat:this.seat,team:String(this.team),joinedAt:now(),online:true,...(prev?{replaces:prev[0]}:{})}));
       try{localStorage.removeItem(this.seatKey())}catch{}
     }
     this.connected=true;this.subscribeBase();this.watchConnection();
@@ -184,6 +195,20 @@ export class CloudRoom{
       catch(e){diag('p2p','다시 연결 실패: '+(e.message||e));await new Promise(r=>setTimeout(r,Math.min(8000,1000*2**i)))}
     }
     this.relinking=false;
+  }
+  // 선생님: 같은 이름으로 이어서 들어온 학생(replaces) → 예전 계정의 풀이 기록을 새 계정에 합치고 예전 자리를 지움
+  async mergeReplaced(){
+    if(this.merging)return;this.merging=true;
+    try{for(const [uid,m] of Object.entries(this.allMembers||{})){
+      const old=m.replaces;if(!old||!this.allMembers[old])continue;
+      const o=this.results?.[old]||(await this.ops.get(this.path('results',old))).val()||{},n=this.results?.[uid]||{};
+      const add=(a,b)=>{const r={...a};for(const [k,v] of Object.entries(b||{})){if(typeof v==='number')r[k]=(r[k]||0)+v;else if(v&&typeof v==='object')r[k]=add(r[k]||{},v)}return r};
+      const merged={...add(n,{correct:o.correct,wrong:o.wrong,hints:o.hints,served:o.served,units:o.units}),name:m.name,team:Number(m.team),seat:m.seat};
+      await this.ops.set(this.path('results',uid),merged);
+      await this.ops.remove(this.path('results',old)).catch(()=>{});
+      await this.ops.remove(this.path('teams',String(this.allMembers[old].team),'players',old)).catch(()=>{});
+      await this.ops.remove(this.path('members',old));
+    }}finally{this.merging=false}
   }
   seatKey(){return 'mathcook-seat-'+this.code+'-'+this.uid}
   // 자리 번호 받기. 중복 배정 방지:
@@ -219,6 +244,7 @@ export class CloudRoom{
         const t=Number(mine.team);
         if(t!==this.team){const from=this.team;this.team=t;this.listenTeam();this.fire('moved',{from,to:t})}   // 모둠이 바뀜 → 새 모둠 데이터로
       }
+      if(this.role==='teacher')this.mergeReplaced().catch(()=>{});
       this.fire('members',this.allMembers);
     });
     if(this.role==='teacher')listen(['results'],v=>{this.results=v||{};this.fire('results',this.results)});
