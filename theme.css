@@ -390,3 +390,9 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 .lobby-title{flex-wrap:wrap;row-gap:10px;align-items:flex-start}
 .lobby-title>div{flex:1 1 260px;min-width:0}
 .copy-code{flex:0 0 auto}
+/* 수학 단원: 학년·학기 버튼 */
+.pick-row{display:flex;gap:6px;margin:4px 0 6px}
+.pick-row button{flex:1;padding:7px 4px;font-family:var(--display);font-size:14px;font-weight:700;color:var(--ink);background:var(--paper);border:2px solid var(--ink);border-radius:9px;box-shadow:0 3px 0 var(--ink);cursor:pointer}
+.pick-row button.on{background:var(--mustard)}
+.pick-row.sem button{font-size:13px;padding:5px 4px}
+.field-label small{font-weight:400;font-size:11px;opacity:.7}

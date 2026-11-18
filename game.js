@@ -1,15 +1,16 @@
-import { CloudRoom, cloudConfigured, planTeams } from './cloud.js?v=202611180042';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611180042';
-import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611180042';
-import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611180042';
-import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611180042';
-import * as sfx from './sfx.js?v=202611180042';
-import { makeProblem, isCorrect, weakUnit, UNIT_NAMES } from './math.js?v=202611180042';
-import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611180042';
-import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611180042';
-import { participationBonus, PART_BONUS } from './orders.js?v=202611180042';
-import { ICONS } from './assets/icons/map.js?v=202611180042';
-import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611180042';
+import { CloudRoom, cloudConfigured, planTeams } from './cloud.js?v=202611180116';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611180116';
+import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611180116';
+import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611180116';
+import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611180116';
+import * as sfx from './sfx.js?v=202611180116';
+import { isCorrect } from './math.js?v=202611180116';
+import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611180116';
+import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611180116';
+import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611180116';
+import { participationBonus, PART_BONUS } from './orders.js?v=202611180116';
+import { ICONS } from './assets/icons/map.js?v=202611180116';
+import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611180116';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
 const W=18,H=12,T=48,OX=68,OY=47;
@@ -315,6 +316,22 @@ function setupTouch(){
  fs.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document);else{const r=(root.requestFullscreen||root.webkitRequestFullscreen).call(root);r?.then?.(()=>screen.orientation?.lock?.('landscape').catch(()=>{})).catch(()=>toast('이 기기에서는 전체 화면을 쓸 수 없어요.'))}}catch{toast('이 기기에서는 전체 화면을 쓸 수 없어요.')}};
  document.addEventListener('fullscreenchange',fsLabel);document.addEventListener('webkitfullscreenchange',fsLabel);
 }
+function setupUnitPicker(){
+ let saved='';try{saved=localStorage.getItem('mathcook-units')||''}catch{}
+ let sel=parseUnits(saved||DEFAULT_UNITS),[g,sm]=sel[0].split('-').map(Number);
+ const save=()=>{$('unitSelect').value=sel.join(',');try{localStorage.setItem('mathcook-units',sel.join(','))}catch{}};
+ const draw=()=>{
+  for(const b of $('gradePick').children)b.classList.toggle('on',Number(b.dataset.g)===g);
+  for(const b of $('semPick').children)b.classList.toggle('on',Number(b.dataset.s)===sm);
+  $('unitChecks').replaceChildren(...unitsOf(g,sm).map(id=>{const l=document.createElement('label');l.className='unit-chip-opt';l.innerHTML='<input type="checkbox" />';const c=l.firstChild;c.dataset.unit=id;c.checked=sel.includes(id);l.append(' '+unitName(id,true));return l}));
+  save();
+ };
+ const pickSem=(G,S)=>{g=G;sm=S;const cur=sel.filter(id=>id.startsWith(g+'-'+sm+'-'));sel=cur.length?cur:unitsOf(g,sm);draw()};   // 학년·학기를 바꾸면 그 학기 단원 모두 선택
+ $('gradePick').onclick=e=>{const b=e.target.closest('[data-g]');if(b)pickSem(Number(b.dataset.g),sm)};
+ $('semPick').onclick=e=>{const b=e.target.closest('[data-s]');if(b)pickSem(g,Number(b.dataset.s))};
+ $('unitChecks').addEventListener('change',e=>{const on=[...document.querySelectorAll('#unitChecks input')].filter(b=>b.checked).map(b=>b.dataset.unit);if(!on.length){e.target.checked=true;toast('단원은 하나 이상 골라야 해요.');return}sel=on;save()});
+ draw();
+}
 function getName(){return safeName($('nicknameInput').value)}
 function setRoomStatus(){setText('connectionLabel',mode==='demo'?'혼자 체험하기':cloud?.code?'학급방 '+cloud.code:'학급방');$('connectionDot').classList.toggle('online',mode!=='demo')}
 function playerColor(n){return COLOR[n%COLOR.length]}
@@ -558,7 +575,7 @@ function actionLabel(st){
 async function mathStat(correct,unitNum){const k=correct?'correct':'wrong';myStats[k]++;(myStats.units[unitNum]=myStats.units[unitNum]||{correct:0,wrong:0})[k]++;let gr=getGroup();if(mode==='demo'){gr[k]++;if(correct){teamData.solvers=teamData.solvers||{};teamData.solvers[myUid]=(teamData.solvers[myUid]||0)+1}return}await cloud.writeMath(getSide(),correct,unitNum)}
 function hintStat(unitNum){myStats.hints++;if(mode!=='demo'&&cloud)cloud.writeHint(unitNum).catch(()=>{})}
 function shuffle(a){let z=[...a];for(let i=z.length-1;i>0;i--){let j=rnd(0,i);[z[i],z[j]]=[z[j],z[i]]}return z}
-function mkProblem(u){return makeProblem(Number(u)||rnd(1,6),S().mathLevel)}   // 문제 만들기는 math.js
+function mkProblem(u){return makeUnitProblem(u||'6-2-'+rnd(1,6),S().mathLevel)}   // 문제 만들기는 curriculum.js (3~6학년)
 // 주문 받기 문제 (주문 카드의 버튼이나 Q 키). 맞히면 그 요리의 재료는 모두 문제 없이 준비
 function askOrder(id){
  if(!roundStarted||activeQuestion||pickerOpen||inIntro())return;
@@ -572,13 +589,13 @@ async function acceptNow(q){
  return (n||getGroup(side)).orders?.[q.orderId]||null;   // 갱신된 주문 (이미 서빙되어 사라졌으면 null)
 }
 // 수학 단원: 'all' 또는 '1,3,5'처럼 고른 단원들 중에서 무작위
-const unitList=u=>u==='all'||!u?[1,2,3,4,5,6]:String(u).split(',').map(Number).filter(n=>n>=1&&n<=6);
-function pickUnit(){const l=unitList(unit);return l.length?l[rnd(0,l.length-1)]:rnd(1,6)}
+const unitList=u=>parseUnits(u);   // '4-1-2,4-1-3' 같은 단원 번호들 (옛 방의 'all'·'1,3'도 읽음)
+function pickUnit(){const l=unitList(unit);return l[rnd(0,l.length-1)]}
 function askMath(food,kind,board=null,orderId=null,serve=null){
  const pz=mkProblem(pickUnit()),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
  activeQuestion={food,kind,pz,wrong:false,board,orderId,serve,openedAt:srvNow()};
  const orec=orderId?RECIPES[liveOrders().find(v=>v.id===orderId)?.recipeId]:null;
-if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',pz.unit+'단원 · '+UNIT_NAMES[pz.unit]);setMath('questionText',pz.question);setText('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
+if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',unitName(pz.unit));setMath('questionText',pz.question);setText('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
  $('questionGrid').replaceChildren();if(pz.grid){const tb=document.createElement('table');tb.className='block-grid';for(const row of pz.grid){const tr=tb.insertRow();for(const v of row)tr.insertCell().textContent=v}const cap=document.createElement('div');cap.className='block-grid-cap';cap.textContent='↑ 뒤 · 앞 ↓';$('questionGrid').append(tb,cap)}
  let ans=$('answerGrid');ans.replaceChildren(...pz.options.map((opt,i)=>{let b=document.createElement('button');b.className='answer-btn';b.innerHTML='<span class="opt-no">'+(i+1)+'</span>'+fracHTML(opt);b.addEventListener('click',()=>answerMath(opt,b));return b}));show('questionOverlay');sound('pickup');
 }
@@ -774,8 +791,8 @@ let init3DTries=0;
 async function init3D(){
  init3DTries++;
  if(!hasWebGL()){fallback2D=true;view3d=null;set3D(false);setTimeout(()=>toast('이 기기는 3D를 지원하지 않아 간단한 화면으로 보여요.'),1500);return}
- try{const mod=await import('./render3d.js?v=202611180042');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
-  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611180042')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
+ try{const mod=await import('./render3d.js?v=202611180116');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
+  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611180116')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
   if(!init3D.models)init3D.models=models;
   const cv=$('game3d');cv.addEventListener('webglcontextlost',e=>{e.preventDefault();rebuild3D('그래픽 연결이 끊김')},{once:true});
   view3d=mod.createRenderer3D(cv,{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models:init3D.models});init3DTries=0;let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
@@ -805,7 +822,7 @@ function animate(t){if(document.body.classList.contains('in-game')!==roundStarte
  if(t-musicCheck>400){musicCheck=t;syncMusic();syncEventPill()}
  drawOrderCards();drawGame(t);requestAnimationFrame(animate);
 }
-function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnit(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${w}단원 ${UNIT_NAMES[w]}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
+function finishRound(){if(ended)return;introClear();ended=true;setRush(false);sfx.setSizzle(false);sentPhase='ended';roundStarted=false;activeQuestion=null;hide('questionOverlay');sfx.play('roundEnd');const gr=getGroup();setText('endScore',gr.score||0);setText('endServed',gr.served||0);setText('endCorrect',gr.correct||0);{const w=weakUnitId(myStats.units),n=myStats.correct+myStats.wrong;setText('endStudy',n?`내 수학 기록: ${n}번 풀어 ${myStats.correct}번 정답 · 힌트 ${myStats.hints}번`+(w?` · 다시 보면 좋은 단원: ${unitName(w)}`:''):'이번 판에는 수학 문제를 풀지 않았어요.')}
  let msg=(gr.served||0)>=3?'대단해요! 멋진 요리사 팀이에요 🎉':'친구들과 함께 도전한 것만으로도 멋져요!';setText('endSummary',msg+(cloud&&mode!=='demo'?' · 잠시 뒤 대기방으로 돌아가요.':''));show('endOverlay');sound('success');}
 function beginOnline(){
  if(!cloud||!meta)return;currentMode=meta.mode;unit=meta.unit;totalTime=meta.duration;team=cloud.team;myUid=cloud.uid;seat=cloud.seat;members=cloud.allMembers||{};
@@ -834,7 +851,7 @@ function updateTeacherMonitor(){
  const rows=Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat),tb=$('teacherStudents');
  tb.replaceChildren();
  if(rows.length){const t=document.createElement('table');t.className='student-table';t.innerHTML='<thead><tr><th>별명</th><th>팀</th><th>푼 문제</th><th>정답</th><th>정답률</th><th>힌트</th><th>서빙</th><th>다시 볼 단원</th></tr></thead>';const body=t.createTBody();
-  for(const v of rows){const c=v.correct||0,w=v.wrong||0,n=c+w,wu=weakUnit(v.units),tr=body.insertRow();[v.name||'',Number(v.team)+1,n,c,n?Math.round(c/n*100)+'%':'-',v.hints||0,v.served||0,wu?wu+'단원 '+UNIT_NAMES[wu]:'-'].forEach(x=>{tr.insertCell().textContent=x})}
+  for(const v of rows){const c=v.correct||0,w=v.wrong||0,n=c+w,wu=weakUnitId(v.units),tr=body.insertRow();[v.name||'',Number(v.team)+1,n,c,n?Math.round(c/n*100)+'%':'-',v.hints||0,v.served||0,wu?unitName(wu):'-'].forEach(x=>{tr.insertCell().textContent=x})}
   tb.append(t)}
 }
 // 대기실의 학생 한 줄: 교사에게는 '모둠 바꾸기'와 '내보내기'가 붙음
@@ -859,7 +876,7 @@ async function keepAwake(on){try{if(on&&!wakeLock&&navigator.wakeLock){wakeLock=
 window.addEventListener('beforeunload',e=>{if(cloud?.host){e.preventDefault();e.returnValue=''}});   // 선생님 창을 실수로 닫지 않게
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&cloud?.host)keepAwake(true)});
 function refreshLobby(){
- if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);{const on=Object.values(all).filter(u=>u.online!==false).length,n=Object.keys(all).length;setText('lobbyCount',`${n}/${m.max||m.count}명 입장`+(on<n?` · 접속 ${on}명`:''))}setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`);
+ if(!cloud||!cloud.meta)return;let m=cloud.meta;let all=cloud.allMembers||{};setText('roomCodeDisplay',cloud.code);{const on=Object.values(all).filter(u=>u.online!==false).length,n=Object.keys(all).length;setText('lobbyCount',`${n}/${m.max||m.count}명 입장`+(on<n?` · 접속 ${on}명`:''))}setText('lobbyMode',({coop:'🤝 협동 요리',duel:'⚔️ 2대2 요리 대결',class:'🤝 협동 요리'})[m.mode]+` · 모둠 ${m.sizes.length}개`+(()=>{const us=unitList(m.unit),[g,sm]=us[0].split('-'),same=us.every(u=>u.startsWith(g+'-'+sm+'-'));return same?` · 📘 ${g}학년 ${sm}학기 `+(us.length===6?'전체 단원':us.map(u=>u.split('-')[2]).join('·')+'단원'):` · 📘 단원 ${us.length}개`})());
  let entries=Object.entries(all).sort((a,b)=>a[1].seat-b[1].seat),holder=$('lobbyTeams');holder.replaceChildren(...m.sizes.map((num,i)=>{let div=document.createElement('div');div.className='lobby-team';let title=document.createElement('h3');title.textContent=`🍳 ${i+1}모둠 · ${num}명`+(m.mode==='duel'?' (🌸 A편 2 · 🌊 B편 2)':'');div.appendChild(title);let mates=entries.filter(([,u])=>Number(u.team)===i);mates.forEach(([uid,u],k)=>div.appendChild(memberRow(uid,u,k,m)));if(cloud.role==='student'&&Number(cloud.team)!==i&&m.phase!=='playing'&&!m.teamLock){const b=document.createElement('button');b.className='subtle-btn lobby-move';const full=mates.length>=num;b.textContent=full?'자리 없음 (선생님께 바꿔 달라고 해요)':'이 모둠으로 이동';b.disabled=full;b.onclick=()=>cloud.moveSelf(i).then(()=>toast(`${i+1}모둠으로 옮겼어요!`)).catch(e=>toast(e.message));div.appendChild(b)}if(cloud.role==='student'&&Number(cloud.team)===i)div.classList.add('mine');if(mates.length===0){let li=document.createElement('div');li.className='lobby-member';li.textContent='아직 입장한 학생이 없어요';div.appendChild(li)}return div}));
  let count=Object.keys(all).length;setText('lobbyNotice',cloud.role==='student'&&m.teamLock?'🔒 선생님이 모둠 이동을 잠갔어요. 지금 모둠에서 기다려요.':count===(m.max||m.count)?'🎉 모든 학생이 입장했습니다!':cloud.role==='teacher'?'학생은 들어오는 순서대로 모둠에 배정돼요. 학생 이름 옆에서 모둠을 바꾸거나 내보낼 수 있어요.':'원하는 모둠의 "이 모둠으로 이동"을 누르면 옮길 수 있어요 (게임 시작 전까지).');
  {const bd=$('linkBadge');bd.classList.toggle('hidden',cloud.role!=='teacher');if(cloud.role==='teacher'){const ls=Object.values(all).filter(u=>u.online!==false&&u.link);const relay=ls.filter(u=>u.link==='relay').length;bd.textContent=cloud.host?'📶 교실 직통 연결(P2P)'+(relay?` · 일반 서버 경유 ${relay}명`:''):'☁️ 일반 서버 연결';bd.title=cloud.host?'이 기기가 게임 서버예요. 직접 연결이 막힌 학생은 자동으로 일반 서버(Firebase)를 거쳐 연결돼요.':'일반 서버(Firebase)로 연결된 방이에요.';bd.classList.toggle('p2p',!!cloud.host)}}{const lb=$('teamLockBtn');lb.textContent=m.teamLock?'🔒 학생 모둠 이동: 잠김':'🔓 학생 모둠 이동: 허용';lb.classList.toggle('on',!!m.teamLock);lb.title=m.teamLock?'누르면 학생이 스스로 모둠을 옮길 수 있어요':'누르면 학생이 스스로 모둠을 옮기지 못해요 (선생님은 계속 옮길 수 있음)'}$('startBtn').classList.toggle('hidden',cloud.role!=='teacher');$('shareRow').classList.toggle('hidden',cloud.role!=='teacher');$('lobbyIntroWrap').classList.toggle('hidden',cloud.role!=='teacher');$('startBtn').disabled=!count||m.phase==='playing';updateTeacherMonitor();
@@ -924,8 +941,9 @@ function boot(){
  $('lobbyBackBtn').onclick=goHome;
  $('csvBtn').onclick=()=>{
    if(!cloud || cloud.role!=='teacher')return;
-   let header=['번호','별명','팀','푼 문제','정답','오답','정답률(%)','힌트','서빙',...Array.from({length:6},(_,i)=>(i+1)+'단원 정답'),...Array.from({length:6},(_,i)=>(i+1)+'단원 오답'),'다시 볼 단원'];
-   let lines=[header,...Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat).map((v,i)=>[i+1,v.name||'',Number(v.team)+1,(v.correct||0)+(v.wrong||0),v.correct||0,v.wrong||0,(v.correct||0)+(v.wrong||0)?Math.round((v.correct||0)/((v.correct||0)+(v.wrong||0))*100):'',v.hints||0,v.served||0,...Array.from({length:6},(_,j)=>v.units?.[j+1]?.correct||0),...Array.from({length:6},(_,j)=>v.units?.[j+1]?.wrong||0),weakUnit(v.units)?weakUnit(v.units)+'단원 '+UNIT_NAMES[weakUnit(v.units)]:''])];
+   const us=[...new Set([...unitList(cloud.meta?.unit),...Object.values(cloud.results||{}).flatMap(v=>Object.keys(v.units||{}))].map(x=>parseUnits(x)[0]).filter(Boolean))];   // 고른 단원 + 실제로 푼 단원
+   let header=['번호','별명','팀','푼 문제','정답','오답','정답률(%)','힌트','서빙',...us.map(u=>unitName(u)+' 정답'),...us.map(u=>unitName(u)+' 오답'),'다시 볼 단원'];
+   let lines=[header,...Object.values(cloud.results||{}).sort((a,b)=>a.seat-b.seat).map((v,i)=>[i+1,v.name||'',Number(v.team)+1,(v.correct||0)+(v.wrong||0),v.correct||0,v.wrong||0,(v.correct||0)+(v.wrong||0)?Math.round((v.correct||0)/((v.correct||0)+(v.wrong||0))*100):'',v.hints||0,v.served||0,...us.map(u=>v.units?.[u]?.correct||(u.startsWith('6-2-')&&v.units?.[u.slice(4)]?.correct)||0),...us.map(u=>v.units?.[u]?.wrong||(u.startsWith('6-2-')&&v.units?.[u.slice(4)]?.wrong)||0),weakUnitId(v.units)?unitName(weakUnitId(v.units)):''])];
    let csv='\ufeff'+lines.map(r=>r.map(v=>'"'+String(v).replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"').join(',')).join('\r\n');
    let a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='math-restaurant-result_'+cloud.code+'.csv';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},1000);
  };
@@ -952,8 +970,8 @@ function boot(){
  $('introSkip').onclick=()=>{document.activeElement?.blur?.();skipIntro()};
  $('skipIntroAllBtn').onclick=()=>cloud?.skipIntro(INTRO_MS-MISSION_AT+300).catch(e=>toast(e.message));
  if(new URLSearchParams(location.search).get('intro')==='0'){$('introCheck').checked=false;$('lobbyIntroCheck').checked=false}   // 테스트용: 주소 뒤 ?intro=0 이면 인트로 끔
- // 단원 체크 상자 → 숨은 값(unitSelect): 모두 고르면 'all', 아니면 '1,3,5'. 하나는 꼭 남김
- $('unitChecks').addEventListener('change',e=>{const boxes=[...document.querySelectorAll('#unitChecks input')],on=boxes.filter(b=>b.checked);if(!on.length&&e.target.checked===false){e.target.checked=true;toast('단원은 하나 이상 골라야 해요.');return}$('unitSelect').value=on.length===boxes.length?'all':on.map(b=>b.dataset.unit).join(',')});
+ // 수학 단원: 학년 → 학기 → 단원 체크 (숨은 값 unitSelect = '4-1-2,4-1-3'). 고른 것은 이 기기에 기억
+ setupUnitPicker();
  $('teamLockBtn').onclick=()=>{if(cloud?.role!=='teacher')return;const on=!cloud.meta?.teamLock;cloud.setTeamLock(on).then(()=>toast(on?'🔒 학생 모둠 이동을 잠갔어요. 선생님은 계속 옮길 수 있어요.':'🔓 학생이 스스로 모둠을 옮길 수 있어요.')).catch(e=>toast('바꾸지 못했어요: '+e.message))};
  $('leaveBtn').onclick=goHome;$('endHomeBtn').onclick=goHome;
  $('roomInfoBtn').onclick=()=>{if(mode==='demo')show('helpOverlay');else{show('lobbyOverlay');refreshLobby()}};
