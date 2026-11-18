@@ -1,9 +1,9 @@
-import { firebaseConfig } from './firebase-config.js';
-import { storePut, storeTake, applyPenalty } from './items.js';
-import { plateWashed } from './stations.js';
-import { serveOrder } from './orders.js';
-import { MemDB, localOps, remoteOps } from './p2pdb.js';
-import { startHost, connectStudent } from './p2pnet.js';
+import { firebaseConfig } from './firebase-config.js?v=202611180042';
+import { storePut, storeTake, applyPenalty } from './items.js?v=202611180042';
+import { plateWashed } from './stations.js?v=202611180042';
+import { serveOrder } from './orders.js?v=202611180042';
+import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611180042';
+import { startHost, connectStudent } from './p2pnet.js?v=202611180042';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
