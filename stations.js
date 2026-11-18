@@ -34,10 +34,10 @@ export function boardStart(s, owner, need, now) {
   return { next: { ...s, state: 'working', progress: 0, need: Math.max(1, Math.round(need) || CHOPS_DEFAULT), at: now } };
 }
 // 키를 한 번 누를 때마다 1회. 주인만 가능. 너무 빠른 중복 입력은 무시
-export function boardChop(s, owner, now) {
+export function boardChop(s, owner, now, step = 1) {   // step 2 = 보너스 문제 효과(반만 눌러도 됨)
   if (!s || s.state !== 'working' || s.owner !== owner) return null;
   if (s.progress > 0 && now - s.at < MIN_CHOP_GAP_MS) return null;
-  const progress = s.progress + 1;
+  const progress = s.progress + Math.max(1, step);
   if (progress >= s.need) return { next: { ...s, state: 'ready', item: s.item ? { ...s.item, state: 'prepared' } : null, progress: s.need, at: now }, done: true };
   return { next: { ...s, progress, at: now } };
 }
