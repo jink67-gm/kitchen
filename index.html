@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <!-- 예전 화면 파일이 남아 있으면(캐시) 최신 버전으로 한 번 새로 받음. 버전 번호는 tools/stamp.py가 씀 -->
-  <script id="verCheck">(function(V){try{fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===V)return;var k='mathcook-reload-'+j.v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');var u=new URL(location.href);u.searchParams.set('_v',j.v);location.replace(u.toString())}).catch(function(){})}catch(e){}})('202611180503');</script>
+  <script id="verCheck">(function(V){try{fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(!j||!j.v||j.v===V)return;var k='mathcook-reload-'+j.v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');var u=new URL(location.href);u.searchParams.set('_v',j.v);location.replace(u.toString())}).catch(function(){})}catch(e){}})('202611180548');</script>
   <meta name="theme-color" content="#141c33" />
   <title>우당탕! 수학 레스토랑 — 쿠킹 파티</title>
-  <link rel="stylesheet" href="style.css?v=202611180503" />
-  <link rel="stylesheet" href="theme.css?v=202611180503" />
+  <link rel="stylesheet" href="style.css?v=202611180548" />
+  <link rel="stylesheet" href="theme.css?v=202611180548" />
   <script type="importmap">{"imports":{"three":"./vendor/three/three.module.js"}}</script>
 </head>
 <body>
@@ -92,7 +92,7 @@
 
   <div id="helpOverlay" class="overlay hidden"><section class="dialog-card help-card"><button class="close-btn" data-close="helpOverlay">✕</button><h2>하는 방법</h2><div class="help-steps"><p><b>움직이기</b> — WASD 또는 방향키. 설비 앞에서 E나 Space를 눌러요.</p><p><b>주문 받기</b> — 새 주문이 오면 주문서의 버튼이나 Q를 눌러 수학 문제를 풀어요. 재료가 많은 요리는 문제가 2~3개이고 보너스 점수를 받아요. 다 맞히면 그 요리의 재료는 모두 문제 없이 준비해요.</p><p><b>재료 준비</b> — 상자에서 재료를 집어 도마·화덕·믹서에 올려요. 가까이 가면 이름표가 떠요.</p><p><b>도마·믹서</b> — E나 Space를 여러 번 눌러 손질해요.</p><p><b>다음 할 일</b> — 화면 아래 안내와 노란 화살표를 따라가면 돼요.</p><p><b>화덕</b> — 올려두면 저절로 익어요. 타기 전에 꺼내요.</p><p><b>접시</b> — 접시대에서 접시를 꺼내 플레이팅대에 놓고, 준비된 재료를 하나씩 올려요.</p><p><b>서빙</b> — 완성된 접시를 들고 서빙 벨에서 E. 마지막 "완성 문제"를 맞히면 서빙! 한 번에 맞히면 +10, 빠를수록 팁, 연속이면 콤보!</p><p><b>정리</b> — 손질 전 재료는 원래 상자에 돌려놓고, 손질한 재료는 보관대에 둘 수 있어요. 더러운 접시는 싱크대에서 씻어요.</p></div><button class="primary-btn" data-close="helpOverlay">알겠어요!</button></section></div>
   <div id="qrOverlay" class="overlay hidden"><section class="dialog-card qr-card"><button class="close-btn" data-close="qrOverlay">✕</button><h2>휴대폰·태블릿 카메라로 찍어 들어와요</h2><canvas id="qrCanvas" width="320" height="320" aria-label="게임방 QR 코드"></canvas><div class="qr-code">방 코드 <b id="qrRoomCode">000000</b></div><p id="qrLink" class="qr-link"></p><button id="qrCopyBtn" class="secondary-btn" type="button">🔗 주소 복사</button></section></div>
-  <script src="qr.js?v=202611180503"></script>
-  <script type="module" src="game.js?v=202611180503"></script>
+  <script src="qr.js?v=202611180548"></script>
+  <script type="module" src="game.js?v=202611180548"></script>
 </body>
 </html>

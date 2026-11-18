@@ -227,3 +227,30 @@ test('오늘의 이벤트: 판마다 정해지고, 같은 판이면 같음. 추�
   const tip = serveOrder(g, ['lettuce', 'tomato'], RECIPES, T0 + 1000, 0, { id: 'tips' });
   assert.equal(tip.tip, base.tip * 2);
 });
+
+test('주문 받기: 푼 학생과 시각을 기록 (다음 문제는 다른 친구가 먼저)', async () => {
+  const { acceptOrder } = await import('../orders.js');
+  const g = { score: 0, orders: { o1: { id: 'o1', recipeId: 1, createdAt: 0, expiresAt: 100000 } } };
+  const a = acceptOrder(g, 'o1', 5000, 0, 2, 'uidA');
+  assert.equal(a.orders.o1.solved, 1); assert.equal(a.orders.o1.accepted, undefined);
+  assert.equal(a.orders.o1.lastSolver, 'uidA'); assert.equal(a.orders.o1.lastAt, 5000);
+  const b = acceptOrder(a, 'o1', 7000, 0, 2, 'uidB');
+  assert.equal(b.orders.o1.accepted, true); assert.equal(b.orders.o1.lastSolver, 'uidB');
+});
+
+test('함께 풀기: 서로 다른 친구가 풀수록 모둠 보너스, 받은 뒤 20초 안에 참여', async () => {
+  const { acceptOrder, joinOrder, joinLeft, TEAM_BONUS, JOIN_MS, acceptBonus } = await import('../orders.js');
+  const g = { score: 0, orders: { o1: { id: 'o1', recipeId: 1, createdAt: 0, expiresAt: 100000 } } };
+  const a = acceptOrder(g, 'o1', 1000, 0, 2, 'A');            // 가람 1/2
+  assert.equal(a.score, 0);
+  const a2 = acceptOrder(a, 'o1', 2000, 0, 2, 'A');           // 같은 학생이 또 → 함께 보너스 없음
+  assert.equal(a2.score, acceptBonus(2));
+  const b = acceptOrder(a, 'o1', 2000, 0, 2, 'B');            // 다른 친구가 이어서 → +10
+  assert.equal(b.score, acceptBonus(2) + TEAM_BONUS); assert.equal(b.orders.o1.acceptedAt, 2000);
+  const c = joinOrder(b, 'o1', 2000 + 5000, 'C');              // 받은 뒤 함께 풀기 → +10
+  assert.equal(c.score, b.score + TEAM_BONUS);
+  assert.equal(joinOrder(c, 'o1', 8000, 'C'), null);           // 같은 친구는 한 번만
+  assert.equal(joinOrder(c, 'o1', 2000 + JOIN_MS + 1, 'D'), null);   // 20초가 지나면 끝
+  assert.equal(joinOrder(g, 'o1', 1000, 'D'), null);           // 아직 받지 않은 주문은 함께 풀기 아님
+  assert.ok(joinLeft(b.orders.o1, 3000) > 0);
+});
