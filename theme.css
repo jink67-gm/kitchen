@@ -409,3 +409,22 @@ body.touch .quick-note{max-width:calc(100vw - 560px)}
 body.touch .bonus-prompt{bottom:170px;font-size:17px;padding:12px 18px}
 @media (max-width:900px){.bonus-prompt{font-size:12px;bottom:110px;white-space:normal;max-width:70vw}}
 .answer-btn.cooling:not(.wrong){opacity:.55;filter:grayscale(.4);cursor:wait}
+/* 문제 그림 */
+.q-fig-wrap{display:flex;justify-content:center;margin:0 0 10px}
+.q-fig-wrap svg{width:min(320px,86%);height:auto;max-height:190px;background:#fffdf6;border:2px solid var(--ink);border-radius:10px}
+@media (max-height:520px){.q-fig-wrap svg{max-height:120px}}
+
+/* 그림 문제: 넓은 화면은 그림(왼쪽)·보기(오른쪽) 나란히, 어느 화면이든 카드가 화면 안에 */
+.question-card{max-height:calc(100dvh - 16px);overflow-y:auto}
+.question-card.has-fig .question-food{font-size:30px}
+.question-card.has-fig .question-text{font-size:21px;padding:10px 12px;margin:8px 0 10px}
+.question-card.has-fig .q-fig-wrap svg{max-height:min(230px,34dvh)}
+@media (min-width:700px){
+ .question-card.has-fig{max-width:760px;display:grid;grid-template-columns:1.1fr 1fr;column-gap:14px;align-items:center}
+ .question-card.has-fig>*{grid-column:1/-1}
+ .question-card.has-fig>#questionGrid{grid-column:1}
+ .question-card.has-fig>#answerGrid{grid-column:2;grid-template-columns:1fr;margin:0}
+ .question-card.has-fig .q-fig-wrap{margin:0}
+ .question-card.has-fig .q-fig-wrap svg{width:100%;max-height:min(260px,40dvh)}
+}
+@media (max-height:520px){.question-card.has-fig .question-food{display:none}.question-card.has-fig h2{font-size:16px;margin:0}.question-card.has-fig .question-text{font-size:17px;padding:6px 10px;margin:4px 0 6px}.question-card.has-fig .q-fig-wrap svg{max-height:52dvh}.question-card.has-fig .answer-btn{min-height:40px;padding:4px 8px}}

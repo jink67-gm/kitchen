@@ -1,16 +1,17 @@
-import { CloudRoom, cloudConfigured, planTeams, resetSession } from './cloud.js?v=202611180623';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611180623';
-import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611180623';
-import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,joinOrder,joinLeft,TEAM_BONUS,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611180623';
-import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611180623';
-import * as sfx from './sfx.js?v=202611180623';
-import { isCorrect } from './math.js?v=202611180623';
-import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611180623';
-import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611180623';
-import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611180623';
-import { participationBonus, PART_BONUS } from './orders.js?v=202611180623';
-import { ICONS } from './assets/icons/map.js?v=202611180623';
-import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611180623';
+import { CloudRoom, cloudConfigured, planTeams, resetSession } from './cloud.js?v=202611190041';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611190041';
+import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611190041';
+import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,joinOrder,joinLeft,TEAM_BONUS,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611190041';
+import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611190041';
+import * as sfx from './sfx.js?v=202611190041';
+import { isCorrect } from './math.js?v=202611190041';
+import { figSVG } from './figures.js?v=202611190041';
+import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611190041';
+import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611190041';
+import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611190041';
+import { participationBonus, PART_BONUS } from './orders.js?v=202611190041';
+import { ICONS } from './assets/icons/map.js?v=202611190041';
+import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611190041';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
 const W=18,H=12,T=48,OX=68,OY=47;
@@ -635,8 +636,8 @@ function askMath(food,kind,board=null,orderId=null,serve=null){
  const oo0=orderId?liveOrders().find(v=>v.id===orderId):null,pz=orderId&&(kind==='order'||kind==='join')?orderProblem(orderId,kind==='join'?0:(oo0?.solved||0)):mkProblem(pickUnit()),icon={cut:'🔪',cook:'🔥',mix:'🥣'}[kind];
  activeQuestion={food,kind,pz,wrong:false,board,orderId,serve,openedAt:srvNow()};
  const orec=orderId?RECIPES[liveOrders().find(v=>v.id===orderId)?.recipeId]:null;
-if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',kind==='join'?`🤝 ${orec.title} 함께 풀기! (+${TEAM_BONUS}점)`:orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else if(kind==='bonus'){setText('questionFood','⭐');setText('questionTitle','보너스 문제! 맞히면 빨라져요')}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',unitName(pz.unit));setMath('questionText',pz.question);setText('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
- $('questionGrid').replaceChildren();if(pz.grid){const tb=document.createElement('table');tb.className='block-grid';for(const row of pz.grid){const tr=tb.insertRow();for(const v of row)tr.insertCell().textContent=v}const cap=document.createElement('div');cap.className='block-grid-cap';cap.textContent='↑ 뒤 · 앞 ↓';$('questionGrid').append(tb,cap)}
+if(serve){putIcon($('questionFood'),serve.rec.emoji);setText('questionTitle',serve.rec.title+' 완성! 마지막 문제')}else if(orec){const oo=liveOrders().find(v=>v.id===orderId),nq=questionsFor(orec);putIcon($('questionFood'),orec.emoji);setText('questionTitle',kind==='join'?`🤝 ${orec.title} 함께 풀기! (+${TEAM_BONUS}점)`:orec.title+' 주문 받기!'+(nq>1?` (${(oo?.solved||0)+1}/${nq})`:''))}else if(kind==='bonus'){setText('questionFood','⭐');setText('questionTitle','보너스 문제! 맞히면 빨라져요')}else{setText('questionFood',FOOD[food].emoji+icon);setText('questionTitle',FOOD[food].name+' 요리 미션!')}setText('questionUnit',unitName(pz.unit));setMath('questionText',pz.question);setMath('questionFeedback',serve?`맞히면 서빙! 한 번에 맞히면 +${FINISH_BONUS}점`:orec?(questionsFor(orec)>1?`재료가 많은 요리라 ${questionsFor(orec)}문제예요. 다 맞히면 보너스 +${acceptBonus(questionsFor(orec))}점! `:'')+'맞히면 이 요리의 재료는 문제 없이 준비해요. 푸는 동안 이 주문의 시간은 멈춰요.':'정답을 골라 재료를 준비해요.');
+ $('questionGrid').replaceChildren();$('questionOverlay').querySelector('.question-card').classList.toggle('has-fig',!!pz.fig);if(pz.fig){const fw=document.createElement('div');fw.className='q-fig-wrap';fw.innerHTML=figSVG(pz.fig);$('questionGrid').append(fw)}if(pz.grid){const tb=document.createElement('table');tb.className='block-grid';for(const row of pz.grid){const tr=tb.insertRow();for(const v of row)tr.insertCell().textContent=v}const cap=document.createElement('div');cap.className='block-grid-cap';cap.textContent='↑ 뒤 · 앞 ↓';$('questionGrid').append(tb,cap)}
  let ans=$('answerGrid');ans.replaceChildren(...pz.options.map((opt,i)=>{let b=document.createElement('button');b.className='answer-btn';b.innerHTML='<span class="opt-no">'+(i+1)+'</span>'+fracHTML(opt);b.addEventListener('click',()=>answerMath(opt,b));return b}));show('questionOverlay');sound('pickup');
 }
 // 설비에 올린 재료의 작업을 시작 (도마·믹서는 연타, 화덕은 굽기). 성공하면 안내 문구를 돌려줌
@@ -660,8 +661,8 @@ function coolDown(q){
  q.wrongN=(q.wrongN||0)+1;const sec=WRONG_WAIT[Math.min(q.wrongN,WRONG_WAIT.length)-1];q.lockUntil=Date.now()+sec*1000;
  const btns=[...$('answerGrid').children];btns.forEach(b=>{b.classList.add('cooling');b.disabled=true});
  const tick=()=>{if(activeQuestion!==q)return;const left=Math.ceil((q.lockUntil-Date.now())/1000);
-  if(left>0){setText('questionFeedback',`아쉬워요! ${left}초 동안 다시 생각해 봐요. 💡 ${q.pz.hint}`);setTimeout(tick,250);return}
-  btns.forEach(b=>{b.classList.remove('cooling');if(!b.classList.contains('wrong'))b.disabled=false});setText('questionFeedback','이제 다시 골라 보세요. 💡 '+q.pz.hint)};
+  if(left>0){setMath('questionFeedback',`아쉬워요! ${left}초 동안 다시 생각해 봐요. 💡 ${q.pz.hint}`);setTimeout(tick,250);return}
+  btns.forEach(b=>{b.classList.remove('cooling');if(!b.classList.contains('wrong'))b.disabled=false});setMath('questionFeedback','이제 다시 골라 보세요. 💡 '+q.pz.hint)};
  tick();
 }
 async function answerMath(choice,button){if(!activeQuestion||activeQuestion.solving)return;let q=activeQuestion;if(Date.now()<(q.lockUntil||0))return;const correct=isCorrect(q.pz,choice);
@@ -844,8 +845,8 @@ let init3DTries=0;
 async function init3D(){
  init3DTries++;
  if(!hasWebGL()){fallback2D=true;view3d=null;set3D(false);setTimeout(()=>toast('이 기기는 3D를 지원하지 않아 간단한 화면으로 보여요.'),1500);return}
- try{const mod=await import('./render3d.js?v=202611180623');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
-  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611180623')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
+ try{const mod=await import('./render3d.js?v=202611190041');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
+  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611190041')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
   if(!init3D.models)init3D.models=models;
   const cv=$('game3d');cv.addEventListener('webglcontextlost',e=>{e.preventDefault();rebuild3D('그래픽 연결이 끊김')},{once:true});
   view3d=mod.createRenderer3D(cv,{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models:init3D.models});init3DTries=0;let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
@@ -1023,7 +1024,7 @@ function boot(){
  $('viewBtn').onclick=()=>set3D(!use3D);init3D();
  $('storageCloseBtn').onclick=closePicker;
  $('presetSelect').onchange=fillPreset;fillPreset();
- $('hintBtn').onclick=()=>{if(!activeQuestion)return;if(!activeQuestion.hinted){activeQuestion.hinted=true;hintStat(activeQuestion.pz.unit)}setText('questionFeedback','힌트: '+activeQuestion.pz.hint)};
+ $('hintBtn').onclick=()=>{if(!activeQuestion)return;if(!activeQuestion.hinted){activeQuestion.hinted=true;hintStat(activeQuestion.pz.unit)}setMath('questionFeedback','힌트: '+activeQuestion.pz.hint)};
  $('cancelQuestionBtn').onclick=()=>{abortQuestion();toast('준비되면 다시 도전해 보세요!')};
  $('introSkip').onclick=()=>{document.activeElement?.blur?.();skipIntro()};
  $('skipIntroAllBtn').onclick=()=>cloud?.skipIntro(INTRO_MS-MISSION_AT+300).catch(e=>toast(e.message));
