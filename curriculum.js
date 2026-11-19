@@ -2,7 +2,7 @@
 // 단원 번호: '학년-학기-단원' (예: '4-1-2' = 4학년 1학기 2단원 각도). 6학년 2학기는 math.js의 기존 문제를 그대로 씀.
 // 단원 이름은 널리 쓰인 교과서 단원 구성을 따름 (2022 개정 검정 교과서는 출판사마다 이름·순서가 조금 다를 수 있음).
 // 문제마다 spec(검산 정보)을 함께 돌려줌 → tests/curriculum.test.mjs가 따로 만든 계산기로 다시 계산해 확인.
-import { makeProblem as make62, UNIT_NAMES as NAMES62, tools, withOptions, nearInt, fracText, dec, gcd } from './math.js?v=202611180623';
+import { makeProblem as make62, UNIT_NAMES as NAMES62, tools, withOptions, nearInt, fracText, dec, gcd } from './math.js?v=202611190041';
 
 export const CURRICULUM = {
   3: { 1: ['덧셈과 뺄셈', '평면도형', '나눗셈', '곱셈', '길이와 시간', '분수와 소수'],
@@ -61,6 +61,7 @@ const absDigitSub = (a, b) => { let r = 0, p = 1; while (a || b) { r += Math.abs
 const comma = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 const G = {};
+let FIG = null;   // 문제 그림 (figures.js가 그림): 생성기가 return 직전에 정함
 // ═════ 3학년 1학기 ═════
 G['3-1-1'] = (lv, T) => {   // 세 자리 수의 덧셈과 뺄셈
   const { int } = T;
@@ -74,8 +75,8 @@ G['3-1-1'] = (lv, T) => {   // 세 자리 수의 덧셈과 뺄셈
 G['3-1-2'] = (lv, T) => {   // 평면도형
   const { int, pick } = T;
   if (lv === 2 && int(0, 1)) { const s = int(3, 12), k = pick([['정사각형', 4], ['직사각형', 0]]);
-    if (k[1]) return N(`한 변이 ${s} cm인 정사각형의 네 변의 길이의 합은 몇 cm일까요?`, 4 * s, '정사각형은 네 변의 길이가 모두 같아요.', `${s} × 4 = ${4 * s}`, [2 * s, 3 * s, s + 4], T);
-    const w = int(4, 12), h = int(2, w - 1); return N(`가로 ${w} cm, 세로 ${h} cm인 직사각형의 네 변의 길이의 합은 몇 cm일까요?`, 2 * (w + h), '직사각형은 마주 보는 두 변의 길이가 같아요.', `${w} + ${h} + ${w} + ${h} = ${2 * (w + h)}`, [w + h, w * h, 2 * w + h], T); }
+    if (k[1]) return FIG = { type: 'rect', w: s, h: s, top: s + ' cm', side: s + ' cm' }, N(`한 변이 ${s} cm인 정사각형의 네 변의 길이의 합은 몇 cm일까요?`, 4 * s, '정사각형은 네 변의 길이가 모두 같아요.', `${s} × 4 = ${4 * s}`, [2 * s, 3 * s, s + 4], T);
+    const w = int(4, 12), h = int(2, w - 1); return FIG = { type: 'rect', w, h, top: w + ' cm', side: h + ' cm' }, N(`가로 ${w} cm, 세로 ${h} cm인 직사각형의 네 변의 길이의 합은 몇 cm일까요?`, 2 * (w + h), '직사각형은 마주 보는 두 변의 길이가 같아요.', `${w} + ${h} + ${w} + ${h} = ${2 * (w + h)}`, [w + h, w * h, 2 * w + h], T); }
   const f = pick([['직사각형에는 직각이 몇 개 있을까요?', 4, '직사각형은 네 각이 모두 직각이에요.'], ['직각삼각형에는 직각이 몇 개 있을까요?', 1, '직각삼각형은 한 각이 직각인 삼각형이에요.'], ['정사각형에서 길이가 같은 변은 모두 몇 개일까요?', 4, '정사각형은 네 변의 길이가 모두 같아요.'], ['삼각형의 꼭짓점은 몇 개일까요?', 3, '삼각형은 변 3개, 꼭짓점 3개예요.'], ['사각형의 변은 몇 개일까요?', 4, '사각형은 변 4개, 꼭짓점 4개예요.'], ['각은 몇 개의 반직선으로 이루어져 있을까요?', 2, '한 점에서 그은 두 반직선으로 이루어진 도형이 각이에요.']]);
   if (lv === 0 || int(0, 1)) return N(f[0], f[1], f[2], f[2], [0, 1, 2, 3, 4, 5].filter(v => v !== f[1]), T);
   const t = pick([['두 점을 곧게 이은 선', '선분'], ['한 점에서 시작하여 한쪽으로 끝없이 늘인 곧은 선', '반직선'], ['선분을 양쪽으로 끝없이 늘인 곧은 선', '직선'], ['네 각이 모두 직각인 사각형', '직사각형']]);
@@ -103,15 +104,15 @@ G['3-1-5'] = (lv, T) => {   // 길이와 시간
   if (k === 'sec') { const m = int(1, 4), s = int(5, 55); return C(`${m * 60 + s}초는 몇 분 몇 초일까요?`, `${m}분 ${s}초`, [`${m + 1}분 ${s}초`, `${m}분 ${s + 4}초`, `${Math.floor((m * 60 + s) / 100)}분 ${(m * 60 + s) % 100}초`, `${m - 1 || m + 2}분 ${s}초`], '1분 = 60초예요.', `${m * 60 + s}초 = ${m * 60}초 + ${s}초 = ${m}분 ${s}초`, T); }
   const h = int(1, 10), m = int(20, 55), add = int(Math.max(10, 61 - m), 55), tot = h * 60 + m + add, H = Math.floor(tot / 60), M = tot % 60;
   const t = (a, b) => `${a}시 ${b}분`;
-  return C(`${t(h, m)}에서 ${add}분이 지나면 몇 시 몇 분일까요?`, t(H, M), [t(h, m + add), t(H, (M + 10) % 60), t(H + 1, M), t(h, M)], '분끼리 더해서 60분이 넘으면 1시간으로 바꿔요.', `${m} + ${add} = ${m + add}분 → ${t(H, M)}`, T);
+  return FIG = { type: 'clock', h, m }, C(`${t(h, m)}에서 ${add}분이 지나면 몇 시 몇 분일까요?`, t(H, M), [t(h, m + add), t(H, (M + 10) % 60), t(H + 1, M), t(h, M)], '분끼리 더해서 60분이 넘으면 1시간으로 바꿔요.', `${m} + ${add} = ${m + add}분 → ${t(H, M)}`, T);
 };
 G['3-1-6'] = (lv, T) => {   // 분수와 소수
   const { int, pick, shuffle } = T, k = pick(lv === 0 ? ['tenth', 'unit'] : ['tenth', 'unit', 'mm', 'biggest']);
   if (k === 'tenth') { const n = int(2, 9); return C(`0.1이 ${n}개인 수는 얼마일까요?`, `0.${n}`, [`${n}`, `0.0${n}`, `${n}.1`, `1.${n}`], '0.1이 몇 개인지 세면 소수 첫째 자리 숫자가 돼요.', `0.1 × ${n} = 0.${n}`, T); }
   if (k === 'mm') { const n = int(1, 9); return C(`${n} mm는 몇 cm인지 소수로 나타내면?`, `0.${n}`, [`${n}`, `0.0${n}`, `${n}0`, `1.${n}`], '1 mm = 0.1 cm예요.', `${n} mm = 0.1 cm가 ${n}개 = 0.${n} cm`, T); }
-  if (k === 'unit') { const d = int(3, 9), n = int(2, d - 1); return F(`1/${d}이 ${n}개이면 얼마일까요?`, n, d, '단위분수가 몇 개인지 세면 분자가 돼요.', `1/${d} × ${n} = ${n}/${d}`, [`${d}/${n}`, `1/${n}`, `${n}/${d + 1}`], T, { type: 'frac', n, d }); }
+  if (k === 'unit') { const d = int(3, 9), n = int(2, d - 1); return FIG = { type: 'fracBars', bars: [[n, d]] }, F(`1/${d}이 ${n}개이면 얼마일까요?`, n, d, '단위분수가 몇 개인지 세면 분자가 돼요.', `1/${d} × ${n} = ${n}/${d}`, [`${d}/${n}`, `1/${n}`, `${n}/${d + 1}`], T, { type: 'frac', n, d }); }
   const ds = shuffle([2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 4), m = Math.min(...ds);
-  return C(`다음 중 가장 큰 분수는 무엇일까요?\n${ds.map(d => '1/' + d).join(',  ')}`, `1/${m}`, ds.filter(d => d !== m).map(d => '1/' + d), '단위분수는 분모가 작을수록 커요.', `분모가 가장 작은 1/${m}이 가장 커요.`, T);
+  return FIG = { type: 'fracBars', bars: ds.map(d => [1, d, '1/' + d]) }, C(`다음 중 가장 큰 분수는 무엇일까요?\n${ds.map(d => '1/' + d).join(',  ')}`, `1/${m}`, ds.filter(d => d !== m).map(d => '1/' + d), '단위분수는 분모가 작을수록 커요.', `분모가 가장 작은 1/${m}이 가장 커요.`, T);
 };
 // ═════ 3학년 2학기 ═════
 G['3-2-1'] = (lv, T) => {   // 곱셈 (세 자리×한 자리, 두 자리×두 자리)
@@ -128,15 +129,15 @@ G['3-2-2'] = (lv, T) => {   // 나눗셈 (나머지)
 };
 G['3-2-3'] = (lv, T) => {   // 원
   const { int, pick } = T, k = pick(lv === 0 ? ['d', 'r'] : ['d', 'r', 'line', 'box']);
-  if (k === 'd') { const r = int(2, 15); return N(`반지름이 ${r} cm인 원의 지름은 몇 cm일까요?`, 2 * r, '지름은 반지름의 2배예요.', `${r} × 2 = ${2 * r}`, [r, r + 2, 4 * r], T); }
-  if (k === 'r') { const r = int(2, 15); return N(`지름이 ${2 * r} cm인 원의 반지름은 몇 cm일까요?`, r, '반지름은 지름의 반이에요.', `${2 * r} ÷ 2 = ${r}`, [2 * r, 4 * r, r + 2], T); }
-  if (k === 'line') { const r = int(2, 9), n = int(2, 5); return N(`반지름이 ${r} cm인 원 ${n}개를 겹치지 않게 한 줄로 맞닿게 놓았어요.\n전체 길이는 몇 cm일까요?`, 2 * r * n, '원 하나의 길이는 지름이에요.', `${2 * r} × ${n} = ${2 * r * n}`, [r * n, 2 * r * n + r, 2 * r + n], T); }
-  const r = int(2, 8); return N(`반지름이 ${r} cm인 원이 꼭 맞게 들어가는 정사각형의 한 변은 몇 cm일까요?`, 2 * r, '정사각형의 한 변은 원의 지름과 같아요.', `${r} × 2 = ${2 * r}`, [r, 4 * r, r + 2], T);
+  if (k === 'd') { const r = int(2, 15); return FIG = { type: 'circle', mode: 'r', label: r + ' cm' }, N(`반지름이 ${r} cm인 원의 지름은 몇 cm일까요?`, 2 * r, '지름은 반지름의 2배예요.', `${r} × 2 = ${2 * r}`, [r, r + 2, 4 * r], T); }
+  if (k === 'r') { const r = int(2, 15); return FIG = { type: 'circle', mode: 'd', label: 2 * r + ' cm' }, N(`지름이 ${2 * r} cm인 원의 반지름은 몇 cm일까요?`, r, '반지름은 지름의 반이에요.', `${2 * r} ÷ 2 = ${r}`, [2 * r, 4 * r, r + 2], T); }
+  if (k === 'line') { const r = int(2, 9), n = int(2, 5); return FIG = { type: 'circles', n, rLabel: r + ' cm' }, N(`반지름이 ${r} cm인 원 ${n}개를 겹치지 않게 한 줄로 맞닿게 놓았어요.\n전체 길이는 몇 cm일까요?`, 2 * r * n, '원 하나의 길이는 지름이에요.', `${2 * r} × ${n} = ${2 * r * n}`, [r * n, 2 * r * n + r, 2 * r + n], T); }
+  const r = int(2, 8); return FIG = { type: 'circleInSquare', rLabel: r + ' cm' }, N(`반지름이 ${r} cm인 원이 꼭 맞게 들어가는 정사각형의 한 변은 몇 cm일까요?`, 2 * r, '정사각형의 한 변은 원의 지름과 같아요.', `${r} × 2 = ${2 * r}`, [r, 4 * r, r + 2], T);
 };
 G['3-2-4'] = (lv, T) => {   // 분수
   const { int, pick } = T, k = pick(lv === 0 ? ['part1'] : ['part', 'toMixed', 'toImp']);
   if (k === 'part1' || k === 'part') { const d = int(2, 6), n = k === 'part1' ? 1 : int(1, d - 1), whole = d * int(2, 5), v = whole / d * n;
-    return N(`${whole}의 ${n}/${d}은 얼마일까요?`, v, `${whole}을 똑같이 ${d}묶음으로 나눈 것 중 ${n}묶음이에요.`, `${whole} ÷ ${d} × ${n} = ${v}`, [whole / d, whole - v, v + n, whole * n], T, null, { type: 'expr', expr: `${whole}*${n}/${d}` }); }
+    return FIG = { type: 'groups', total: whole, d, n }, N(`${whole}의 ${n}/${d}은 얼마일까요?`, v, `${whole}을 똑같이 ${d}묶음으로 나눈 것 중 ${n}묶음이에요.`, `${whole} ÷ ${d} × ${n} = ${v}`, [whole / d, whole - v, v + n, whole * n], T, null, { type: 'expr', expr: `${whole}*${n}/${d}` }); }
   const d = int(3, 9), w = int(1, 4); let n; do n = int(1, d - 1); while (gcd(n, d) !== 1); const imp = w * d + n;
   if (k === 'toMixed') return C(`${imp}/${d}을 대분수로 나타내면?`, `${w} ${n}/${d}`, [`${w + 1} ${n}/${d}`, `${n} ${w}/${d}`, `${w + 2} ${n}/${d}`, `${w} ${d}/${n}`], '분자를 분모로 나눈 몫이 자연수, 나머지가 분자예요.', `${imp} ÷ ${d} = ${w} … ${n} → ${w} ${n}/${d}`, T);
   return C(`${w} ${n}/${d}을 가분수로 나타내면?`, `${imp}/${d}`, [`${w + n}/${d}`, `${w * d}/${d + n}`, `${imp + 1}/${d}`], '자연수에 분모를 곱하고 분자를 더해요.', `${w} × ${d} + ${n} = ${imp} → ${imp}/${d}`, T);
@@ -155,7 +156,7 @@ G['3-2-6'] = (lv, T) => {   // 자료의 정리
   if (k === 'max') { const m = items[cnt.indexOf(Math.max(...cnt))]; return C(`좋아하는 과일 조사: ${table}\n가장 많은 학생이 좋아하는 과일은?`, m, items.filter(x => x !== m), '수가 가장 큰 것을 찾아요.', `${m} ${Math.max(...cnt)}명이 가장 많아요.`, T); }
   if (k === 'total') { const s = cnt.reduce((a, b) => a + b, 0); return N(`좋아하는 과일 조사: ${table}\n조사한 학생은 모두 몇 명일까요?`, s, '모든 수를 더해요.', `${cnt.join(' + ')} = ${s}`, [s - cnt[0], s + 1, s + 10], T); }
   if (k === 'diff') { const d = Math.max(...cnt) - Math.min(...cnt); return N(`좋아하는 과일 조사: ${table}\n가장 많은 과일과 가장 적은 과일의 학생 수 차이는?`, d, '가장 큰 수에서 가장 작은 수를 빼요.', `${Math.max(...cnt)} - ${Math.min(...cnt)} = ${d}`, [d + 1, Math.max(...cnt), Math.min(...cnt)], T); }
-  const big = int(1, 5), small = int(1, 9); return N(`그림그래프에서 큰 그림은 10명, 작은 그림은 1명이에요.\n큰 그림 ${big}개, 작은 그림 ${small}개는 몇 명일까요?`, big * 10 + small, '큰 그림 하나는 10, 작은 그림 하나는 1이에요.', `${big} × 10 + ${small} = ${big * 10 + small}`, [big + small, small * 10 + big, big * 10], T);
+  const big = int(1, 5), small = int(1, 9); return FIG = { type: 'pict', big, small }, N(`그림그래프에서 큰 그림은 10명, 작은 그림은 1명이에요.\n큰 그림 ${big}개, 작은 그림 ${small}개는 몇 명일까요?`, big * 10 + small, '큰 그림 하나는 10, 작은 그림 하나는 1이에요.', `${big} × 10 + ${small} = ${big * 10 + small}`, [big + small, small * 10 + big, big * 10], T);
 };
 // ═════ 4학년 1학기 ═════
 G['4-1-1'] = (lv, T) => {   // 큰 수
@@ -172,8 +173,8 @@ G['4-1-2'] = (lv, T) => {   // 각도
   let q, v, h, e, w;
   if (k === 'add') { const a = int(2, 14) * 5, b = int(2, 14) * 5; v = a + b; q = `${a}° + ${b}° = ?`; h = '각도는 자연수의 덧셈처럼 더해요.'; e = `${a} + ${b} = ${v}`; w = [v + 10, v - 10, Math.abs(a - b)]; }
   else if (k === 'sub') { const a = int(12, 34) * 5, b = int(2, a / 5 - 2) * 5; v = a - b; q = `${a}° - ${b}° = ?`; h = '각도는 자연수의 뺄셈처럼 빼요.'; e = `${a} - ${b} = ${v}`; w = [v + 10, v - 10, a + b]; }
-  else if (k === 'tri') { const a = int(6, 14) * 5, b = int(4, (175 - a) / 5 - 2) * 5; v = 180 - a - b; q = `삼각형의 두 각이 ${a}°, ${b}°일 때 나머지 한 각은?`; h = '삼각형의 세 각의 크기의 합은 180°예요.'; e = `180 - ${a} - ${b} = ${v}`; w = [360 - a - b, v + 10, a + b]; }
-  else { const a = int(14, 22) * 5, b = int(14, 22) * 5, c = int(14, 22) * 5; v = 360 - a - b - c; q = `사각형의 세 각이 ${a}°, ${b}°, ${c}°일 때 나머지 한 각은?`; h = '사각형의 네 각의 크기의 합은 360°예요.'; e = `360 - ${a} - ${b} - ${c} = ${v}`; w = [Math.abs(180 - a - b - c) || v + 20, v + 10, v - 10]; }
+  else if (k === 'tri') { const a = int(6, 14) * 5, b = int(4, (175 - a) / 5 - 2) * 5; v = 180 - a - b; FIG = { type: 'triAngles', angles: [a + '°', b + '°', '?'] }; q = `삼각형의 두 각이 ${a}°, ${b}°일 때 나머지 한 각은?`; h = '삼각형의 세 각의 크기의 합은 180°예요.'; e = `180 - ${a} - ${b} = ${v}`; w = [360 - a - b, v + 10, a + b]; }
+  else { const a = int(14, 22) * 5, b = int(14, 22) * 5, c = int(14, 22) * 5; v = 360 - a - b - c; FIG = { type: 'quadAngles', angles: [a + '°', b + '°', c + '°', '?'] }; q = `사각형의 세 각이 ${a}°, ${b}°, ${c}°일 때 나머지 한 각은?`; h = '사각형의 네 각의 크기의 합은 360°예요.'; e = `360 - ${a} - ${b} - ${c} = ${v}`; w = [Math.abs(180 - a - b - c) || v + 20, v + 10, v - 10]; }
   return Object.assign(opts(v, w), { question: q, hint: h, explanation: e });
 };
 G['4-1-3'] = (lv, T) => {   // 곱셈과 나눗셈 (세 자리×두 자리, 세 자리÷두 자리)
@@ -189,12 +190,12 @@ G['4-1-4'] = (lv, T) => {   // 평면도형의 이동
   if (k === 'rot') { const n = lv === 2 ? pick([2, 3, 5, 6, 7]) : int(1, 3), v = (90 * n) % 360; return C(`도형을 시계 방향으로 90°만큼 ${n}번 돌린 모양은\n시계 방향으로 몇 °만큼 돌린 모양과 같을까요?`, deg(v), [0, 90, 180, 270, 360].filter(x => x !== v && !(v === 0 && x === 360)).map(deg), '90°씩 돌린 횟수를 더하고, 360°는 한 바퀴예요.', `90° × ${n} = ${90 * n}°${90 * n >= 360 ? ' → 한 바퀴 빼면 ' + v + '°' : ''}`, T); }
   if (k === 'ccw') { const a = pick([90, 180, 270]); return C(`시계 반대 방향으로 ${a}°만큼 돌린 모양은\n시계 방향으로 몇 °만큼 돌린 모양과 같을까요?`, deg(360 - a), [90, 180, 270, 360].filter(x => x !== 360 - a).map(deg), '한 바퀴(360°)에서 빼 봐요.', `360° - ${a}° = ${360 - a}°`, T); }
   if (k === 'flip') { const n = int(2, 7); return C(`도형을 오른쪽으로 ${n}번 뒤집으면 처음 모양과 같을까요?`, n % 2 ? '오른쪽으로 1번 뒤집은 모양' : '처음 모양과 같아요', ['처음 모양과 같아요', '오른쪽으로 1번 뒤집은 모양', '위쪽으로 1번 뒤집은 모양', '시계 방향으로 90° 돌린 모양'].filter(x => x !== (n % 2 ? '오른쪽으로 1번 뒤집은 모양' : '처음 모양과 같아요')), '같은 방향으로 2번 뒤집으면 처음 모양이 돼요.', `${n}번은 ${n % 2 ? '홀수 → 1번 뒤집은 모양' : '짝수 → 처음 모양'}`, T); }
-  const x = int(1, 6), y = int(1, 6), dx = int(1, 5), dy = int(1, 5); return C(`점의 자리가 (가로 ${x}칸, 세로 ${y}칸)이에요.\n오른쪽으로 ${dx}칸, 위쪽으로 ${dy}칸 밀면?`, `(가로 ${x + dx}칸, 세로 ${y + dy}칸)`, [`(가로 ${x + dy}칸, 세로 ${y + dx}칸)`, `(가로 ${x + dx}칸, 세로 ${y}칸)`, `(가로 ${x}칸, 세로 ${y + dy}칸)`, `(가로 ${x + dx + 1}칸, 세로 ${y + dy}칸)`], '오른쪽은 가로, 위쪽은 세로로 움직여요.', `가로 ${x} + ${dx}, 세로 ${y} + ${dy}`, T);
+  const x = int(1, 6), y = int(1, 6), dx = int(1, 5), dy = int(1, 5); return FIG = { type: 'gridPoint', x, y, dx, dy }, C(`점의 자리가 (가로 ${x}칸, 세로 ${y}칸)이에요.\n오른쪽으로 ${dx}칸, 위쪽으로 ${dy}칸 밀면?`, `(가로 ${x + dx}칸, 세로 ${y + dy}칸)`, [`(가로 ${x + dy}칸, 세로 ${y + dx}칸)`, `(가로 ${x + dx}칸, 세로 ${y}칸)`, `(가로 ${x}칸, 세로 ${y + dy}칸)`, `(가로 ${x + dx + 1}칸, 세로 ${y + dy}칸)`], '오른쪽은 가로, 위쪽은 세로로 움직여요.', `가로 ${x} + ${dx}, 세로 ${y} + ${dy}`, T);
 };
 G['4-1-5'] = (lv, T) => {   // 막대그래프
   const { int, pick, shuffle } = T, unit = lv === 0 ? 1 : pick([2, 5, 10]), k = pick(lv === 0 ? ['read', 'max'] : ['read', 'max', 'diff', 'total']);
   const items = shuffle(['축구', '피구', '줄넘기', '수영', '농구']).slice(0, 4), cells = shuffle([2, 3, 4, 5, 6, 7, 8]).slice(0, 4), cnt = cells.map(c => c * unit), table = items.map((x, i) => `${x} ${cells[i]}칸`).join(', ');
-  const head = `막대그래프의 세로 눈금 한 칸은 ${unit}명이에요.\n막대: ${table}\n`;
+  FIG = { type: 'bars', labels: items, cells, unit }; const head = `막대그래프의 세로 눈금 한 칸은 ${unit}명이에요.\n막대: ${table}\n`;
   if (k === 'read') { const i = int(0, 3); return N(head + `${wj(items[i], '을', '를')} 좋아하는 학생은 몇 명일까요?`, cnt[i], '칸 수에 눈금 한 칸의 크기를 곱해요.', `${cells[i]} × ${unit} = ${cnt[i]}`, [cells[i], cnt[i] + unit, cells[i] + unit], T); }
   if (k === 'max') { const m = items[cells.indexOf(Math.max(...cells))]; return C(head + '가장 많은 학생이 좋아하는 운동은?', m, items.filter(x => x !== m), '막대가 가장 긴 것을 찾아요.', `${m} 막대가 가장 길어요.`, T); }
   if (k === 'diff') { const d = (Math.max(...cells) - Math.min(...cells)) * unit; return N(head + '가장 많은 운동과 가장 적은 운동의 학생 수 차이는?', d, '칸 수의 차이에 눈금 크기를 곱해요.', `(${Math.max(...cells)} - ${Math.min(...cells)}) × ${unit} = ${d}`, [d / unit, d + unit, Math.max(...cnt)], T); }
@@ -217,10 +218,10 @@ G['4-2-1'] = (lv, T) => {   // 분모가 같은 분수의 덧셈과 뺄셈
 };
 G['4-2-2'] = (lv, T) => {   // 삼각형
   const { int, pick } = T, k = pick(lv === 0 ? ['eq', 'iso'] : ['iso', 'base', 'kind', 'eqp']);
-  if (k === 'eq') return N('정삼각형의 한 각의 크기는 몇 도일까요?', 60, '정삼각형은 세 각의 크기가 모두 같아요.', '180 ÷ 3 = 60', [90, 45, 180], T);
-  if (k === 'eqp') { const s = int(3, 15); return N(`한 변이 ${s} cm인 정삼각형의 세 변의 길이의 합은 몇 cm일까요?`, 3 * s, '정삼각형은 세 변의 길이가 같아요.', `${s} × 3 = ${3 * s}`, [4 * s, 2 * s, s + 3], T); }
-  if (k === 'iso') { const a = pick([20, 30, 40, 50, 60, 70, 80, 100, 120]), v = (180 - a) / 2; return N(`이등변삼각형에서 길이가 같은 두 변 사이의 각이 ${a}°예요.\n나머지 한 각의 크기는 몇 도일까요?`, v, '이등변삼각형은 두 밑각의 크기가 같아요.', `(180 - ${a}) ÷ 2 = ${v}`, [180 - a, a, 180 - 2 * a > 0 ? 180 - 2 * a : v + 10], T); }
-  if (k === 'base') { const b = pick([30, 35, 40, 45, 50, 55, 65, 70, 75]), v = 180 - 2 * b; return N(`이등변삼각형의 한 밑각이 ${b}°예요.\n꼭짓각(나머지 한 각)은 몇 도일까요?`, v, '두 밑각의 크기가 같아요.', `180 - ${b} × 2 = ${v}`, [180 - b, b, v + 10], T); }
+  if (k === 'eq') return FIG = { type: 'shape', kind: '정삼각형' }, N('정삼각형의 한 각의 크기는 몇 도일까요?', 60, '정삼각형은 세 각의 크기가 모두 같아요.', '180 ÷ 3 = 60', [90, 45, 180], T);
+  if (k === 'eqp') { const s = int(3, 15); return FIG = { type: 'triAngles', apexX: 132, angles: ['', '', ''], ticks: 1, sides: [s + ' cm'] }, N(`한 변이 ${s} cm인 정삼각형의 세 변의 길이의 합은 몇 cm일까요?`, 3 * s, '정삼각형은 세 변의 길이가 같아요.', `${s} × 3 = ${3 * s}`, [4 * s, 2 * s, s + 3], T); }
+  if (k === 'iso') { const a = pick([20, 30, 40, 50, 60, 70, 80, 100, 120]), v = (180 - a) / 2; return FIG = { type: 'triAngles', apexX: 132, ticks: 1, angles: ['?', '', a + '°'] }, N(`이등변삼각형에서 길이가 같은 두 변 사이의 각이 ${a}°예요.\n나머지 한 각의 크기는 몇 도일까요?`, v, '이등변삼각형은 두 밑각의 크기가 같아요.', `(180 - ${a}) ÷ 2 = ${v}`, [180 - a, a, 180 - 2 * a > 0 ? 180 - 2 * a : v + 10], T); }
+  if (k === 'base') { const b = pick([30, 35, 40, 45, 50, 55, 65, 70, 75]), v = 180 - 2 * b; return FIG = { type: 'triAngles', apexX: 132, ticks: 1, angles: [b + '°', '', '?'] }, N(`이등변삼각형의 한 밑각이 ${b}°예요.\n꼭짓각(나머지 한 각)은 몇 도일까요?`, v, '두 밑각의 크기가 같아요.', `180 - ${b} × 2 = ${v}`, [180 - b, b, v + 10], T); }
   const t = pick([[[30, 40, 110], '둔각삼각형'], [[50, 60, 70], '예각삼각형'], [[30, 60, 90], '직각삼각형'], [[20, 35, 125], '둔각삼각형'], [[45, 65, 70], '예각삼각형'], [[40, 50, 90], '직각삼각형']]);
   return C(`세 각이 ${t[0].join('°, ')}°인 삼각형은?`, t[1], ['예각삼각형', '직각삼각형', '둔각삼각형', '정삼각형'].filter(x => x !== t[1]), '가장 큰 각이 90°보다 작으면 예각, 같으면 직각, 크면 둔각삼각형이에요.', `가장 큰 각 ${Math.max(...t[0])}° → ${t[1]}`, T);
 };
@@ -233,15 +234,15 @@ G['4-2-3'] = (lv, T) => {   // 소수의 덧셈과 뺄셈
 };
 G['4-2-4'] = (lv, T) => {   // 사각형
   const { int, pick } = T, k = pick(lv === 0 ? ['name', 'rhombus'] : ['para', 'rhombus', 'paraP', 'name']);
-  if (k === 'para') { const a = int(7, 16) * 5, v = 180 - a; return N(`평행사변형의 한 각이 ${a}°예요. 이웃한 각의 크기는 몇 도일까요?`, v, '평행사변형에서 이웃한 두 각의 크기의 합은 180°예요.', `180 - ${a} = ${v}`, [a, 360 - a, 90], T); }
-  if (k === 'rhombus') { const s = int(3, 15); return N(`한 변이 ${s} cm인 마름모의 네 변의 길이의 합은 몇 cm일까요?`, 4 * s, '마름모는 네 변의 길이가 모두 같아요.', `${s} × 4 = ${4 * s}`, [2 * s, 3 * s, s + 4], T); }
-  if (k === 'paraP') { const a = int(4, 15), b = int(3, a - 1); return N(`이웃한 두 변이 ${a} cm, ${b} cm인 평행사변형의 네 변의 길이의 합은?`, 2 * (a + b), '마주 보는 두 변의 길이가 같아요.', `(${a} + ${b}) × 2 = ${2 * (a + b)}`, [a + b, a * b, 2 * a + b], T); }
+  if (k === 'para') { const a = int(7, 16) * 5, v = 180 - a; return FIG = { type: 'para', base: 5, h: 3, angle: a + '°' }, N(`평행사변형의 한 각이 ${a}°예요. 이웃한 각의 크기는 몇 도일까요?`, v, '평행사변형에서 이웃한 두 각의 크기의 합은 180°예요.', `180 - ${a} = ${v}`, [a, 360 - a, 90], T); }
+  if (k === 'rhombus') { const s = int(3, 15); return FIG = { type: 'rhom', d1: 6, d2: 4, side: s + ' cm' }, N(`한 변이 ${s} cm인 마름모의 네 변의 길이의 합은 몇 cm일까요?`, 4 * s, '마름모는 네 변의 길이가 모두 같아요.', `${s} × 4 = ${4 * s}`, [2 * s, 3 * s, s + 4], T); }
+  if (k === 'paraP') { const a = int(4, 15), b = int(3, a - 1); return FIG = { type: 'para', base: a, h: b * 0.8, sides: [a + ' cm', b + ' cm'] }, N(`이웃한 두 변이 ${a} cm, ${b} cm인 평행사변형의 네 변의 길이의 합은?`, 2 * (a + b), '마주 보는 두 변의 길이가 같아요.', `(${a} + ${b}) × 2 = ${2 * (a + b)}`, [a + b, a * b, 2 * a + b], T); }
   const t = pick([['평행한 변이 한 쌍이라도 있는 사각형', '사다리꼴'], ['마주 보는 두 쌍의 변이 서로 평행한 사각형', '평행사변형'], ['네 변의 길이가 모두 같은 사각형', '마름모'], ['네 각이 모두 직각인 사각형', '직사각형']]);
   return C(`${wj(t[0], '을', '를')} 무엇이라고 할까요?`, t[1], ['사다리꼴', '평행사변형', '마름모', '직사각형'].filter(x => x !== t[1]), '사각형의 뜻을 떠올려 봐요.', `${t[0]} → ${t[1]}`, T);
 };
 G['4-2-5'] = (lv, T) => {   // 꺾은선그래프
   const { int, pick } = T, hours = [9, 10, 11, 12, 13], start = int(10, 16), steps = [int(1, 4), int(1, 5), int(1, 4), int(0, 3)], temp = [start]; steps.forEach(s => temp.push(temp.at(-1) + s));
-  const data = hours.map((h, i) => `${h}시 ${temp[i]}°C`).join(', '), k = pick(lv === 0 ? ['at', 'diff'] : ['at', 'diff', 'most', 'mid']);
+  FIG = { type: 'line', xs: hours.map(h => h + '시'), ys: temp }; const data = hours.map((h, i) => `${h}시 ${temp[i]}°C`).join(', '), k = pick(lv === 0 ? ['at', 'diff'] : ['at', 'diff', 'most', 'mid']);
   if (k === 'at') { const i = int(0, 4); return N(`기온 기록: ${data}\n${hours[i]}시의 기온은 몇 °C일까요?`, temp[i], '그 시각의 값을 읽어요.', `${hours[i]}시 → ${temp[i]}°C`, temp.filter((t, j) => j !== i), T); }
   if (k === 'diff') { const d = temp[4] - temp[0]; return N(`기온 기록: ${data}\n9시부터 13시까지 기온은 몇 °C 올랐을까요?`, d, '나중 값에서 처음 값을 빼요.', `${temp[4]} - ${temp[0]} = ${d}`, [d + 1, temp[4], d - 1 || d + 2], T); }
   if (k === 'mid') { const i = int(0, 3), m = (temp[i] + temp[i + 1]) / 2; if (m % 1) return G['4-2-5'](1, T); return N(`기온 기록: ${data}\n${hours[i]}시 30분의 기온은 약 몇 °C였을까요? (중간값으로 어림)`, m, '두 시각의 가운데 값을 어림해요.', `(${temp[i]} + ${temp[i + 1]}) ÷ 2 = ${m}`, [temp[i], temp[i + 1], m + 2], T); }
@@ -250,9 +251,9 @@ G['4-2-5'] = (lv, T) => {   // 꺾은선그래프
 };
 G['4-2-6'] = (lv, T) => {   // 다각형
   const { int, pick } = T, names = { 3: '삼각형', 4: '사각형', 5: '오각형', 6: '육각형', 7: '칠각형', 8: '팔각형' }, n = int(lv === 0 ? 4 : 4, lv === 2 ? 8 : 6), k = pick(lv === 0 ? ['perim', 'sides'] : ['diag', 'perim', 'side']);
-  if (k === 'diag') { const v = n * (n - 3) / 2; return N(`${names[n]}의 대각선은 모두 몇 개일까요?`, v, '한 꼭짓점에서 이웃하지 않은 꼭짓점으로 그을 수 있는 대각선 수를 생각해요.', `${n} × ${n - 3} ÷ 2 = ${v}`, [n * (n - 3), n - 3, n], T); }
+  if (k === 'diag') { const v = n * (n - 3) / 2; return FIG = { type: 'poly', n, oneDiag: 1 }, N(`${names[n]}의 대각선은 모두 몇 개일까요?`, v, '한 꼭짓점에서 이웃하지 않은 꼭짓점으로 그을 수 있는 대각선 수를 생각해요.', `${n} × ${n - 3} ÷ 2 = ${v}`, [n * (n - 3), n - 3, n], T); }
   if (k === 'sides') return N(`${names[n]}의 변은 몇 개일까요?`, n, '이름 앞의 수가 변의 수예요.', `${names[n]} → 변 ${n}개`, [n - 1, n + 1, n + 2], T);
-  const s = int(2, 12); if (k === 'perim') return N(`한 변이 ${s} cm인 정${names[n]}의 모든 변의 길이의 합은?`, s * n, '정다각형은 변의 길이가 모두 같아요.', `${s} × ${n} = ${s * n}`, [s * (n - 1), s * (n + 1), s + n], T);
+  const s = int(2, 12); FIG = { type: 'poly', n, side: k === 'perim' ? s + ' cm' : '?' }; if (k === 'perim') return N(`한 변이 ${s} cm인 정${names[n]}의 모든 변의 길이의 합은?`, s * n, '정다각형은 변의 길이가 모두 같아요.', `${s} × ${n} = ${s * n}`, [s * (n - 1), s * (n + 1), s + n], T);
   return N(`모든 변의 길이의 합이 ${s * n} cm인 정${names[n]}의 한 변은 몇 cm일까요?`, s, '변의 수로 나누어요.', `${s * n} ÷ ${n} = ${s}`, [s + 1, s * n - n, n], T);
 };
 // ═════ 5학년 1학기 ═════
@@ -293,15 +294,15 @@ G['5-1-5'] = (lv, T) => {   // 분모가 다른 분수의 덧셈과 뺄셈
 };
 G['5-1-6'] = (lv, T) => {   // 다각형의 둘레와 넓이
   const { int, pick } = T, k = pick(lv === 0 ? ['rect', 'sq'] : ['rect', 'tri', 'para', 'trap', 'rhom', 'rectP']);
-  if (k === 'sq') { const s = int(2, 12); return N(`한 변이 ${s} cm인 정사각형의 넓이는 몇 cm²일까요?`, s * s, '정사각형의 넓이 = 한 변 × 한 변', `${s} × ${s} = ${s * s}`, [4 * s, 2 * s, s * s + s], T); }
+  if (k === 'sq') { const s = int(2, 12); return FIG = { type: 'rect', w: s, h: s, top: s + ' cm', side: s + ' cm' }, N(`한 변이 ${s} cm인 정사각형의 넓이는 몇 cm²일까요?`, s * s, '정사각형의 넓이 = 한 변 × 한 변', `${s} × ${s} = ${s * s}`, [4 * s, 2 * s, s * s + s], T); }
   const a = int(3, 14), b = int(2, 12);
-  if (k === 'rect') return N(`가로 ${a} cm, 세로 ${b} cm인 직사각형의 넓이는 몇 cm²일까요?`, a * b, '직사각형의 넓이 = 가로 × 세로', `${a} × ${b} = ${a * b}`, [2 * (a + b), a + b, a * b + a], T);
-  if (k === 'rectP') return N(`가로 ${a} cm, 세로 ${b} cm인 직사각형의 둘레는 몇 cm일까요?`, 2 * (a + b), '직사각형의 둘레 = (가로 + 세로) × 2', `(${a} + ${b}) × 2 = ${2 * (a + b)}`, [a * b, a + b, 2 * a + b], T);
-  if (k === 'para') return N(`밑변 ${a} cm, 높이 ${b} cm인 평행사변형의 넓이는 몇 cm²일까요?`, a * b, '평행사변형의 넓이 = 밑변 × 높이', `${a} × ${b} = ${a * b}`, [a * b / 2, 2 * (a + b), a + b], T, n => Math.max(1, a * b + (n % 2 ? 1 : -1) * Math.ceil(n / 2)));
+  if (k === 'rect') return FIG = { type: 'rect', w: a, h: b, top: a + ' cm', side: b + ' cm' }, N(`가로 ${a} cm, 세로 ${b} cm인 직사각형의 넓이는 몇 cm²일까요?`, a * b, '직사각형의 넓이 = 가로 × 세로', `${a} × ${b} = ${a * b}`, [2 * (a + b), a + b, a * b + a], T);
+  if (k === 'rectP') return FIG = { type: 'rect', w: a, h: b, top: a + ' cm', side: b + ' cm' }, N(`가로 ${a} cm, 세로 ${b} cm인 직사각형의 둘레는 몇 cm일까요?`, 2 * (a + b), '직사각형의 둘레 = (가로 + 세로) × 2', `(${a} + ${b}) × 2 = ${2 * (a + b)}`, [a * b, a + b, 2 * a + b], T);
+  if (k === 'para') return FIG = { type: 'para', base: a, h: b, baseLabel: a + ' cm', hLabel: b + ' cm' }, N(`밑변 ${a} cm, 높이 ${b} cm인 평행사변형의 넓이는 몇 cm²일까요?`, a * b, '평행사변형의 넓이 = 밑변 × 높이', `${a} × ${b} = ${a * b}`, [a * b / 2, 2 * (a + b), a + b], T, n => Math.max(1, a * b + (n % 2 ? 1 : -1) * Math.ceil(n / 2)));
   const h = int(1, 6) * 2;
-  if (k === 'tri') return N(`밑변 ${a} cm, 높이 ${h} cm인 삼각형의 넓이는 몇 cm²일까요?`, a * h / 2, '삼각형의 넓이 = 밑변 × 높이 ÷ 2', `${a} × ${h} ÷ 2 = ${a * h / 2}`, [a * h, a + h, a * h / 2 + h], T);
-  if (k === 'rhom') return N(`두 대각선이 ${a} cm, ${h} cm인 마름모의 넓이는 몇 cm²일까요?`, a * h / 2, '마름모의 넓이 = 한 대각선 × 다른 대각선 ÷ 2', `${a} × ${h} ÷ 2 = ${a * h / 2}`, [a * h, a + h, 2 * (a + h)], T);
-  const top = int(2, 9), bot = top + int(1, 8); return N(`윗변 ${top} cm, 아랫변 ${bot} cm, 높이 ${h} cm인 사다리꼴의 넓이는 몇 cm²일까요?`, (top + bot) * h / 2, '사다리꼴의 넓이 = (윗변 + 아랫변) × 높이 ÷ 2', `(${top} + ${bot}) × ${h} ÷ 2 = ${(top + bot) * h / 2}`, [(top + bot) * h, top * bot * h / 2, (top + bot) * h / 2 + h], T);
+  if (k === 'tri') return FIG = { type: 'tri', base: a, h, baseLabel: a + ' cm', hLabel: h + ' cm' }, N(`밑변 ${a} cm, 높이 ${h} cm인 삼각형의 넓이는 몇 cm²일까요?`, a * h / 2, '삼각형의 넓이 = 밑변 × 높이 ÷ 2', `${a} × ${h} ÷ 2 = ${a * h / 2}`, [a * h, a + h, a * h / 2 + h], T);
+  if (k === 'rhom') return FIG = { type: 'rhom', d1: a, d2: h, d1Label: a + ' cm', d2Label: h + ' cm' }, N(`두 대각선이 ${a} cm, ${h} cm인 마름모의 넓이는 몇 cm²일까요?`, a * h / 2, '마름모의 넓이 = 한 대각선 × 다른 대각선 ÷ 2', `${a} × ${h} ÷ 2 = ${a * h / 2}`, [a * h, a + h, 2 * (a + h)], T);
+  const top = int(2, 9), bot = top + int(1, 8); return FIG = { type: 'trap', top, bot, h, topLabel: top + ' cm', botLabel: bot + ' cm', hLabel: h + ' cm' }, N(`윗변 ${top} cm, 아랫변 ${bot} cm, 높이 ${h} cm인 사다리꼴의 넓이는 몇 cm²일까요?`, (top + bot) * h / 2, '사다리꼴의 넓이 = (윗변 + 아랫변) × 높이 ÷ 2', `(${top} + ${bot}) × ${h} ÷ 2 = ${(top + bot) * h / 2}`, [(top + bot) * h, top * bot * h / 2, (top + bot) * h / 2 + h], T);
 };
 // ═════ 5학년 2학기 ═════
 G['5-2-1'] = (lv, T) => {   // 수의 범위와 어림하기
@@ -323,7 +324,7 @@ G['5-2-2'] = (lv, T) => {   // 분수의 곱셈
 };
 G['5-2-3'] = (lv, T) => {   // 합동과 대칭
   const { int, pick } = T, k = pick(lv === 0 ? ['axis'] : ['axis', 'cong', 'angle', 'center']);
-  if (k === 'axis') { const f = pick([['정사각형', 4], ['정삼각형', 3], ['직사각형', 2], ['정오각형', 5], ['정육각형', 6], ['이등변삼각형', 1]]); return N(`${f[0]}의 대칭축은 몇 개일까요?`, f[1], '접었을 때 완전히 겹치는 직선을 모두 찾아요.', `${f[0]} → ${f[1]}개`, [1, 2, 3, 4, 5, 6].filter(v => v !== f[1]), T); }
+  if (k === 'axis') { const f = pick([['정사각형', 4], ['정삼각형', 3], ['직사각형', 2], ['정오각형', 5], ['정육각형', 6], ['이등변삼각형', 1]]); return FIG = { type: 'shape', kind: f[0] }, N(`${f[0]}의 대칭축은 몇 개일까요?`, f[1], '접었을 때 완전히 겹치는 직선을 모두 찾아요.', `${f[0]} → ${f[1]}개`, [1, 2, 3, 4, 5, 6].filter(v => v !== f[1]), T); }
   if (k === 'cong') { const a = int(3, 9), b = int(3, 9), c = int(Math.abs(a - b) + 1, a + b - 1); return N(`서로 합동인 두 삼각형이 있어요.\n한 삼각형의 세 변이 ${a} cm, ${b} cm, ${c} cm일 때\n다른 삼각형의 둘레는 몇 cm일까요?`, a + b + c, '합동인 도형은 대응변의 길이가 같아요.', `${a} + ${b} + ${c} = ${a + b + c}`, [2 * (a + b + c), a + b, a * b], T); }
   if (k === 'angle') return N('선대칭도형에서 대응점을 이은 선분은 대칭축과 몇 도로 만날까요?', 90, '대응점을 이은 선분은 대칭축과 수직으로 만나요.', '수직 → 90°', [45, 180, 60], T);
   return N('점대칭도형에서 대칭의 중심은 몇 개일까요?', 1, '대칭의 중심은 항상 하나예요.', '1개', [0, 2, 4], T);
@@ -338,10 +339,10 @@ G['5-2-4'] = (lv, T) => {   // 소수의 곱셈
 };
 G['5-2-5'] = (lv, T) => {   // 직육면체
   const { int, pick } = T, k = pick(lv === 0 ? ['count'] : ['count', 'edgeSum', 'cubeSum', 'hidden']);
-  if (k === 'count') { const f = pick([['면', 6], ['모서리', 12], ['꼭짓점', 8]]); return N(`직육면체의 ${wj(f[0], '은', '는')} 모두 몇 개일까요?`, f[1], '직육면체를 떠올리며 세어 봐요.', `${f[0]} ${f[1]}개`, [6, 8, 12, 4].filter(v => v !== f[1]), T); }
-  if (k === 'cubeSum') { const a = int(2, 9); return N(`한 모서리가 ${a} cm인 정육면체의 모든 모서리 길이의 합은?`, 12 * a, '정육면체는 모서리 12개의 길이가 같아요.', `${a} × 12 = ${12 * a}`, [6 * a, 8 * a, a * a * a], T); }
-  if (k === 'edgeSum') { const a = int(2, 9), b = int(2, 9), c = int(2, 9); return N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 모든 모서리 길이의 합은?`, 4 * (a + b + c), '같은 길이의 모서리가 4개씩 있어요.', `(${a} + ${b} + ${c}) × 4 = ${4 * (a + b + c)}`, [a + b + c, 2 * (a + b + c), a * b * c], T); }
-  const f = pick([['보이지 않는 모서리', 3], ['보이는 모서리', 9], ['보이는 꼭짓점', 7], ['보이지 않는 면', 3]]); return N(`직육면체의 겨냥도에서 ${wj(f[0], '은', '는')} 몇 개일까요?`, f[1], '겨냥도에서 보이는 것은 실선, 보이지 않는 것은 점선으로 그려요.', `${f[0]} ${f[1]}개`, [3, 6, 7, 9, 12].filter(v => v !== f[1]), T);
+  if (k === 'count') { const f = pick([['면', 6], ['모서리', 12], ['꼭짓점', 8]]); return FIG = { type: 'cuboid', a: 5, b: 3, c: 3 }, N(`직육면체의 ${wj(f[0], '은', '는')} 모두 몇 개일까요?`, f[1], '직육면체를 떠올리며 세어 봐요.', `${f[0]} ${f[1]}개`, [6, 8, 12, 4].filter(v => v !== f[1]), T); }
+  if (k === 'cubeSum') { const a = int(2, 9); return FIG = { type: 'cuboid', a: 1, b: 1, c: 1, labels: [a + ' cm', a + ' cm', a + ' cm'] }, N(`한 모서리가 ${a} cm인 정육면체의 모든 모서리 길이의 합은?`, 12 * a, '정육면체는 모서리 12개의 길이가 같아요.', `${a} × 12 = ${12 * a}`, [6 * a, 8 * a, a * a * a], T); }
+  if (k === 'edgeSum') { const a = int(2, 9), b = int(2, 9), c = int(2, 9); return FIG = { type: 'cuboid', a, b, c, labels: [a + ' cm', b + ' cm', c + ' cm'] }, N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 모든 모서리 길이의 합은?`, 4 * (a + b + c), '같은 길이의 모서리가 4개씩 있어요.', `(${a} + ${b} + ${c}) × 4 = ${4 * (a + b + c)}`, [a + b + c, 2 * (a + b + c), a * b * c], T); }
+  const f = pick([['보이지 않는 모서리', 3], ['보이는 모서리', 9], ['보이는 꼭짓점', 7], ['보이지 않는 면', 3]]); return FIG = { type: 'cuboid', a: 5, b: 3, c: 3 }, N(`직육면체의 겨냥도에서 ${wj(f[0], '은', '는')} 몇 개일까요?`, f[1], '겨냥도에서 보이는 것은 실선, 보이지 않는 것은 점선으로 그려요.', `${f[0]} ${f[1]}개`, [3, 6, 7, 9, 12].filter(v => v !== f[1]), T);
 };
 G['5-2-6'] = (lv, T) => {   // 평균과 가능성
   const { int, pick } = T, k = pick(lv === 0 ? ['mean', 'chance'] : ['mean', 'missing', 'chance']);
@@ -362,7 +363,7 @@ G['6-1-1'] = (lv, T) => {   // (분수) ÷ (자연수)
 };
 G['6-1-2'] = (lv, T) => {   // 각기둥과 각뿔
   const { int, pick } = T, n = int(3, lv === 2 ? 10 : 6), names = { 3: '삼', 4: '사', 5: '오', 6: '육', 7: '칠', 8: '팔', 9: '구', 10: '십' }, solid = pick(['기둥', '뿔']), part = pick(lv === 0 ? ['면', '꼭짓점'] : ['면', '모서리', '꼭짓점']);
-  const v = solid === '기둥' ? { 면: n + 2, 모서리: 3 * n, 꼭짓점: 2 * n }[part] : { 면: n + 1, 모서리: 2 * n, 꼭짓점: n + 1 }[part];
+  FIG = { type: 'solid', n, kind: solid }; const v = solid === '기둥' ? { 면: n + 2, 모서리: 3 * n, 꼭짓점: 2 * n }[part] : { 면: n + 1, 모서리: 2 * n, 꼭짓점: n + 1 }[part];
   const hint = solid === '기둥' ? `${names[n]}각기둥: 면 = ${n} + 2, 모서리 = ${n} × 3, 꼭짓점 = ${n} × 2` : `${names[n]}각뿔: 면 = ${n} + 1, 모서리 = ${n} × 2, 꼭짓점 = ${n} + 1`;
   return N(`${names[n]}각${solid}의 ${wj(part, '은', '는')} 몇 개일까요?`, v, solid === '기둥' ? '밑면 2개와 옆면을 생각해요.' : '밑면 1개와 옆면, 꼭짓점 1개를 생각해요.', hint, [n, solid === '기둥' ? n + 1 : n + 2, 2 * n === v ? 3 * n : 2 * n, n * 3 === v ? n + 2 : n * 3], T, null, { type: 'solid', n, solid, part });
 };
@@ -380,23 +381,30 @@ G['6-1-4'] = (lv, T) => {   // 비와 비율
 G['6-1-5'] = (lv, T) => {   // 여러 가지 그래프
   const { int, pick } = T, total = pick([20, 40, 50, 100, 200, 400]), p = pick([10, 15, 20, 25, 30, 35, 40, 45]), part = total * p / 100;
   if (!Number.isInteger(part)) return G['6-1-5'](lv, T);
-  if (lv === 0 || int(0, 1)) return N(`전체 ${total}명을 나타낸 원그래프에서 '피자'가 ${p}%예요.\n피자를 좋아하는 학생은 몇 명일까요?`, part, '전체 × 백분율 ÷ 100', `${total} × ${p} ÷ 100 = ${part}`, [p, total - part, part * 2], T);
-  const other = [int(10, 30), int(10, 30)], rest = 100 - p - other[0] - other[1]; if (rest <= 0) return G['6-1-5'](lv, T);
+  if (lv === 0 || int(0, 1)) return FIG = { type: 'pie', p, total, label: '피자' }, N(`전체 ${total}명을 나타낸 원그래프에서 '피자'가 ${p}%예요.\n피자를 좋아하는 학생은 몇 명일까요?`, part, '전체 × 백분율 ÷ 100', `${total} × ${p} ÷ 100 = ${part}`, [p, total - part, part * 2], T);
+  const other = [int(10, 30), int(10, 30)], rest = 100 - p - other[0] - other[1]; if (rest <= 0) return G['6-1-5'](lv, T); FIG = { type: 'band', parts: [['피자', p], ['치킨', other[0]], ['떡볶이', other[1]], ['김밥', null]], rest };
   return N(`띠그래프에서 피자 ${p}%, 치킨 ${other[0]}%, 떡볶이 ${other[1]}%이고 나머지는 김밥이에요.\n김밥은 몇 %일까요?`, rest, '띠그래프 전체는 100%예요.', `100 - ${p} - ${other[0]} - ${other[1]} = ${rest}`, [100 - p, rest + 5, p], T);
 };
 G['6-1-6'] = (lv, T) => {   // 직육면체의 부피와 겉넓이
   const { int, pick } = T, a = int(2, 9), b = int(2, 9), c = int(2, 9), k = pick(lv === 0 ? ['vol', 'cubeV'] : ['vol', 'cubeV', 'area', 'cubeA', 'm3']);
-  if (k === 'vol') return N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 부피는 몇 cm³일까요?`, a * b * c, '부피 = 가로 × 세로 × 높이', `${a} × ${b} × ${c} = ${a * b * c}`, [a + b + c, 2 * (a * b + b * c + c * a), a * b * c + a], T);
-  if (k === 'cubeV') return N(`한 모서리가 ${a} cm인 정육면체의 부피는 몇 cm³일까요?`, a ** 3, '부피 = 한 모서리 × 한 모서리 × 한 모서리', `${a} × ${a} × ${a} = ${a ** 3}`, [a * a, 6 * a * a, 3 * a], T);
-  if (k === 'cubeA') return N(`한 모서리가 ${a} cm인 정육면체의 겉넓이는 몇 cm²일까요?`, 6 * a * a, '겉넓이 = 한 면의 넓이 × 6', `${a} × ${a} × 6 = ${6 * a * a}`, [a ** 3, 4 * a * a, a * a], T);
+  if (k === 'vol') return FIG = { type: 'cuboid', a, b, c, labels: [a + ' cm', b + ' cm', c + ' cm'] }, N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 부피는 몇 cm³일까요?`, a * b * c, '부피 = 가로 × 세로 × 높이', `${a} × ${b} × ${c} = ${a * b * c}`, [a + b + c, 2 * (a * b + b * c + c * a), a * b * c + a], T);
+  if (k === 'cubeV') return FIG = { type: 'cuboid', a: 1, b: 1, c: 1, labels: [a + ' cm', a + ' cm', a + ' cm'] }, N(`한 모서리가 ${a} cm인 정육면체의 부피는 몇 cm³일까요?`, a ** 3, '부피 = 한 모서리 × 한 모서리 × 한 모서리', `${a} × ${a} × ${a} = ${a ** 3}`, [a * a, 6 * a * a, 3 * a], T);
+  if (k === 'cubeA') return FIG = { type: 'cuboid', a: 1, b: 1, c: 1, labels: [a + ' cm', a + ' cm', a + ' cm'] }, N(`한 모서리가 ${a} cm인 정육면체의 겉넓이는 몇 cm²일까요?`, 6 * a * a, '겉넓이 = 한 면의 넓이 × 6', `${a} × ${a} × 6 = ${6 * a * a}`, [a ** 3, 4 * a * a, a * a], T);
   if (k === 'm3') { const m = int(2, 9); return C(`${m} m³는 몇 cm³일까요?`, `${comma(m * 1000000)} cm³`, [`${comma(m * 1000)} cm³`, `${comma(m * 100)} cm³`, `${comma(m * 10000)} cm³`], '1 m³ = 100 cm × 100 cm × 100 cm = 1,000,000 cm³', `${m} × 1,000,000 = ${comma(m * 1000000)}`, T); }
-  const s = 2 * (a * b + b * c + c * a); return N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 겉넓이는 몇 cm²일까요?`, s, '겉넓이 = (가로×세로 + 세로×높이 + 높이×가로) × 2', `(${a * b} + ${b * c} + ${c * a}) × 2 = ${s}`, [s / 2, a * b * c, s + 2 * a], T);
+  const s = 2 * (a * b + b * c + c * a); return FIG = { type: 'cuboid', a, b, c, labels: [a + ' cm', b + ' cm', c + ' cm'] }, N(`가로 ${a} cm, 세로 ${b} cm, 높이 ${c} cm인 직육면체의 겉넓이는 몇 cm²일까요?`, s, '겉넓이 = (가로×세로 + 세로×높이 + 높이×가로) × 2', `(${a * b} + ${b * c} + ${c * a}) × 2 = ${s}`, [s / 2, a * b * c, s + 2 * a], T);
 };
 
+// 6학년 2학기(기존 문제): 원·원기둥 문제에 그림
+function fig62(u, q) {
+  let m;
+  if (u === '6-2-5') { if ((m = q.match(/반지름이 (\d+) cm/))) return { type: 'circle', mode: 'r', label: m[1] + ' cm' }; if ((m = q.match(/(?:^|[^반])지름이 (\d+) cm/))) return { type: 'circle', mode: 'd', label: m[1] + ' cm' }; if (/둘레가/.test(q)) return { type: 'circle', mode: 'd', label: '?' }; }
+  if (u === '6-2-6' && (m = q.match(/반지름이 (\d+) cm(?:, 높이가 (\d+) cm)?인 원기둥/))) return { type: 'cylinder', rLabel: m[1] + ' cm', hLabel: m[2] ? m[2] + ' cm' : '' };
+  return null;
+}
 export function makeUnitProblem(id, level = 1, rng = Math.random) {
   const u = normUnit(id), lv = Math.min(2, Math.max(0, Math.round(Number(level)) || 0));
-  if (u.startsWith('6-2-')) { const p = make62(Number(u.split('-')[2]), lv, rng); return { ...p, unit: u }; }
-  const gen = G[u] || G['3-1-1'], p = gen(lv, tools(rng));
+  if (u.startsWith('6-2-')) { const p = make62(Number(u.split('-')[2]), lv, rng); return { ...p, unit: u, ...(fig62(u, p.question) ? { fig: fig62(u, p.question) } : {}) }; }
+  FIG = null; const gen = G[u] || G['3-1-1'], p = gen(lv, tools(rng)); if (FIG) p.fig = FIG; FIG = null;
   for (const k of ['question', 'hint', 'explanation']) p[k] = fixJosa(p[k]);
   return { unit: G[u] ? u : '3-1-1', level: lv, ...p };
 }
