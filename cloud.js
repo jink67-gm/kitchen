@@ -1,9 +1,9 @@
-import { firebaseConfig } from './firebase-config.js?v=202611200238';
-import { storePut, storeTake, applyPenalty } from './items.js?v=202611200238';
-import { plateWashed } from './stations.js?v=202611200238';
-import { serveOrder } from './orders.js?v=202611200238';
-import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611200238';
-import { startHost, connectStudent } from './p2pnet.js?v=202611200238';
+import { firebaseConfig } from './firebase-config.js?v=202611200313';
+import { storePut, storeTake, applyPenalty } from './items.js?v=202611200313';
+import { plateWashed } from './stations.js?v=202611200313';
+import { serveOrder } from './orders.js?v=202611200313';
+import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611200313';
+import { startHost, connectStudent } from './p2pnet.js?v=202611200313';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -129,8 +129,19 @@ export class CloudRoom{
       // 교사 핀 번호는 서버 보안 규칙이 확인합니다. 이 파일에도, 공개 저장소에도 핀 번호는 들어 있지 않습니다.
       const max=sizes.reduce((a,b)=>a+b,0)||Number(count),spare=Math.min(25,max+4);   // max: 실제 정원 / count: 연결 끊김 등으로 버려지는 자리 번호를 위한 여유 (최대 25)
       const meta={hostUid:this.uid,phase:'lobby',count:spare,max,sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0};
-      try{await this.ops.update(this.path(),{meta,pin:String(pin||'')})}
-      catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다. 핀이 맞다면 Firebase 콘솔 → Realtime Database → 규칙에 최신 database.rules.json(핀 숫자 넣은 것)이 게시됐는지 확인해 주세요.');throw e}
+      // 느린 기기(웨일북 등)에서는 방금 받은 로그인 정보가 서버에 늦게 전달돼 한 번 거절될 수 있어 1.5초 뒤 한 번 더
+      const save=()=>this.ops.update(this.path(),{meta,pin:String(pin||'')});
+      try{await save()}
+      catch(e){
+        if(!/permission|denied/i.test(e.message))throw e;
+        diag('meta','핀 확인 거절 → 한 번 더');await new Promise(r=>setTimeout(r,1500));
+        try{await save()}catch(e2){
+          if(!/permission|denied/i.test(e2.message))throw e2;
+          const len=String(pin||'').length;diag('meta','핀 확인 실패',null,'pin');
+          // 입력된 자릿수를 알려 줌 → 브라우저가 저장된 비밀번호를 대신 넣었는지 알아챌 수 있게 (핀 숫자 자체는 보여 주지 않음)
+          throw new JoinError('pin','meta',`교사 핀 번호가 맞지 않습니다. (입력된 핀: ${len}자리${/\D/.test(String(pin||''))?', 숫자가 아닌 글자 포함':''}) 웨일·크롬이 저장된 비밀번호를 자동으로 넣었을 수 있으니 핀 칸을 지우고 직접 입력해 주세요. 핀이 맞다면 Firebase 콘솔 → Realtime Database → 규칙에 최신 database.rules.json(핀 숫자 넣은 것)이 게시됐는지 확인해 주세요.`);
+        }
+      }
       // 데이터 절약 모드: Firebase에는 방 찾기용 정보만 두고, 게임 데이터는 이 기기 메모리에서 처리 (학생은 이 기기에 직접 연결)
       // 새 보안 규칙(데이터 절약 모드용)이 게시돼 있는지 먼저 확인. 없으면 예전 방식으로 (학생 입장이 막히지 않게)
       if(p2p){try{await this.fb.set(this.fb.ref(this.fdb,'rooms/'+this.code+'/hostOn'),true);await this.fb.update(this.fb.ref(this.fdb,'rooms/'+this.code+'/meta'),{p2p:true});meta.p2p=true}
