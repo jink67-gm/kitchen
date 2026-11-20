@@ -1,17 +1,17 @@
-import { CloudRoom, cloudConfigured, planTeams, resetSession } from './cloud.js?v=202611190041';
-import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611190041';
-import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611190041';
-import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,joinOrder,joinLeft,TEAM_BONUS,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611190041';
-import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611190041';
-import * as sfx from './sfx.js?v=202611190041';
-import { isCorrect } from './math.js?v=202611190041';
-import { figSVG } from './figures.js?v=202611190041';
-import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611190041';
-import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611190041';
-import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611190041';
-import { participationBonus, PART_BONUS } from './orders.js?v=202611190041';
-import { ICONS } from './assets/icons/map.js?v=202611190041';
-import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611190041';
+import { CloudRoom, cloudConfigured, planTeams, resetSession, shouldResetSession, savedHostRoom, forgetHostRoom } from './cloud.js?v=202611200238';
+import { stationId, isStale, boardReserve, boardStart, boardChop, boardCancel, boardTake, CHOPS_DEFAULT, CHOP_OPTIONS, cookStart,potAdd,potTake,potCanAdd,potPartners,POT_RECIPES,POT_TIMES, cookPhase, cookProgress, cookTake, washStart, washFinish, plateWashed, defaultPlates, MIX_PRESSES, WASH_PRESSES } from './stations.js?v=202611200238';
+import { newPlate, isPlate, contentsOf, plateMatch, missingOf, rackTake, rackReturn, plateDirtied, tablePut, tableAddCheck, tableAdd, tableLift } from './plates.js?v=202611200238';
+import { ordersTick, activeOrders, serveOrder,roundEvent,FINISH_BONUS,acceptOrder,joinOrder,joinLeft,TEAM_BONUS,questionsFor,acceptBonus,orderForKind, patience, patienceColor, isRush, fairScore, ORDER_TIME_OPTIONS, ORDER_TIME_DEFAULT, RUSH_SPEED, MAX_ORDERS } from './orders.js?v=202611200238';
+import { INTRO_MS, TITLE_AT, MISSION_AT, SOUND_CUES, lineAt, musicAt } from './intro.js?v=202611200238';
+import * as sfx from './sfx.js?v=202611200238';
+import { isCorrect } from './math.js?v=202611200238';
+import { figSVG } from './figures.js?v=202611200238';
+import { CURRICULUM, makeUnitProblem, unitName, unitsOf, parseUnits, weakUnitId, DEFAULT_UNITS } from './curriculum.js?v=202611200238';
+import { PRESETS, sanitize, withChops, cookTimes } from './settings.js?v=202611200238';
+import { COOK_TIMES, COOK_DEFAULT } from './stations.js?v=202611200238';
+import { participationBonus, PART_BONUS } from './orders.js?v=202611200238';
+import { ICONS } from './assets/icons/map.js?v=202611200238';
+import { newItem, heldString, prepare, checkReturn, checkStore, storePut, storeTake, storageList, checkTrash, applyPenalty, STORAGE_MAX, TRASH_PENALTY } from './items.js?v=202611200238';
 const $=id=>document.getElementById(id);
 const canvas=$('gameCanvas'),g=canvas.getContext('2d');
 const W=18,H=12,T=48,OX=68,OY=47;
@@ -845,8 +845,8 @@ let init3DTries=0;
 async function init3D(){
  init3DTries++;
  if(!hasWebGL()){fallback2D=true;view3d=null;set3D(false);setTimeout(()=>toast('이 기기는 3D를 지원하지 않아 간단한 화면으로 보여요.'),1500);return}
- try{const mod=await import('./render3d.js?v=202611190041');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
-  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611190041')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
+ try{const mod=await import('./render3d.js?v=202611200238');try{await Promise.race([document.fonts.load('bold 40px Galmuri11'),new Promise(r=>setTimeout(r,1500))])}catch{}   // 3D 글자에 쓸 글꼴을 먼저 불러옴
+  let models=init3D.models||new Map();if(!init3D.models)try{models=await (await import('./models.js?v=202611200238')).loadModels()}catch(e){console.warn('3D 모델을 불러오지 못해 기본 모형을 씁니다.',e)}
   if(!init3D.models)init3D.models=models;
   const cv=$('game3d');cv.addEventListener('webglcontextlost',e=>{e.preventDefault();rebuild3D('그래픽 연결이 끊김')},{once:true});
   view3d=mod.createRenderer3D(cv,{W,H,stations:STATIONS,foods:FOOD,icons:ICONS,models:init3D.models});init3DTries=0;let saved='3d';try{saved=localStorage.getItem('mathcook-view')||'3d'}catch{}set3D(true);window.__view3d=view3d}
@@ -955,7 +955,7 @@ function wireCloud(obj){
 }
 function boot(){
  $('demoBtn').onclick=()=>startDemo('coop');
- $('teacherBtn').onclick=()=>setupCloud(true);
+ $('teacherBtn').onclick=async()=>{if(await resumeHostRoom())return;setupCloud(true)};
  $('joinBtn').onclick=()=>setupCloud(false);
  // 모둠 수 × 모둠 인원 안내 (2대2 대결은 모둠마다 4명 고정)
  const groupInfo=()=>{const duel=$('createMode').value==='duel',gN=Number($('groupCount').value);if(duel)$('groupSize').value='4';$('groupSize').disabled=duel;const n=gN*Number($('groupSize').value);setText('groupTotal',(duel?`모둠 ${gN}개 × 4명(2명씩 두 편)`:`모둠 ${gN}개 × ${$('groupSize').value}명`)+` = 최대 ${n}명`+(n>25?' · 25명까지만 만들 수 있어요':''));$('groupTotal').classList.toggle('form-error',n>25)};
@@ -970,14 +970,21 @@ function boot(){
  }
  function startProgress(){clearInterval(slowTimer);setText('setupError','');$('joinProgress').classList.remove('hidden');$('joinProgress').querySelectorAll('li').forEach(li=>li.className='');stageAt=performance.now();stageLabel='Firebase 연결 중';
   slowTimer=setInterval(()=>{const s=(performance.now()-stageAt)/1000;setText('joinSlow',s>=5?`"${stageLabel}" 단계가 늦어지고 있어요 (${Math.floor(s)}초). 조금만 기다려 주세요.`:'')},500)}
- function stopProgress(err){clearInterval(slowTimer);setText('joinSlow','');if(err){const tag={network:'🌐 연결 문제',auth:'🔑 로그인 문제',permission:'⛔ 권한 문제',code:'🔢 방 확인',timeout:'⏱️ 응답 없음',unknown:'⚠️ 문제'}[err.kind]||'⚠️ 문제';setText('setupError',tag+' · '+err.message);$('joinProgress').querySelector('li.now')?.classList.replace('now','fail')}}
+ function stopProgress(err){clearInterval(slowTimer);setText('joinSlow','');if(err){const tag={network:'🌐 연결 문제',auth:'🔑 로그인 문제',quota:'🔑 로그인 한도',permission:'⛔ 권한 문제',code:'🔢 방 확인',timeout:'⏱️ 응답 없음',unknown:'⚠️ 문제'}[err.kind]||'⚠️ 문제';setText('setupError',tag+' · '+err.message);$('joinProgress').querySelector('li.now')?.classList.replace('now','fail')}}
+ // 선생님 화면이 새로 고침·탭 정리로 꺼졌던 방을 이어서 열기 (학생들은 스스로 다시 연결됨)
+ async function resumeHostRoom(){const s=savedHostRoom();if(!s||cloud)return false;
+  if(!confirm(`이 기기에서 열려 있던 학급방 ${s.code}이(가) 있어요. 이어서 열까요?
+ (취소를 누르면 그 방을 지우고 새 방을 만들어요)`)){forgetHostRoom();return false}
+  setupCloud(true);startProgress();try{cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.resume();
+   keepAwake(cloud.host?true:false);stopProgress();mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();toast('학급방 '+cloud.code+'을(를) 다시 열었어요. 학생 화면이 곧 다시 연결돼요.');
+  }catch(e){try{await cloud?.disconnect()}catch{}cloud=null;stopProgress(e.kind?e:{kind:'unknown',message:e.message})}return true}
  $('createRoomBtn').onclick=async()=>{
   let btn=$('createRoomBtn');if(btn.disabled)return;btn.disabled=true;setText('setupError','');startProgress();try{
    const m=$('createMode').value,gN=Number($('groupCount').value),gS=m==='duel'?4:Number($('groupSize').value),n=gN*gS;
    if(n>25)throw new Error('한 방에는 25명까지 들어올 수 있어요. 모둠 수나 인원을 줄여 주세요.');
    // 막히면 남은 로그인 기록을 버리고 한 번 더 (핀 번호가 틀린 경우는 제외)
    const tryCreate=async()=>{cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.create({name:getName(),count:n,sizes:Array(gN).fill(gS),mode:m,unit:$('unitSelect').value,duration:Number($('durationSelect').value),orderTime:ORDER_TIME_OPTIONS[$('orderTimeSelect').value],settings:menuSettings(),pin:$('teacherPinInput').value.trim(),p2p:true});};
-   try{await tryCreate()}catch(e){if(/핀 번호/.test(e.message||''))throw e;try{await cloud?.disconnect()}catch{}await resetSession();await tryCreate()}
+   try{await tryCreate()}catch(e){if(/핀 번호/.test(e.message||'')||e.kind==='quota'||e.kind==='code')throw e;try{await cloud?.disconnect()}catch{}if(shouldResetSession(e))await resetSession();await tryCreate()}   // 연결 문제는 같은 계정으로 한 번 더 (새 익명 계정을 만들지 않음)
    keepAwake(cloud.host?true:false);$('teacherPinInput').value='';
    stopProgress();mode='online';teacher=true;hide('setupOverlay');hide('menuOverlay');show('lobbyOverlay');refreshLobby();setRoomStatus();
   }catch(e){stopProgress(e.kind?e:{kind:'unknown',message:e.message})}finally{btn.disabled=false}
@@ -989,7 +996,7 @@ function boot(){
    if(cloud&&cloud.role==='student'&&!cloud.connected){try{await cloud.disconnect()}catch{}}
    // 막히면 남은 로그인 기록을 버리고 한 번 더
    const tryJoin=async()=>{cloud=new CloudRoom();wireCloud(cloud);cloud.on('progress',showProgress);await cloud.join({code:$('roomCodeInput').value.replace(/\D/g,''),name:getName()})};
-   try{await tryJoin()}catch(e){if(!['auth','permission','network'].includes(e.kind)||['seat','register'].includes(e.step))throw e;try{await cloud?.disconnect()}catch{}await resetSession();await tryJoin()}
+   try{await tryJoin()}catch(e){if(!['auth','permission','network','timeout'].includes(e.kind)||['seat','register','p2p'].includes(e.step))throw e;try{await cloud?.disconnect()}catch{}if(shouldResetSession(e))await resetSession();await tryJoin()}   // 연결 문제는 같은 계정으로 한 번 더 (새 익명 계정을 만들지 않음)
    stopProgress();mode='online';teacher=false;myUid=cloud.uid;team=cloud.team;seat=cloud.seat;hide('setupOverlay');hide('menuOverlay');
    if(cloud.meta?.phase==='playing'){if(!roundStarted||sentPhase!=='playing')beginOnline()}   // 게임 중 다시 들어옴 (원래 이 방에 있던 학생만)
    else{show('lobbyOverlay');refreshLobby()}
@@ -1050,7 +1057,7 @@ function boot(){
  });
  document.addEventListener('keyup',e=>{keys.delete(e.key.length===1?e.key.toLowerCase():e.key)});
  window.addEventListener('blur',()=>keys.clear());
- if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');}
+ if(cloudConfigured()){setText('firebaseNote','혼자 체험은 바로 시작됩니다. 학급방은 선생님이 만들고, 학생은 방 코드로 들어와요.');const sv=savedHostRoom();if(sv)setText('firebaseNote',`👩‍🏫 선생님: 이 기기에서 열려 있던 학급방 ${sv.code}이(가) 있어요. "학급방 만들기"를 누르면 이어서 열 수 있어요.`);}
  p.name='꼬마셰프';requestAnimationFrame(animate);
 }
 async function goHome(){if(cloud?.host&&!confirm('선생님 화면이 게임 서버예요. 나가면 학급방이 닫히고 학생들의 게임도 끝나요. 나갈까요?'))return;introClear();keepAwake(false);$('netBanner').classList.add('hidden');

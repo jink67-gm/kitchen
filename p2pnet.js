@@ -2,7 +2,7 @@
 //  ① 직접 연결(WebRTC): 같은 와이파이·학교망에서 기기끼리 바로 주고받음. 연결되면 학생은 Firebase 연결을 끊음
 //  ② 우편함 연결: 직접 연결이 막힌 학교망이면 Firebase를 우편함처럼 거쳐 선생님 기기와 주고받음 (게임은 그대로 됨)
 // Firebase에는 "연결 정보 한 번 교환(sig)"과 "우편함(relay)"만 씀. 게임 데이터는 선생님 기기 메모리에 있음
-import { serve } from './p2pdb.js?v=202611190041';
+import { serve } from './p2pdb.js?v=202611200238';
 
 const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] };
 // 주고받은 양 (점검용, 화면에는 안 보임): window.__p2pStats
@@ -110,7 +110,7 @@ export function startHost({ fb, db, code, mem, onChange }) {
 export async function connectStudent({ fb, db, code, uid, mode = 'auto', log = () => {} }) {
   const room = 'rooms/' + code, R = p => fb.ref(db, room + '/' + p);
   const on = (await fb.get(R('hostOn'))).val();
-  if (on === false) throw Object.assign(new Error('선생님 화면이 꺼져 있어요. 선생님 컴퓨터의 게임 화면이 열려 있는지 확인해 주세요.'), { kind: 'host' });
+  if (on === false) throw Object.assign(new Error('선생님 화면이 꺼져 있어요. 선생님 컴퓨터의 게임 화면이 열려 있는지, 절전·화면 잠금 상태가 아닌지 확인해 주세요.'), { kind: 'host' });
   if (mode !== 'relay' && typeof RTCPeerConnection !== 'undefined') {
     try { const l = await direct(); log('직접 연결'); return l; } catch (e) { log('직접 연결 실패 → 우편함 연결: ' + (e.message || e)); }
   }
@@ -147,7 +147,8 @@ export async function connectStudent({ fb, db, code, uid, mode = 'auto', log = (
     await fb.set(R(ctl), { n, gone: false });
     fb.onDisconnect(R(ctl + '/gone')).set(true).catch(() => {});
     await new Promise((res, rej) => {
-      const t = setTimeout(() => { off(); rej(Object.assign(new Error('선생님 기기가 응답하지 않아요. 선생님 컴퓨터의 게임 화면이 열려 있는지 확인해 주세요.'), { kind: 'host' })); }, 12000);
+      // 학생이 한꺼번에 들어오면 선생님 기기가 차례로 답하느라 늦어질 수 있어 20초까지 기다림
+      const t = setTimeout(() => { off(); rej(Object.assign(new Error('선생님 기기가 응답하지 않아요. 선생님 컴퓨터의 게임 화면이 열려 있고, 절전·화면 잠금 상태가 아닌지 확인해 주세요.'), { kind: 'host' })); }, 20000);
       const off = fb.onValue(R(ctl + '/ack'), s => { if (s.val() === n) { clearTimeout(t); setTimeout(() => off(), 0); res(); } });
     });
     const h = [], c = []; let closed = false;

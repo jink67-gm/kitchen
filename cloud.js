@@ -1,9 +1,9 @@
-import { firebaseConfig } from './firebase-config.js?v=202611190041';
-import { storePut, storeTake, applyPenalty } from './items.js?v=202611190041';
-import { plateWashed } from './stations.js?v=202611190041';
-import { serveOrder } from './orders.js?v=202611190041';
-import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611190041';
-import { startHost, connectStudent } from './p2pnet.js?v=202611190041';
+import { firebaseConfig } from './firebase-config.js?v=202611200238';
+import { storePut, storeTake, applyPenalty } from './items.js?v=202611200238';
+import { plateWashed } from './stations.js?v=202611200238';
+import { serveOrder } from './orders.js?v=202611200238';
+import { MemDB, localOps, remoteOps } from './p2pdb.js?v=202611200238';
+import { startHost, connectStudent } from './p2pnet.js?v=202611200238';
 const SDK='https://www.gstatic.com/firebasejs/13.2.0/';
 const MAX=25;
 const now=()=>Date.now();
@@ -12,7 +12,8 @@ const digits=()=>String(100000+Math.floor(Math.random()*900000));
 // 각 단계에 시간 제한을 두고, 진행 상황(progress)과 소요 시간을 기록합니다.
 // 콘솔 기록([입장 진단])에는 학생 이름·계정 번호·토큰을 남기지 않습니다.
 export const STEP_LABEL={sdk:'Firebase 불러오는 중',app:'Firebase 준비 중',authRestore:'로그인 확인 중',authNew:'로그인 확인 중',connect:'Firebase 연결 중',meta:'게임방 확인 중',member:'게임방 확인 중',seat:'학생 자리 배정 중',register:'학생 자리 배정 중',lobby:'입장 완료',p2p:'선생님 기기와 연결 중'};
-const LIMIT={sdk:20000,app:5000,authRestore:8000,authNew:15000,connect:12000,meta:10000,member:10000,seat:15000,register:10000,p2p:40000};
+// connect: 학교망이 WebSocket을 막으면 Firebase가 다른 방식(롱폴링)으로 바꾸는 데 10초 넘게 걸리기도 해서 넉넉히
+const LIMIT={sdk:20000,app:5000,authRestore:8000,authNew:15000,connect:25000,meta:10000,member:10000,seat:15000,register:10000,p2p:60000};
 export class JoinError extends Error{constructor(kind,step,message){super(message);this.kind=kind;this.step=step}}
 export const NET_MSG='게임 서버와 연결되지 않았어요. 인터넷 연결을 확인하거나 선생님께 알려주세요.';
 const DIAG=[];try{window.__joinDiag=DIAG}catch{}
@@ -27,7 +28,7 @@ export function classify(e,step){
   if(e instanceof JoinError)return e;
   const code=String(e?.code||''),msg=String(e?.message||e||'');
   if(/permission|denied/i.test(code+msg))return new JoinError('permission',step,'서버가 요청을 거절했어요(권한 오류). 선생님께 알려 주세요. (선생님: Firebase에 최신 보안 규칙이 게시되었는지 확인)');
-  if(code==='auth/too-many-requests'||/too-many-requests/.test(msg))return new JoinError('auth',step,'로그인 요청이 너무 많아 Firebase가 잠시 막았어요(익명 로그인 한도). 몇 분 뒤 다시 시도하고, 계속되면 선생님께 알려 주세요.');
+  if(code==='auth/too-many-requests'||/too-many-requests/.test(msg))return new JoinError('quota',step,'로그인 요청이 너무 많아 Firebase가 잠시 막았어요(익명 로그인 한도). 몇 분 뒤 다시 시도하고, 계속되면 선생님께 알려 주세요.');
   if(code==='auth/operation-not-allowed'||code==='auth/admin-restricted-operation')return new JoinError('auth',step,'Firebase 익명 로그인이 꺼져 있어요. 선생님: 콘솔 → Authentication → 로그인 방법에서 "익명"을 사용 설정해 주세요.');
   if(code==='auth/network-request-failed'||/network|failed to fetch|load failed|dynamically imported/i.test(msg))return new JoinError('network',step,step==='sdk'?'Firebase 프로그램을 불러오지 못했어요(www.gstatic.com). 인터넷 연결을 확인하거나 선생님께 알려주세요.':NET_MSG);
   if(code.startsWith('auth/'))return new JoinError('auth',step,'로그인 중 문제가 생겼어요('+code+'). 다시 시도하거나 선생님께 알려 주세요.');
@@ -38,11 +39,22 @@ function withTimeout(p,step){let id;return Promise.race([p,new Promise((_,rej)=>
 let SHARED=null,AUTH=null;
 // 자리 배정 트랜잭션: 응답이 늦어도 같은 요청을 다시 보내지 않고, 진행 중인 요청의 결과를 이어서 기다림
 const SEAT_JOBS=new Map();
-// 남은 로그인 기록을 버리고 새 익명 계정으로 (입장이 막혔을 때 자동으로 한 번)
+// 로그인을 이 기기에 오래 저장함(탭·브라우저를 닫아도 같은 익명 계정). 학교는 모든 기기가 IP 하나를 같이 써서
+// 탭을 열 때마다 새 계정을 만들면 Firebase 익명 가입 한도(같은 IP 시간당 약 100개)에 금방 걸림.
+// 저장된 로그인을 복원하다 멈춘 적이 있는 기기만 예전 방식(이 탭에만 저장)으로 돌아감
+const AUTH_SAFE_KEY='mathcook-auth-session';
+const authSafeMode=()=>{try{return localStorage.getItem(AUTH_SAFE_KEY)==='1'}catch{return false}};
+// 새 익명 계정이 정말 필요할 때만 (로그인 정보가 깨졌을 때). 연결 문제·한도 초과 때는 부르지 않음 → 계정을 더 만들지 않음
+export function shouldResetSession(e){return e?.kind==='auth'||(e?.kind==='permission'&&['meta','member'].includes(e?.step))}
+// 남은 로그인 기록을 버리고 새 익명 계정으로
 export async function resetSession(){
   try{const s=await SHARED;if(s){const auth=s.b.getAuth(s.app);if(auth.currentUser)await s.b.signOut(auth).catch(()=>{})}}catch{}
   AUTH=null;diag('authNew','새 로그인으로 다시 시도');
 }
+const HOST_KEY='mathcook-host-room';
+export function forgetHostRoom(){try{localStorage.removeItem(HOST_KEY)}catch{}}
+// 이 기기에서 3시간 안에 열었던 선생님 방 (닫지 않고 창이 꺼진 경우)
+export function savedHostRoom(){try{const s=JSON.parse(localStorage.getItem(HOST_KEY)||'null');if(s&&s.code&&now()-(s.at||0)<3*3600*1000)return s;if(s)forgetHostRoom()}catch{}return null}
 export function cloudConfigured(){return Boolean(firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId)}
 export function planTeams(n){
   n=Math.min(MAX,Math.max(1,Number(n)||4));
@@ -66,7 +78,8 @@ export class CloudRoom{
     const EMU=location.hostname==='localhost'&&QS.get('emu')==='1';   // 테스트 전용: 로컬 에뮬레이터
     // ① Firebase 연결 중: SDK → 앱 → 데이터베이스 연결(.info/connected)
     // 이 기기에 남은 예전 기록 정리: Firebase가 기억해 둔 접속 서버 주소, 예전 버전의 로그인 저장소(브라우저를 꺼도 남던 것)
-    if(!SHARED){try{for(const k of Object.keys(localStorage))if(/^firebase:(host|authUser):/.test(k))localStorage.removeItem(k)}catch{}try{indexedDB.deleteDatabase('firebaseLocalStorageDb')}catch{}}
+    // (로그인 기록은 지우지 않음: 지우면 페이지를 열 때마다 새 익명 계정이 생김. 단 복원이 멈췄던 기기는 예전처럼 정리)
+    if(!SHARED){try{for(const k of Object.keys(localStorage))if((authSafeMode()?/^firebase:(host|authUser):/:/^firebase:host:/).test(k))localStorage.removeItem(k)}catch{}if(authSafeMode())try{indexedDB.deleteDatabase('firebaseLocalStorageDb')}catch{}}
     if(!SHARED)SHARED=(async()=>{
       const [a,b,d]=await this.step('sdk',()=>Promise.all([import(SDK+'firebase-app.js'),import(SDK+'firebase-auth.js'),import(SDK+'firebase-database.js')]));
       const {app,db}=await this.step('app',()=>{const app=a.getApps().length?a.getApp():a.initializeApp(firebaseConfig);return {app,db:d.getDatabase(app)}});
@@ -83,9 +96,12 @@ export class CloudRoom{
     // ② 로그인 확인 중: 저장된 로그인 상태가 완전히 복원될 때까지 기다린 뒤 확인 → 이미 로그인한 학생은 같은 계정을 그대로 씀
     if(!AUTH)AUTH=(async()=>{
       if(EMU){await this.step('authRestore',()=>null);return s.emuUid}
-      // 로그인 기록은 이 탭에만 (새로 고침은 유지, 브라우저·탭을 닫으면 사라짐). 남은 기록 때문에 막히는 일을 줄임
-      let auth;try{auth=s.b.initializeAuth(s.app,{persistence:[s.b.browserSessionPersistence,s.b.inMemoryPersistence]})}catch{auth=s.b.getAuth(s.app)}
-      await this.step('authRestore',()=>auth.authStateReady?auth.authStateReady():null);
+      // 로그인 기록은 이 기기에 저장 (IndexedDB → localStorage → 이 탭 → 메모리 순으로, 쓸 수 있는 것)
+      const safe=authSafeMode(),P=s.b;
+      const persistence=safe?[P.browserSessionPersistence,P.inMemoryPersistence]:[P.indexedDBLocalPersistence,P.browserLocalPersistence,P.browserSessionPersistence,P.inMemoryPersistence].filter(Boolean);
+      let auth;try{auth=P.initializeAuth(s.app,{persistence})}catch{auth=P.getAuth(s.app)}
+      try{await this.step('authRestore',()=>auth.authStateReady?auth.authStateReady():null)}
+      catch(e){if(!safe&&e?.kind==='timeout')try{localStorage.setItem(AUTH_SAFE_KEY,'1')}catch{}throw e}   // 다음에 열 때는 예전 방식으로
       if(auth.currentUser){diag('authRestore','기존 계정 사용');return auth.currentUser.uid}
       return (await this.step('authNew',()=>s.b.signInAnonymously(auth))).user.uid;
     })().catch(e=>{AUTH=null;throw e});
@@ -114,7 +130,7 @@ export class CloudRoom{
       const max=sizes.reduce((a,b)=>a+b,0)||Number(count),spare=Math.min(25,max+4);   // max: 실제 정원 / count: 연결 끊김 등으로 버려지는 자리 번호를 위한 여유 (최대 25)
       const meta={hostUid:this.uid,phase:'lobby',count:spare,max,sizes,mode:mode==='duel'&&!sizes.every(s=>s===4)?'coop':mode,unit,duration:Number(duration),orderTime:Number(orderTime)||75000,settings:settings||null,createdAt:now(),startedAt:0};
       try{await this.ops.update(this.path(),{meta,pin:String(pin||'')})}
-      catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다.');throw e}
+      catch(e){if(/permission|denied/i.test(e.message))throw new Error('교사 핀 번호가 맞지 않습니다. 핀이 맞다면 Firebase 콘솔 → Realtime Database → 규칙에 최신 database.rules.json(핀 숫자 넣은 것)이 게시됐는지 확인해 주세요.');throw e}
       // 데이터 절약 모드: Firebase에는 방 찾기용 정보만 두고, 게임 데이터는 이 기기 메모리에서 처리 (학생은 이 기기에 직접 연결)
       // 새 보안 규칙(데이터 절약 모드용)이 게시돼 있는지 먼저 확인. 없으면 예전 방식으로 (학생 입장이 막히지 않게)
       if(p2p){try{await this.fb.set(this.fb.ref(this.fdb,'rooms/'+this.code+'/hostOn'),true);await this.fb.update(this.fb.ref(this.fdb,'rooms/'+this.code+'/meta'),{p2p:true});meta.p2p=true}
@@ -124,9 +140,37 @@ export class CloudRoom{
         this.ops=localOps(this.mem);this.db=null;this.offsetRef={v:0};
         this.host=startHost({fb:this.fb,db:this.fdb,code:this.code,mem:this.mem,onChange:p=>{this.links=p;this.fire('links',p)}});
       }
+      this.persistHost();
       this.connected=true;this.subscribeBase();this.watchConnection();this.cleanupOldRooms().catch(()=>{});return this.code;
     }
     throw new Error('방 코드를 만들지 못했습니다. 다시 시도해 주세요.');
+  }
+  // ── 선생님 화면이 새로 고침되거나 크롬이 탭을 정리해도 방을 되살릴 수 있게 ──
+  // 데이터 절약 모드의 게임 데이터(선생님 기기 메모리)를 이 기기에 1.5초마다 저장. '나가기'로 방을 닫으면 지움
+  persistHost(){
+    let t=null;
+    const save=()=>{clearTimeout(t);t=null;try{localStorage.setItem(HOST_KEY,JSON.stringify({code:this.code,uid:this.uid,name:this.name,at:now(),root:this.mem?this.mem.root:null}))}catch(e){console.warn('[선생님 방 저장] 실패',e)}};
+    if(this.mem){const orig=this.mem.notify.bind(this.mem);this.mem.notify=paths=>{orig(paths);if(!t)t=setTimeout(save,1500)}}
+    save();
+    try{window.addEventListener('pagehide',save);this.unsubs.push(()=>{clearTimeout(t);window.removeEventListener('pagehide',save)})}catch{}
+  }
+  // 저장된 방을 다시 열기 (같은 기기·같은 로그인일 때만). 학생 기기는 스스로 다시 연결해 옴
+  async resume(){
+    const s=savedHostRoom();if(!s)throw new Error('다시 열 수 있는 방이 없어요. 새 방을 만들어 주세요.');
+    await this.init();
+    if(s.uid!==this.uid){forgetHostRoom();throw new Error('이 기기의 로그인 정보가 바뀌어 예전 방을 열 수 없어요. 새 방을 만들어 주세요.')}
+    this.code=s.code;this.name=s.name||'';this.role='teacher';
+    const m=(await this.step('meta',()=>this.fb.get(this.fb.ref(this.fdb,'rooms/'+this.code+'/meta')))).val();
+    if(!m||m.hostUid!==this.uid){forgetHostRoom();throw new Error('예전 방이 이미 닫혔어요. 새 방을 만들어 주세요.')}
+    if(m.p2p){
+      if(!s.root)throw new Error('예전 방의 게임 데이터가 이 기기에 없어요. 새 방을 만들어 주세요.');
+      this.mem=new MemDB(s.root);
+      this.ops=localOps(this.mem);this.db=null;this.offsetRef={v:0};
+      this.host=startHost({fb:this.fb,db:this.fdb,code:this.code,mem:this.mem,onChange:p=>{this.links=p;this.fire('links',p)}});
+    }
+    diag('p2p','선생님 방 다시 열기');
+    this.persistHost();
+    this.connected=true;this.subscribeBase();this.watchConnection();return this.code;
   }
   // 학생 입장. 단계마다 시간 제한이 있어 무한 로딩이 생기지 않고, 늦어지면 어느 단계인지 알려 줌
   async join({code,name}){
@@ -149,12 +193,14 @@ export class CloudRoom{
     if(mine.exists()){                       // 재접속: 예전 자리·모둠 그대로
       this.seat=mine.val().seat;this.team=Number(mine.val().team);diag('seat',meta.phase==='playing'?'게임 중 다시 들어옴':'기존 자리 사용');
     }else{
+      // 접속이 끊긴(online:false) 같은 이름 학생이 있으면 그 자리를 이어받음 (다른 기기·브라우저로 다시 들어온 경우)
+      // 대기실에서도 이어받아야 끊긴 예전 자리가 정원을 차지해 "가득 찼어요"가 뜨는 일이 없음
       // 게임 중에는 처음부터 이 방에 있던 학생(튕김·새로 고침·나갔다 온 학생)만 다시 들어올 수 있음
       const all=allSnap.val()||{},cap=meta.max||meta.count;
-      const prev=meta.phase==='playing'?Object.entries(all).find(([id,m])=>m.name===name.slice(0,12)&&m.online===false&&!m.replacedBy):null;
+      const prev=Object.entries(all).find(([id,m])=>m.name===name.slice(0,12)&&m.online===false&&!m.replacedBy)||null;
       if(meta.phase==='playing'&&!prev)throw new JoinError('code','member','게임이 이미 진행 중이에요. 이 방에 처음부터 있던 학생은 처음과 같은 이름으로 들어오면 이어서 할 수 있어요. 아니면 다음 판을 기다려 주세요.');
       if(!prev&&Object.keys(all).length>=cap)throw new JoinError('code','member',`학급방 정원(${cap}명)이 가득 찼어요. 선생님께 알려 주세요.`);
-      this.seat=await this.claimSeat(meta);
+      this.seat=prev&&Number.isInteger(prev[1].seat)?prev[1].seat:await this.claimSeat(meta,all);   // 이어받으면 예전 자리 번호 그대로 (새 번호를 쓰지 않음)
       // 모둠: 번갈아 배정, 그 모둠이 꽉 찼으면 가장 빈 모둠으로
       const sizes=meta.sizes||[cap];
       this.team=sizes.every(s=>s===sizes[0])?this.seat%sizes.length:(()=>{let acc=0;return sizes.findIndex(n=>{acc+=n;return this.seat<acc})})();
@@ -214,13 +260,19 @@ export class CloudRoom{
   // 자리 번호 받기. 중복 배정 방지:
   //  ① 이전 시도에서 받은 자리가 이 컴퓨터에 기록돼 있으면 그대로 사용 (트랜잭션을 다시 보내지 않음)
   //  ② 같은 화면에서 진행 중인 요청이 있으면 새로 보내지 않고 그 결과를 기다림 (시간 초과 뒤 다시 시도해도 같은 요청)
-  async claimSeat(meta){
+  //  ③ 자리 번호를 다 썼으면(시간 초과·나갔다 온 학생 때문에 버려진 번호) 지금 명단에서 비어 있는 가장 작은 번호를 씀
+  async claimSeat(meta,all={}){
     const key=this.seatKey();
     try{const s=localStorage.getItem(key);if(s!==null&&Number.isInteger(Number(s))){diag('seat','이전 시도의 자리 사용');return Number(s)}}catch{}
     let job=SEAT_JOBS.get(key);
     if(!job){
       job=this.ops.runTransaction(this.path('nextSeat'),num=>{num=num||0;return num>=meta.count?undefined:num+1},{applyLocally:false})
-        .then(async tr=>{const h=testHook('seatAck');if(h)await h;if(!tr.committed)throw new JoinError('code','seat','학급방 자리가 모두 찼어요. 선생님께 알려 주세요.');const s=tr.snapshot.val()-1;try{localStorage.setItem(key,String(s))}catch{}return s})
+        .then(async tr=>{const h=testHook('seatAck');if(h)await h;
+          let s;
+          if(tr.committed)s=tr.snapshot.val()-1;
+          else{const used=new Set(Object.values(all).map(m=>m.seat));s=[...Array(meta.count).keys()].find(i=>!used.has(i));
+            if(s===undefined)throw new JoinError('code','seat','학급방 자리가 모두 찼어요. 선생님께 알려 주세요.');diag('seat','빈 자리 번호 다시 사용')}
+          try{localStorage.setItem(key,String(s))}catch{}return s})
         .finally(()=>SEAT_JOBS.delete(key));
       job.catch(()=>{});SEAT_JOBS.set(key,job);
     }else diag('seat','진행 중인 요청 이어서 기다림');
@@ -434,6 +486,7 @@ export class CloudRoom{
   // 방에서 나가면 구독을 끊고 Firebase 연결도 닫음 (무료 요금제의 동시 접속 100개 한도를 아끼기 위해)
   async disconnect(){this.unsubs.forEach(u=>u());this.unsubs=[];this.connected=false;try{if(this.role==='student'&&this.uid)await this.ops.remove(this.path('teams',String(this.team),'players',this.uid))}catch{}
     if(this.p2pOps){this.p2pOps.onLost=null;this.p2pOps.close()}
+    if(this.role==='teacher')forgetHostRoom();   // 스스로 나가면 다시 열 방 기록도 지움
     if(this.host){await this.host.stop();try{this.fb.goOnline(this.fdb);await this.fb.remove(this.fb.ref(this.fdb,'rooms/'+this.code))}catch{}}   // 선생님이 나가면 방도 닫음
     try{this.fb.goOffline(this.fdb)}catch{}}
   // 이 컴퓨터에서 예전에 만든 방 지우기 (새 방을 만들 때). 규칙이 아직 없으면 조용히 건너뜀
